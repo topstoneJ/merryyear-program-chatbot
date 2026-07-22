@@ -1,3 +1,5 @@
+import { loadKnowledgeContext } from "@/db/knowledge";
+
 type BusinessId = "enterprise" | "crisis";
 
 type Answer = {
@@ -234,7 +236,9 @@ export async function POST(request: Request) {
     }
 
     const calculated = businessId === "crisis" ? incomeAnswer(question) : null;
-    const answer = calculated ?? await askGemini(businessId, question, body.manual?.slice(0, 6_000) || "");
+    const managedKnowledge = calculated ? "" : await loadKnowledgeContext(businessId);
+    const extraKnowledge = [managedKnowledge, body.manual?.slice(0, 6_000) || ""].filter(Boolean).join("\n\n");
+    const answer = calculated ?? await askGemini(businessId, question, extraKnowledge);
     return Response.json({ answer });
   } catch (error) {
     console.error("Chat answer failed", error instanceof Error ? error.message : error);

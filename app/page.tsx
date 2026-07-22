@@ -405,9 +405,9 @@ export default function Home() {
           <img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} />
           <b>사업 안내 챗봇</b>
         </a>
-        <button className="admin-link" type="button" onClick={openAdmin}>
+        <a className="admin-link" href="/knowledge">
           데이터 관리 <span>↗</span>
-        </button>
+        </a>
       </header>
 
       <div className="workspace">

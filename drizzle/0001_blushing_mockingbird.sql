@@ -1,0 +1,1 @@
+CREATE INDEX `knowledge_business_idx` ON `knowledge_sources` (`business_id`,`updated_at`);

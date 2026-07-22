@@ -1,5 +1,20 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784696940045,
+      "tag": "0000_material_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784696961688,
+      "tag": "0001_blushing_mockingbird",
+      "breakpoints": true
+    }
+  ]
 }
