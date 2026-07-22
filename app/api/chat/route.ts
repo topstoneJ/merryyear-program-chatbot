@@ -176,7 +176,7 @@ function parseGeminiAnswer(raw: string): Answer {
 
 async function askGemini(businessId: BusinessId, question: string, manual: string): Promise<Answer> {
   const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
   if (!apiKey) throw new Error("Gemini API key is not configured");
 
   const response = await fetch("https://generativelanguage.googleapis.com/v1/interactions", {
