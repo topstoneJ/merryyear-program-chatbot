@@ -17,8 +17,6 @@
 .sidebar-copy { color: var(--muted); margin: 0 10px 22px; font-size: 11px; line-height: 1.65; }
 .business-add-button { flex: none; width: 34px; height: 34px; color: #fff; cursor: pointer; border: 0; border-radius: 11px; background: linear-gradient(135deg, var(--gold), var(--orange)); font-size: 21px; box-shadow: 0 8px 18px #e7652728; }
 .knowledge-sidebar nav i.business-edit { color: #9d6d54; cursor: pointer; border: 1px solid #e6c7b4; border-radius: 7px; padding: 4px 6px; font-size: 8px; font-weight: 800; }
-.consultation-link { color: #fff; background: #423d38; border-radius: 13px; display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding: 13px 15px; font-size: 11px; font-weight: 800; }
-.consultation-link:hover { background: #2f2b27; }
 .title-edit-button { color: #9d5b38; cursor: pointer; background: transparent; border: 0; margin: -3px 0 10px; padding: 0; font-size: 10px; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
 .knowledge-row.clickable { cursor: pointer; }
 .knowledge-row.clickable:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
@@ -95,7 +93,6 @@
 
 @media (max-width: 800px) {
   .sidebar-copy { display: none; }
-  .consultation-link { margin-top: 10px; }
   .consultation-heading { display: block; }
   .business-filter { margin-top: 20px; min-width: 0; }
   .period-panel { align-items: stretch; flex-wrap: wrap; }
@@ -520,7 +517,10 @@ h1 em {
   background: #f7f5f1;
 }
 .knowledge-topbar { background: #fff; position: sticky; top: 0; z-index: 5; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
 .back-link { display: inline-flex; align-items: center; gap: 7px; }
+.consultation-top-link { display: inline-flex; align-items: center; gap: 6px; color: #fff; background: #423d38; border-color: #423d38; }
+.consultation-top-link:hover { color: #fff; background: #2f2b27; border-color: #2f2b27; }
 .knowledge-layout {
   display: grid;
   grid-template-columns: 286px minmax(0, 1fr);
@@ -748,6 +748,11 @@ h1 em {
   .discovery-card { padding: 11px; }
   .check-option { padding: 8px; }
   .knowledge-topbar .brand-logo b { display: block; }
+  .knowledge-topbar .brand-logo img { width: 110px; }
+  .knowledge-topbar .brand-logo b { font-size: 11px; }
+  .topbar-actions { gap: 5px; }
+  .consultation-top-link { padding-inline: 9px; font-size: 11px; }
+  .consultation-top-link span { display: none; }
   .back-link { font-size: 0; }
   .back-link::after { content: "← 챗봇"; font-size: 11px; }
   .knowledge-sidebar { padding: 15px 12px; }

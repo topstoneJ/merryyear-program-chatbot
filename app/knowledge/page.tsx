@@ -241,8 +241,8 @@ export default function KnowledgePage() {
   return (
     <main className="knowledge-shell">
       <header className="topbar knowledge-topbar">
-        <a className="brand brand-logo" href="/" aria-label="열매나눔재단 사업 안내 챗봇 홈"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>데이터 관리</b></a>
-        <a className="admin-link back-link" href="/">← 챗봇으로 돌아가기</a>
+        <a className="brand brand-logo" href="/" aria-label="열매나눔재단 사업 안내 챗봇 홈"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>사업 안내 챗봇</b></a>
+        <div className="topbar-actions"><a className="admin-link back-link" href="/">← 챗봇으로 돌아가기</a><a className="admin-link consultation-top-link" href={`/consultations?businessId=${encodeURIComponent(businessId)}`}>상담 내역 <span>→</span></a></div>
       </header>
       <div className="knowledge-layout">
         <aside className="knowledge-sidebar">
@@ -257,7 +257,6 @@ export default function KnowledgePage() {
             ))}
           </nav>
           <div className="sidebar-note"><span>✦</span><p><b>사업마다 답변 범위가 달라요</b><br />현재 선택한 사업의 활성 데이터만 챗봇이 참고합니다.</p></div>
-          <a className="consultation-link" href={`/consultations?businessId=${encodeURIComponent(businessId)}`}>상담 내역 <span>→</span></a>
         </aside>
         <section className="knowledge-main">
           <div className="knowledge-breadcrumb">데이터 관리 <span>›</span> {business?.shortName}</div>

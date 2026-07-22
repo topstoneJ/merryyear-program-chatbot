@@ -67,7 +67,7 @@ export default function ConsultationsPage() {
 
   return (
     <main className="consultation-shell">
-      <header className="topbar knowledge-topbar"><a className="brand brand-logo" href="/"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>데이터 관리</b></a><a className="admin-link back-link" href="/knowledge">← 사업별 데이터</a></header>
+      <header className="topbar knowledge-topbar"><a className="brand brand-logo" href="/"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>사업 안내 챗봇</b></a><a className="admin-link back-link" href="/knowledge">← 사업별 데이터</a></header>
       <div className="consultation-page">
         <div className="knowledge-breadcrumb">데이터 관리 <span>›</span> 상담 내역</div>
         <section className="consultation-heading">

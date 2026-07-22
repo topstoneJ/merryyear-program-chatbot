@@ -5,13 +5,23 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 
 test("data management supports dynamic businesses and editable knowledge", async () => {
-  const page = await readFile(new URL("app/knowledge/page.tsx", root), "utf8");
+  const [page, home, consultations] = await Promise.all([
+    readFile(new URL("app/knowledge/page.tsx", root), "utf8"),
+    readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("app/consultations/page.tsx", root), "utf8"),
+  ]);
   assert.match(page, /사업별 데이터/);
   assert.match(page, /신규 사업 추가/);
   assert.match(page, /사업명 수정/);
   assert.match(page, /등록 데이터 확인 및 수정/);
   assert.match(page, /\/api\/businesses/);
   assert.match(page, /\/api\/knowledge\?id=/);
+  assert.match(page, /<b>사업 안내 챗봇<\/b>/);
+  assert.match(page, /className="topbar-actions"/);
+  assert.match(page, /상담 내역 <span>→<\/span>/);
+  assert.doesNotMatch(page, /className="consultation-link"/);
+  assert.match(consultations, /<b>사업 안내 챗봇<\/b>/);
+  assert.doesNotMatch(home, /데이터 관리 <span>↗<\/span>/);
 });
 
 test("public answers omit confidence labels", async () => {
