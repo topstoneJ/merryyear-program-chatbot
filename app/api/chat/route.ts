@@ -96,7 +96,7 @@ function incomeAnswer(question: string): Answer | null {
     const threshold = HOUSEHOLD_THRESHOLDS[household];
     if (!threshold) {
       return {
-        text: `월 소득은 ${won(income)}으로 이해했습니다. 안내문에는 1~5인 가구 기준만 있어 ${household}인 가구의 정확한 기준은 안내문만으로 계산할 수 없습니다. 열매나눔재단 임팩트사업1팀(02-2665-0046)에 확인해 주세요.`,
+        text: `담당자 문의가 필요합니다.\n\n월 소득은 ${won(income)}으로 이해했습니다. 안내문에는 1~5인 가구 기준만 있어 ${household}인 가구의 정확한 기준은 안내문만으로 계산할 수 없습니다. 열매나눔재단 임팩트사업1팀(02-2665-0046)에 확인해 주세요.`,
         source: "안내문 1쪽 · 기준중위소득 100%",
         page: 1,
         confidence: 99,
@@ -107,7 +107,7 @@ function incomeAnswer(question: string): Answer | null {
     const difference = Math.abs(threshold - income);
     const meets = income <= threshold;
     return {
-      text: `월 소득 ${won(income)}은 ${household}인 가구 기준 ${won(threshold)}보다 ${won(difference)} ${meets ? "낮습니다" : "높습니다"}. 따라서 소득 조건만 보면 ${meets ? "기준 이하로, 충족 가능성이 있습니다" : "기준을 초과해 충족하기 어렵습니다"}.\n\n${conditions}`,
+      text: `${meets ? "가능합니다. 소득 조건만 보면 기준 이하입니다." : "불가능합니다. 소득 조건 기준을 초과합니다."}\n\n월 소득 ${won(income)}은 ${household}인 가구 기준 ${won(threshold)}보다 ${won(difference)} ${meets ? "낮습니다" : "높습니다"}.\n\n${conditions}`,
       source: "안내문 1쪽 · 기준중위소득 100%",
       page: 1,
       confidence: 99,
@@ -127,7 +127,7 @@ function incomeAnswer(question: string): Answer | null {
     ].join("하고, ");
 
     return {
-      text: `가구원 수에 따라 기준이 달라 정확한 판정을 위해 가구원 수가 필요합니다. 월 소득 ${won(income)}을 안내문 기준표와 비교하면 ${comparison}입니다.\n\n기준표: 1인 ${won(HOUSEHOLD_THRESHOLDS[1])}, 2인 ${won(HOUSEHOLD_THRESHOLDS[2])}, 3인 ${won(HOUSEHOLD_THRESHOLDS[3])}, 4인 ${won(HOUSEHOLD_THRESHOLDS[4])}, 5인 ${won(HOUSEHOLD_THRESHOLDS[5])}.\n\n${conditions}`,
+      text: `추가 정보가 필요합니다. 가구원 수를 알려주세요.\n\n월 소득 ${won(income)}을 안내문 기준표와 비교하면 ${comparison}입니다.\n\n기준표: 1인 ${won(HOUSEHOLD_THRESHOLDS[1])}, 2인 ${won(HOUSEHOLD_THRESHOLDS[2])}, 3인 ${won(HOUSEHOLD_THRESHOLDS[3])}, 4인 ${won(HOUSEHOLD_THRESHOLDS[4])}, 5인 ${won(HOUSEHOLD_THRESHOLDS[5])}.\n\n${conditions}`,
       source: "안내문 1쪽 · 기준중위소득 100%",
       page: 1,
       confidence: 99,
@@ -136,7 +136,7 @@ function incomeAnswer(question: string): Answer | null {
 
   if (household !== null && HOUSEHOLD_THRESHOLDS[household]) {
     return {
-      text: `${household}인 가구의 기준중위소득 100% 월 기준은 ${won(HOUSEHOLD_THRESHOLDS[household])}입니다. 가구 전체 월소득을 알려주시면 기준과의 차액까지 계산해 드릴게요.\n\n${conditions}`,
+      text: `추가 정보가 필요합니다. 가구 전체 월소득을 알려주세요.\n\n${household}인 가구의 기준중위소득 100% 월 기준은 ${won(HOUSEHOLD_THRESHOLDS[household])}입니다. 소득을 알려주시면 기준과의 차액까지 계산해 드릴게요.\n\n${conditions}`,
       source: "안내문 1쪽 · 기준중위소득 100%",
       page: 1,
       confidence: 99,
@@ -148,10 +148,22 @@ function incomeAnswer(question: string): Answer | null {
 
 function parseGeminiAnswer(raw: string): Answer {
   const cleaned = raw.trim().replace(/^```json\s*/i, "").replace(/```$/, "").trim();
-  const parsed = JSON.parse(cleaned) as Partial<Answer>;
+  const parsed = JSON.parse(cleaned) as Partial<Answer> & {
+    decision?: "possible" | "impossible" | "consult" | "need_info" | "fact";
+  };
   if (!parsed.text || !parsed.source || !Number.isFinite(parsed.page)) throw new Error("Invalid Gemini response");
+  const decisionPrefixes = {
+    possible: "가능합니다.",
+    impossible: "불가능합니다.",
+    consult: "담당자 문의가 필요합니다.",
+    need_info: "추가 정보가 필요합니다.",
+  } as const;
+  const prefix = parsed.decision && parsed.decision !== "fact" ? decisionPrefixes[parsed.decision] : "";
+  const answerText = prefix && !parsed.text.trim().startsWith(prefix)
+    ? `${prefix}\n\n${parsed.text.trim()}`
+    : parsed.text.trim();
   return {
-    text: parsed.text,
+    text: answerText,
     source: parsed.source,
     page: Math.max(1, Math.round(parsed.page ?? 1)),
     confidence: Math.min(99, Math.max(0, Math.round(parsed.confidence ?? 90))),
@@ -173,7 +185,7 @@ async function askGemini(businessId: BusinessId, question: string, manual: strin
     body: JSON.stringify({
       systemInstruction: {
         parts: [{
-          text: "당신은 열매나눔재단 사업 안내 챗봇입니다. 제공된 공고문 지식과 관리자 추가 안내만 사용하세요. 질문에 숫자, 소득, 가구원 수가 포함되면 값을 추출하고 기준과의 차액을 계산해 설명하세요. 변수가 부족하면 무엇이 필요한지 말한 뒤, 현재 정보로 가능한 범위 비교를 보여주세요. 단일 조건 충족을 전체 자격 확정처럼 말하지 말고 나머지 필수 조건을 구분하세요. 근거가 없으면 추측하지 마세요. 한국어로 간결하고 친절하게 답하세요. 반드시 JSON 객체 하나만 반환하세요: {\"text\":string,\"source\":string,\"page\":number,\"confidence\":number,\"review\":boolean}."
+          text: "당신은 열매나눔재단 사업 안내 챗봇입니다. 제공된 공고문 지식과 관리자 추가 안내만 사용하세요. 모든 답변은 결론을 첫 문장에 두세요. 자격·가능 여부 질문의 decision은 possible, impossible, consult, need_info 중 하나로 정하고 첫 문장을 각각 '가능합니다.', '불가능합니다.', '담당자 문의가 필요합니다.', '추가 정보가 필요합니다.'로 시작하세요. 단순 정보 질문은 decision을 fact로 정하고 핵심 사실부터 말하세요. 질문에 숫자, 소득, 가구원 수가 포함되면 값을 추출하고 기준과의 차액을 계산해 설명하세요. 변수가 부족하면 무엇이 필요한지 말한 뒤, 현재 정보로 가능한 범위 비교를 보여주세요. 단일 조건 충족을 전체 자격 확정처럼 말하지 말고 나머지 필수 조건을 구분하세요. 근거가 없으면 추측하지 마세요. 한국어로 간결하고 친절하게 답하세요. 반드시 JSON 객체 하나만 반환하세요: {\"decision\":\"possible|impossible|consult|need_info|fact\",\"text\":string,\"source\":string,\"page\":number,\"confidence\":number,\"review\":boolean}."
         }],
       },
       contents: [{

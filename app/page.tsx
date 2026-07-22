@@ -276,7 +276,7 @@ function buildAnswer(businessId: BusinessId, question: string, manual: string): 
   }
 
   return {
-    text: "선택한 사업의 공고문과 관리자 추가 안내에서 질문에 대한 근거를 찾지 못했어요. 신청 자격, 기간, 지원 금액, 신청 방법처럼 공고문에 포함된 항목으로 다시 질문해 주세요.",
+    text: "담당자 문의가 필요합니다.\n\n선택한 사업의 공고문과 관리자 추가 안내에서 질문에 대한 근거를 찾지 못했어요. 신청 자격, 기간, 지원 금액, 신청 방법처럼 공고문에 포함된 항목으로 다시 질문해 주세요.",
     source: "공고문 내 근거 없음",
     page: 1,
     confidence: 0,
