@@ -80,6 +80,7 @@
 - 전체 검증: `pnpm test`
 - 현재 자동 테스트: 7개
 - 최신 운영 반영 커밋: `f968e9a` (`Add random knowledge prompts`)
+- GitHub 비공개 저장소: https://github.com/topstoneJ/merryyear-program-chatbot
 
 ## 주요 환경변수
 
@@ -97,4 +98,3 @@
 - Google Drive 백업에는 R2의 PDF 원본이 포함되지 않는다.
 - 랜덤 질문은 현재 사업별·공통 질문 목록에서 제공된다. 기관별 질문 생성·검수 기능으로 확장할 수 있다.
 - 다른 기관 배포 시 기관별 사이트, D1, R2, 백업 폴더를 분리하는 방식을 우선 권장한다.
-- GitHub 원격 저장소는 아직 연결되지 않았다.
