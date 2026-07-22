@@ -183,10 +183,10 @@ button, a, select { -webkit-tap-highlight-color: transparent; }
 .admin-link:hover { color: var(--orange); border-color: #eea177; }
 
 .workspace {
-  grid-template-columns: minmax(360px, .76fr) minmax(560px, 1.24fr);
+  grid-template-columns: minmax(500px, 1fr) minmax(500px, 600px);
   align-items: center;
-  gap: clamp(34px, 5vw, 72px);
-  max-width: 1450px;
+  gap: clamp(34px, 4vw, 60px);
+  max-width: 1360px;
   min-height: calc(100vh - 76px);
   margin: auto;
   padding: 34px clamp(24px, 4vw, 64px) 40px;
@@ -312,6 +312,9 @@ h1 em {
   height: 710px;
   min-height: 710px;
   padding: clamp(26px, 3vw, 46px);
+  width: 100%;
+  max-width: 600px;
+  justify-self: end;
   display: flex;
   box-shadow: 0 24px 70px #48311e1a;
 }
@@ -694,10 +697,10 @@ h1 em {
 
 @keyframes pulse { 50% { opacity: .5; } }
 
-@media (max-width: 980px) {
+@media (max-width: 1120px) {
   .workspace { grid-template-columns: 1fr; max-width: 760px; padding-top: 24px; }
   .intro { padding-bottom: 0; }
-  .chat { min-height: 650px; }
+  .chat { max-width: none; min-height: 650px; justify-self: stretch; }
   .desktop { display: none; }
   h1 { font-size: 48px; }
   .benefits { max-width: 520px; }

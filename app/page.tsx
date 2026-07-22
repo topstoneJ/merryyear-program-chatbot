@@ -440,7 +440,7 @@ export default function Home() {
       <div className="workspace">
         <section className="intro">
           <span className="eyebrow"><span>✦</span> 열매나눔재단 AI 사업 안내</span>
-          <h1><span className="title-line">열매나눔재단 사업,</span><br /><em>질문으로 쉽게</em> 확인하세요</h1>
+          <h1><span className="title-line">열매나눔재단 사업,</span><br /><span className="title-line"><em>질문으로 쉽게</em> 확인하세요</span></h1>
           <p className="lead">선택한 사업에 대해 궁금한 부분을<br className="desktop" /> 빠르게 안내드립니다.</p>
 
           <div className="benefits">

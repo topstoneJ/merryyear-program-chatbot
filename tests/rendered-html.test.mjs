@@ -30,6 +30,16 @@ test("public answers omit confidence labels", async () => {
   assert.doesNotMatch(page, /신뢰도 \$\{message\.answer\.confidence\}/);
 });
 
+test("home layout keeps the title to two lines and narrows the chat column", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("app/page.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
+  assert.match(page, /<h1><span className="title-line">[\s\S]*<br \/><span className="title-line">/);
+  assert.match(css, /grid-template-columns: minmax\(500px, 1fr\) minmax\(500px, 600px\)/);
+  assert.match(css, /max-width: 600px;\s*justify-self: end/);
+});
+
 test("random text prompts create persistent multi-select knowledge", async () => {
   const [page, route, schema, exportRoute] = await Promise.all([
     readFile(new URL("app/knowledge/page.tsx", root), "utf8"),
