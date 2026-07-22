@@ -16,3 +16,28 @@ export const knowledgeSources = sqliteTable("knowledge_sources", {
 }, (table) => [
   index("knowledge_business_idx").on(table.businessId, table.updatedAt),
 ]);
+
+export const businesses = sqliteTable("businesses", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  shortName: text("short_name").notNull(),
+  code: text("code").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const consultations = sqliteTable("consultations", {
+  id: text("id").primaryKey(),
+  businessId: text("business_id").notNull(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  summary: text("summary").notNull(),
+  decision: text("decision").notNull(),
+  category: text("category").notNull(),
+  source: text("source").notNull(),
+  confidence: integer("confidence").notNull().default(0),
+  review: integer("review", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("consultation_business_date_idx").on(table.businessId, table.createdAt),
+]);

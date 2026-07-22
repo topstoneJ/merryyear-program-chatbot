@@ -1,6 +1,5 @@
-import { ensureKnowledgeSchema, knowledgeEnv, type KnowledgeSourceRow } from "@/db/knowledge";
+import { ensureKnowledgeSchema, getBusiness, knowledgeEnv, type KnowledgeSourceRow } from "@/db/knowledge";
 
-const BUSINESSES = new Set(["enterprise", "crisis"]);
 const TYPES = new Set(["website", "pdf", "text"]);
 
 function cleanText(value: string, limit = 120_000) {
@@ -42,9 +41,17 @@ function publicSource(row: KnowledgeSourceRow) {
 
 export async function GET(request: Request) {
   try {
-    const businessId = new URL(request.url).searchParams.get("businessId") || "enterprise";
-    if (!BUSINESSES.has(businessId)) return Response.json({ error: "올바른 사업을 선택해 주세요." }, { status: 400 });
+    const url = new URL(request.url);
+    const id = url.searchParams.get("id");
     const DB = await ensureKnowledgeSchema();
+    if (id) {
+      const source = await DB.prepare("SELECT * FROM knowledge_sources WHERE id = ?").bind(id).first<KnowledgeSourceRow>();
+      if (!source) return Response.json({ error: "지식을 찾을 수 없습니다." }, { status: 404 });
+      return Response.json({ source: { ...publicSource(source), content: source.content } });
+    }
+
+    const businessId = url.searchParams.get("businessId") || "enterprise";
+    if (!await getBusiness(businessId)) return Response.json({ error: "올바른 사업을 선택해 주세요." }, { status: 400 });
     const result = await DB.prepare(
       "SELECT * FROM knowledge_sources WHERE business_id = ? ORDER BY updated_at DESC",
     ).bind(businessId).all<KnowledgeSourceRow>();
@@ -61,7 +68,7 @@ export async function POST(request: Request) {
     const businessId = String(form.get("businessId") || "");
     const type = String(form.get("type") || "");
     const title = cleanText(String(form.get("title") || ""), 120);
-    if (!BUSINESSES.has(businessId) || !TYPES.has(type) || !title) {
+    if (!await getBusiness(businessId) || !TYPES.has(type) || !title) {
       return Response.json({ error: "사업, 자료 형식, 제목을 확인해 주세요." }, { status: 400 });
     }
 
@@ -88,7 +95,7 @@ export async function POST(request: Request) {
       }
     } else if (type === "text") {
       content = cleanText(String(form.get("content") || ""));
-      if (!content) return Response.json({ error: "지식 내용을 입력해 주세요." }, { status: 400 });
+      if (!content) return Response.json({ error: "데이터 내용을 입력해 주세요." }, { status: 400 });
     } else {
       const file = form.get("file");
       if (!(file instanceof File) || file.type !== "application/pdf") {
@@ -126,11 +133,19 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const body = await request.json() as { id?: string; enabled?: boolean };
-    if (!body.id || typeof body.enabled !== "boolean") return Response.json({ error: "변경할 지식을 확인해 주세요." }, { status: 400 });
+    const body = await request.json() as { id?: string; enabled?: boolean; title?: string; content?: string };
+    if (!body.id) return Response.json({ error: "변경할 지식을 확인해 주세요." }, { status: 400 });
     const DB = await ensureKnowledgeSchema();
-    await DB.prepare("UPDATE knowledge_sources SET enabled = ?, updated_at = ? WHERE id = ?")
-      .bind(body.enabled ? 1 : 0, Date.now(), body.id).run();
+    if (typeof body.enabled === "boolean") {
+      await DB.prepare("UPDATE knowledge_sources SET enabled = ?, updated_at = ? WHERE id = ?")
+        .bind(body.enabled ? 1 : 0, Date.now(), body.id).run();
+    } else {
+      const title = cleanText(String(body.title || ""), 120);
+      const content = cleanText(String(body.content || ""));
+      if (!title || !content) return Response.json({ error: "제목과 내용을 입력해 주세요." }, { status: 400 });
+      await DB.prepare("UPDATE knowledge_sources SET title = ?, content = ?, status = 'ready', updated_at = ? WHERE id = ?")
+        .bind(title, content, Date.now(), body.id).run();
+    }
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Knowledge update failed", error);

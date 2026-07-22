@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-type BusinessId = "enterprise" | "crisis";
+type BusinessId = string;
 
 type Answer = {
   text: string;
@@ -36,7 +36,7 @@ type Business = {
   survey: SurveyGroup[];
 };
 
-const BUSINESSES: Record<BusinessId, Business> = {
+const DEFAULT_BUSINESSES: Record<string, Business> = {
   enterprise: {
     id: "enterprise",
     name: "사회적기업 시설·운영비 지원사업",
@@ -260,7 +260,7 @@ function normalise(value: string) {
 
 function buildAnswer(businessId: BusinessId, question: string, manual: string): Answer {
   const clean = normalise(question);
-  const choices = businessId === "enterprise" ? ENTERPRISE_ANSWERS : CRISIS_ANSWERS;
+  const choices = businessId === "enterprise" ? ENTERPRISE_ANSWERS : businessId === "crisis" ? CRISIS_ANSWERS : [];
   const match = choices.find(({ keys }) => keys.some((key) => clean.includes(key)));
 
   if (match) return match.answer;
@@ -286,18 +286,45 @@ function buildAnswer(businessId: BusinessId, question: string, manual: string): 
 
 export default function Home() {
   const [businessId, setBusinessId] = useState<BusinessId>("enterprise");
+  const [businesses, setBusinesses] = useState<Business[]>(Object.values(DEFAULT_BUSINESSES));
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [adminOpen, setAdminOpen] = useState(false);
-  const [manuals, setManuals] = useState<Record<BusinessId, string>>({ enterprise: "", crisis: "" });
+  const [manuals, setManuals] = useState<Record<string, string>>({ enterprise: "", crisis: "" });
   const [manualDraft, setManualDraft] = useState("");
   const [selectedSurvey, setSelectedSurvey] = useState<string[]>([]);
-  const [uploadedNames, setUploadedNames] = useState<Record<BusinessId, string>>({ enterprise: "", crisis: "" });
+  const [uploadedNames, setUploadedNames] = useState<Record<string, string>>({ enterprise: "", crisis: "" });
   const fileRef = useRef<HTMLInputElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
 
-  const business = BUSINESSES[businessId];
+  const business = businesses.find((item) => item.id === businessId) || businesses[0] || DEFAULT_BUSINESSES.enterprise;
+
+  useEffect(() => {
+    fetch("/api/businesses")
+      .then((response) => response.json())
+      .then((payload: { businesses?: Array<{ id: string; name: string }> }) => {
+        if (!payload.businesses?.length) return;
+        const next = payload.businesses.map((item) => DEFAULT_BUSINESSES[item.id] || {
+          id: item.id,
+          name: item.name,
+          title: item.name,
+          date: "등록 데이터 기반",
+          pages: 0,
+          pdf: "",
+          pageLabel: "등록 데이터",
+          prompts: [
+            { icon: "✓", question: "신청 자격을 알려줘" },
+            { icon: "₩", question: "지원 금액을 알려줘" },
+            { icon: "▤", question: "신청 방법을 알려줘" },
+          ],
+          survey: [],
+        });
+        setBusinesses(next);
+        if (!next.some((item) => item.id === businessId)) setBusinessId(next[0].id);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     try {
@@ -423,21 +450,20 @@ export default function Home() {
 
           <label className="select-label" htmlFor="document-select">상담할 사업</label>
           <div className="document-select-wrap">
-            <select id="document-select" value={businessId} onChange={(event) => changeBusiness(event.target.value as BusinessId)}>
-              <option value="enterprise">사회적기업 시설·운영비 지원사업</option>
-              <option value="crisis">위기아동가정 지원사업</option>
+            <select id="document-select" value={businessId} onChange={(event) => changeBusiness(event.target.value)}>
+              {businesses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
             <span>⌄</span>
           </div>
 
-          <a className="document-card" href={business.pdf} download>
+          {business.pdf ? <a className="document-card" href={business.pdf} download>
             <div className="doc-head"><span>최근 사업 공고</span><span className="ready">✓ 분석 완료</span></div>
             <div className="doc-body">
               <span className="pdf">PDF</span>
               <div><strong>{business.title}</strong><p>{business.date} · 총 {business.pages}쪽</p></div>
               <span className="download">↓<small>다운로드</small></span>
             </div>
-          </a>
+          </a> : <a className="document-card" href={`/knowledge?businessId=${encodeURIComponent(business.id)}`}><span className="doc-icon"><span className="pdf">DATA</span></span><div><strong>{business.title}</strong><p>데이터 관리에서 공고문과 안내를 등록하세요</p></div><span className="download">→</span></a>}
         </section>
 
         <section className="chat" aria-label="사업 공고문 상담 채팅">
@@ -481,9 +507,7 @@ export default function Home() {
                           <span>{message.answer.confidence ? `신뢰도 ${message.answer.confidence}%` : "근거 없음"}</span>
                         </div>
                         <p>{message.answer.text}</p>
-                        <a className="source" href={`${business.pdf}#page=${message.answer.page}`} target="_blank" rel="noreferrer">
-                          ▣ 근거 보기 · {message.answer.source}<span>›</span>
-                        </a>
+                        {business.pdf ? <a className="source" href={`${business.pdf}#page=${message.answer.page}`} target="_blank" rel="noreferrer">▣ 근거 보기 · {message.answer.source}<span>›</span></a> : <span className="source">▣ 등록 데이터 · {message.answer.source}</span>}
                       </article>
                     ) : null}
                   </div>

@@ -15,6 +15,13 @@
       "when": 1784696961688,
       "tag": "0001_blushing_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784700774890,
+      "tag": "0002_brown_leopardon",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
-import { loadKnowledgeContext } from "@/db/knowledge";
+import { getBusiness, loadKnowledgeContext, recordConsultation } from "@/db/knowledge";
 
-type BusinessId = "enterprise" | "crisis";
+type BusinessId = string;
 
 type Answer = {
   text: string;
@@ -26,7 +26,7 @@ const HOUSEHOLD_THRESHOLDS: Record<number, number> = {
   5: 7_556_719,
 };
 
-const KNOWLEDGE: Record<BusinessId, string> = {
+const KNOWLEDGE: Record<string, string> = {
   enterprise: `
 [2026년 사회적기업 시설·운영비 지원사업 공고문]
 - 신청자격: 인증 사회적기업, 지역형·부처형 예비사회적기업, 인가받은 사회적협동조합 중 하나 이상. 법인 설립 1년 이상이며 전기 재무제표상 완전자본잠식 상태가 아니어야 함. (1쪽)
@@ -174,7 +174,7 @@ function parseGeminiAnswer(raw: string): Answer {
   };
 }
 
-async function askGemini(businessId: BusinessId, question: string, manual: string): Promise<Answer> {
+async function askGemini(businessId: BusinessId, businessName: string, question: string, knowledge: string): Promise<Answer> {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
   if (!apiKey) throw new Error("Gemini API key is not configured");
@@ -190,7 +190,7 @@ async function askGemini(businessId: BusinessId, question: string, manual: strin
       model,
       store: false,
       system_instruction: "당신은 열매나눔재단 사업 안내 챗봇입니다. 제공된 공고문 지식과 관리자 추가 안내만 사용하세요. 모든 답변은 결론을 첫 문장에 두세요. 자격·가능 여부 질문의 decision은 possible, impossible, consult, need_info 중 하나로 정하고 첫 문장을 각각 '가능합니다.', '불가능합니다.', '담당자 문의가 필요합니다.', '추가 정보가 필요합니다.'로 시작하세요. 단순 정보 질문은 decision을 fact로 정하고 핵심 사실부터 말하세요. 질문에 숫자, 소득, 가구원 수가 포함되면 값을 추출하고 기준과의 차액을 계산해 설명하세요. 변수가 부족하면 무엇이 필요한지 말한 뒤, 현재 정보로 가능한 범위 비교를 보여주세요. 단일 조건 충족을 전체 자격 확정처럼 말하지 말고 나머지 필수 조건을 구분하세요. 근거가 없으면 추측하지 마세요. 한국어로 간결하고 친절하게 답하세요.",
-      input: `사업: ${businessId}\n\n공고문 지식:\n${KNOWLEDGE[businessId]}\n\n관리자 추가 안내:\n${manual || "없음"}\n\n질문:\n${question}`,
+      input: `사업: ${businessName} (${businessId})\n\n등록된 사업 데이터:\n${knowledge || "등록된 데이터 없음"}\n\n질문:\n${question}`,
       response_format: {
         type: "text",
         mime_type: "application/json",
@@ -231,14 +231,24 @@ export async function POST(request: Request) {
     const body = await request.json() as { businessId?: BusinessId; question?: string; manual?: string };
     const businessId = body.businessId;
     const question = body.question?.trim();
-    if (!businessId || !KNOWLEDGE[businessId] || !question) {
+    if (!businessId || !question) {
       return Response.json({ error: "올바른 질문을 입력해 주세요." }, { status: 400 });
     }
+    const business = await getBusiness(businessId);
+    if (!business) return Response.json({ error: "선택한 사업을 찾을 수 없습니다." }, { status: 404 });
 
     const calculated = businessId === "crisis" ? incomeAnswer(question) : null;
     const managedKnowledge = calculated ? "" : await loadKnowledgeContext(businessId);
-    const extraKnowledge = [managedKnowledge, body.manual?.slice(0, 6_000) || ""].filter(Boolean).join("\n\n");
-    const answer = calculated ?? await askGemini(businessId, question, extraKnowledge);
+    const knowledge = [KNOWLEDGE[businessId] || "", managedKnowledge, body.manual?.slice(0, 6_000) || ""].filter(Boolean).join("\n\n");
+    const answer = calculated ?? await askGemini(businessId, business.name, question, knowledge);
+    await recordConsultation({
+      businessId,
+      question,
+      answer: answer.text,
+      source: answer.source,
+      confidence: answer.confidence,
+      review: answer.review,
+    }).catch((error) => console.error("Consultation recording failed", error));
     return Response.json({ answer });
   } catch (error) {
     console.error("Chat answer failed", error instanceof Error ? error.message : error);
