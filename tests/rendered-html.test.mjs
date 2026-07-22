@@ -14,6 +14,12 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.match(page, /\/api\/knowledge\?id=/);
 });
 
+test("public answers omit confidence labels", async () => {
+  const page = await readFile(new URL("app/page.tsx", root), "utf8");
+  assert.doesNotMatch(page, /근거 신뢰도/);
+  assert.doesNotMatch(page, /신뢰도 \$\{message\.answer\.confidence\}/);
+});
+
 test("random text prompts create persistent multi-select knowledge", async () => {
   const [page, route, schema, exportRoute] = await Promise.all([
     readFile(new URL("app/knowledge/page.tsx", root), "utf8"),

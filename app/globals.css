@@ -407,7 +407,7 @@ h1 em {
   padding: 21px 22px;
 }
 .answer.review { background: #fff8ed; border-color: #efc786; }
-.answer-top { color: var(--green); justify-content: space-between; gap: 16px; font-size: 12px; font-weight: 800; display: flex; }
+.answer-top { color: var(--green); justify-content: flex-start; gap: 16px; font-size: 12px; font-weight: 800; display: flex; }
 .answer.review .answer-top { color: #a66606; }
 .answer p { white-space: pre-line; margin: 15px 0; font-size: 14px; line-height: 1.75; }
 .source {
