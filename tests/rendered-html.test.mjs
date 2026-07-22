@@ -14,6 +14,23 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.match(page, /\/api\/knowledge\?id=/);
 });
 
+test("random text prompts create persistent multi-select knowledge", async () => {
+  const [page, route, schema, exportRoute] = await Promise.all([
+    readFile(new URL("app/knowledge/page.tsx", root), "utf8"),
+    readFile(new URL("app/api/random-question/route.ts", root), "utf8"),
+    readFile(new URL("db/schema.ts", root), "utf8"),
+    readFile(new URL("app/api/export/route.ts", root), "utf8"),
+  ]);
+  assert.match(page, /텍스트\(랜덤\)/);
+  assert.match(page, /type="checkbox"/);
+  assert.match(page, /복수 선택 가능/);
+  assert.match(page, /새로운 랜덤 질문으로 바꿨습니다/);
+  assert.match(route, /status = 'completed'/);
+  assert.match(route, /INSERT INTO knowledge_sources/);
+  assert.match(schema, /randomQuestions/);
+  assert.match(exportRoute, /randomQuestions/);
+});
+
 test("consultation history defaults to one month and exposes summaries", async () => {
   const page = await readFile(new URL("app/consultations/page.tsx", root), "utf8");
   const route = await readFile(new URL("app/api/consultations/route.ts", root), "utf8");

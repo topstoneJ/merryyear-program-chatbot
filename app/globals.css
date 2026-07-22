@@ -581,7 +581,7 @@ h1 em {
 .add-mark { width: 32px; height: 32px; color: #fff; border-radius: 10px; background: linear-gradient(135deg, var(--gold), var(--orange)); display: grid; place-items: center; font-size: 20px; font-weight: 500; }
 .add-heading h2 { margin: 0; font-size: 19px; }
 .add-heading p { color: var(--muted); margin: 0; font-size: 11px; }
-.source-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.source-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .source-tabs button { cursor: pointer; text-align: left; color: #4d4741; background: #faf8f5; border: 1px solid #ebe4dc; border-radius: 14px; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 10px; padding: 13px; }
 .source-tabs button:hover { border-color: #edb797; }
 .source-tabs button.active { color: #9f3d17; background: #fff6eb; border-color: #ea9c70; box-shadow: 0 0 0 3px #f26a2e0d; }
@@ -607,6 +607,26 @@ h1 em {
 .source-form-footer { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-top: 1px solid #e7e0d9; padding-top: 14px; }
 .source-form-footer p { color: #817970; margin: 0; font-size: 10px; }
 .source-form-footer p span { color: var(--green); font-weight: 900; }
+.random-question-card { background: linear-gradient(145deg, #fffaf3, #faf9f7); border: 1px solid #ead9c9; border-radius: 16px; margin-top: 14px; padding: 20px; }
+.random-question-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.random-question-heading > span { color: #9f3d17; background: #fff0df; border-radius: 999px; padding: 6px 10px; font-size: 10px; font-weight: 900; }
+.random-question-heading small { color: #6d655d; border: 1px solid #ddd2c8; border-radius: 999px; padding: 5px 9px; font-size: 9px; font-weight: 750; }
+.random-question-card h3 { max-width: 760px; letter-spacing: -.35px; margin: 18px 0 7px; font-size: 18px; line-height: 1.5; }
+.random-question-guide { color: #7e756c; margin: 0 0 16px; font-size: 10px; line-height: 1.6; }
+.random-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.random-options label { min-height: 48px; cursor: pointer; color: #5c554e; background: #fff; border: 1px solid #e1d8cf; border-radius: 12px; display: flex; align-items: center; gap: 10px; padding: 11px 12px; font-size: 11px; font-weight: 700; line-height: 1.45; transition: border-color .15s, background .15s, box-shadow .15s; }
+.random-options label:hover { border-color: #e6a681; }
+.random-options label.selected { color: #8f3717; background: #fff4e8; border-color: #e58e61; box-shadow: 0 0 0 3px #f26a2e0b; }
+.random-options input { width: 17px; height: 17px; flex: none; accent-color: var(--orange); }
+.random-note { margin-top: 16px; }
+.random-note > span { display: flex; align-items: center; gap: 7px; }
+.random-note > span small { color: #999087; font-size: 8px; font-weight: 650; }
+.random-note textarea { min-height: 78px; }
+.random-question-card .source-form-footer { margin-top: 16px; }
+.random-question-state { min-height: 230px; color: #756d65; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
+.random-question-state > b { font-size: 12px; }
+.random-question-state.complete > span { width: 34px; height: 34px; color: #fff; background: var(--green); border-radius: 50%; display: grid; place-items: center; font-weight: 900; }
+.random-question-state p { color: #91877d; margin: 0; font-size: 9px; }
 .knowledge-submit { color: #fff; cursor: pointer; background: linear-gradient(135deg, var(--gold), var(--orange)); border: 0; border-radius: 11px; min-width: 112px; padding: 11px 17px; font-size: 11px; font-weight: 850; box-shadow: 0 8px 18px #e7652723; }
 .knowledge-submit:disabled { opacity: .55; cursor: wait; }
 .knowledge-notice { display: flex; align-items: center; gap: 9px; border-radius: 13px; margin: 14px 0 0; padding: 12px 14px; font-size: 11px; font-weight: 650; }
@@ -750,6 +770,8 @@ h1 em {
   .source-tabs small { display: none; }
   .source-tabs button > span { width: 31px; height: 31px; }
   .source-form { grid-template-columns: 1fr; padding: 14px; }
+  .random-question-card { padding: 15px; }
+  .random-options { grid-template-columns: 1fr; }
   .source-form-footer { display: grid; }
   .source-form-footer p { line-height: 1.5; }
   .knowledge-submit { width: 100%; }

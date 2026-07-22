@@ -9,27 +9,31 @@ export async function GET(request: Request) {
 
   try {
     const DB = await ensureKnowledgeSchema();
-    const [businesses, knowledge, consultations] = await Promise.all([
+    const [businesses, knowledge, consultations, randomQuestions] = await Promise.all([
       DB.prepare("SELECT * FROM businesses ORDER BY created_at ASC").all(),
       DB.prepare("SELECT id, business_id, type, title, source_url, file_name, content, status, enabled, created_at, updated_at FROM knowledge_sources ORDER BY updated_at ASC").all(),
       DB.prepare("SELECT * FROM consultations ORDER BY created_at ASC").all(),
+      DB.prepare("SELECT * FROM random_questions ORDER BY created_at ASC").all(),
     ]);
     const businessRows = businesses.results as Array<Record<string, unknown>>;
     const knowledgeRows = knowledge.results as Array<Record<string, unknown>>;
     const consultationRows = consultations.results as Array<Record<string, unknown>>;
+    const randomQuestionRows = randomQuestions.results as Array<Record<string, unknown>>;
     const latest = (rows: Array<Record<string, unknown>>, key: string) => rows.reduce((max, row) => Math.max(max, Number(row[key] || 0)), 0);
     const dataVersion = [
       businessRows.length, latest(businessRows, "updated_at"),
       knowledgeRows.length, latest(knowledgeRows, "updated_at"),
       consultationRows.length, latest(consultationRows, "created_at"),
+      randomQuestionRows.length, latest(randomQuestionRows, "completed_at"),
     ].join("-");
     return Response.json({
-      schemaVersion: 1,
+      schemaVersion: 2,
       dataVersion,
       exportedAt: new Date().toISOString(),
       businesses: businessRows,
       knowledgeSources: knowledgeRows,
       consultations: consultationRows,
+      randomQuestions: randomQuestionRows,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Drive export failed", error);

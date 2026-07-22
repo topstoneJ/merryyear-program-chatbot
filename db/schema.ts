@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const knowledgeSources = sqliteTable("knowledge_sources", {
   id: text("id").primaryKey(),
@@ -40,4 +40,21 @@ export const consultations = sqliteTable("consultations", {
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   index("consultation_business_date_idx").on(table.businessId, table.createdAt),
+]);
+
+export const randomQuestions = sqliteTable("random_questions", {
+  id: text("id").primaryKey(),
+  businessId: text("business_id").notNull(),
+  questionKey: text("question_key").notNull(),
+  question: text("question").notNull(),
+  optionsJson: text("options_json").notNull(),
+  status: text("status").notNull().default("active"),
+  selectedOptionsJson: text("selected_options_json").notNull().default("[]"),
+  note: text("note").notNull().default(""),
+  knowledgeSourceId: text("knowledge_source_id"),
+  createdAt: integer("created_at").notNull(),
+  completedAt: integer("completed_at"),
+}, (table) => [
+  index("random_question_business_status_idx").on(table.businessId, table.status, table.createdAt),
+  uniqueIndex("random_question_business_key_unique").on(table.businessId, table.questionKey),
 ]);

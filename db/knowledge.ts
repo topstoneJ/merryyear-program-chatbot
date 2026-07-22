@@ -83,6 +83,21 @@ export async function ensureKnowledgeSchema() {
       created_at INTEGER NOT NULL
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS consultation_business_date_idx ON consultations (business_id, created_at)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS random_questions (
+      id TEXT PRIMARY KEY NOT NULL,
+      business_id TEXT NOT NULL,
+      question_key TEXT NOT NULL,
+      question TEXT NOT NULL,
+      options_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      selected_options_json TEXT NOT NULL DEFAULT '[]',
+      note TEXT NOT NULL DEFAULT '',
+      knowledge_source_id TEXT,
+      created_at INTEGER NOT NULL,
+      completed_at INTEGER
+    )`),
+    DB.prepare("CREATE INDEX IF NOT EXISTS random_question_business_status_idx ON random_questions (business_id, status, created_at)"),
+    DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS random_question_business_key_unique ON random_questions (business_id, question_key)"),
     DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, created_at, updated_at) VALUES ('enterprise', '사회적기업 시설·운영비 지원사업', '사회적기업 지원', 'SE', 0, 0)"),
     DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, created_at, updated_at) VALUES ('crisis', '위기아동가정 지원사업', '위기아동가정 지원', 'CA', 0, 0)"),
   ]);

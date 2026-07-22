@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type SourceType = "website" | "pdf" | "text";
+type AddMode = SourceType | "random";
 type Business = { id: string; name: string; shortName: string; code: string };
+type RandomQuestion = { id: string; question: string; options: string[] };
 type KnowledgeSource = {
   id: string;
   businessId: string;
@@ -19,10 +21,11 @@ type KnowledgeSource = {
   updatedAt: number;
 };
 
-const TYPE_META: Record<SourceType, { label: string; icon: string; description: string }> = {
+const TYPE_META: Record<AddMode, { label: string; icon: string; description: string }> = {
   website: { label: "웹사이트", icon: "↗", description: "공고 페이지나 안내 사이트의 내용을 가져옵니다." },
   pdf: { label: "PDF", icon: "PDF", description: "공고문·안내문 PDF를 분석해 데이터로 등록합니다." },
   text: { label: "텍스트", icon: "T", description: "담당자 안내와 자주 바뀌는 내용을 직접 작성합니다." },
+  random: { label: "텍스트(랜덤)", icon: "?", description: "놓치기 쉬운 운영 기준을 질문으로 발견합니다." },
 };
 
 async function extractPdfText(file: File) {
@@ -43,7 +46,7 @@ export default function KnowledgePage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessId] = useState("enterprise");
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
-  const [sourceType, setSourceType] = useState<SourceType>("website");
+  const [sourceType, setSourceType] = useState<AddMode>("website");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [content, setContent] = useState("");
@@ -55,6 +58,11 @@ export default function KnowledgePage() {
   const [detail, setDetail] = useState<KnowledgeSource | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [randomQuestion, setRandomQuestion] = useState<RandomQuestion | null>(null);
+  const [randomComplete, setRandomComplete] = useState(false);
+  const [randomLoading, setRandomLoading] = useState(false);
+  const [randomSelections, setRandomSelections] = useState<string[]>([]);
+  const [randomNote, setRandomNote] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const business = businesses.find((item) => item.id === businessId) || businesses[0];
@@ -91,6 +99,28 @@ export default function KnowledgePage() {
     return () => { cancelled = true; };
   }, [businessId]);
 
+  useEffect(() => {
+    if (sourceType !== "random" || !businessId) return;
+    let cancelled = false;
+    setRandomLoading(true);
+    setRandomQuestion(null);
+    setRandomComplete(false);
+    setRandomSelections([]);
+    setRandomNote("");
+    fetch(`/api/random-question?businessId=${encodeURIComponent(businessId)}`)
+      .then(async (response) => {
+        const payload = await response.json() as { question?: RandomQuestion | null; complete?: boolean; error?: string };
+        if (!response.ok) throw new Error(payload.error || "랜덤 질문을 불러오지 못했습니다.");
+        if (!cancelled) {
+          setRandomQuestion(payload.question || null);
+          setRandomComplete(Boolean(payload.complete));
+        }
+      })
+      .catch((error) => !cancelled && setNotice({ tone: "error", text: error instanceof Error ? error.message : "랜덤 질문을 불러오지 못했습니다." }))
+      .finally(() => !cancelled && setRandomLoading(false));
+    return () => { cancelled = true; };
+  }, [businessId, sourceType]);
+
   function resetForm() {
     setTitle(""); setUrl(""); setContent(""); setFile(null);
     if (fileRef.current) fileRef.current.value = "";
@@ -119,6 +149,7 @@ export default function KnowledgePage() {
 
   async function addSource(event: FormEvent) {
     event.preventDefault();
+    if (sourceType === "random") return;
     if (!title.trim()) return setNotice({ tone: "error", text: "데이터 제목을 입력해 주세요." });
     if (sourceType === "website" && !url.trim()) return setNotice({ tone: "error", text: "웹사이트 주소를 입력해 주세요." });
     if (sourceType === "text" && !content.trim()) return setNotice({ tone: "error", text: "데이터 내용을 입력해 주세요." });
@@ -138,6 +169,40 @@ export default function KnowledgePage() {
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "데이터를 등록하지 못했습니다." });
     } finally { setSaving(false); }
+  }
+
+  function toggleRandomOption(option: string) {
+    setRandomSelections((previous) => previous.includes(option) ? previous.filter((item) => item !== option) : [...previous, option]);
+  }
+
+  async function saveRandomAnswer(event: FormEvent) {
+    event.preventDefault();
+    if (!randomQuestion || (!randomSelections.length && !randomNote.trim())) {
+      return setNotice({ tone: "error", text: "해당하는 항목을 하나 이상 선택해 주세요." });
+    }
+    setSaving(true); setNotice(null);
+    try {
+      const response = await fetch("/api/random-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, questionId: randomQuestion.id, selectedOptions: randomSelections, note: randomNote }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "선택한 내용을 저장하지 못했습니다.");
+
+      const sourcesResponse = await fetch(`/api/knowledge?businessId=${encodeURIComponent(businessId)}`);
+      const sourcesPayload = await sourcesResponse.json() as { sources?: KnowledgeSource[] };
+      if (sourcesResponse.ok) setSources(sourcesPayload.sources || []);
+
+      setRandomQuestion(null); setRandomSelections([]); setRandomNote(""); setRandomLoading(true);
+      const nextResponse = await fetch(`/api/random-question?businessId=${encodeURIComponent(businessId)}`);
+      const nextPayload = await nextResponse.json() as { question?: RandomQuestion | null; complete?: boolean; error?: string };
+      if (!nextResponse.ok) throw new Error(nextPayload.error || "다음 질문을 불러오지 못했습니다.");
+      setRandomQuestion(nextPayload.question || null); setRandomComplete(Boolean(nextPayload.complete));
+      setNotice({ tone: "success", text: "선택한 내용을 데이터로 추가하고 새로운 랜덤 질문으로 바꿨습니다." });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "선택한 내용을 저장하지 못했습니다." });
+    } finally { setSaving(false); setRandomLoading(false); }
   }
 
   async function openDetail(source: KnowledgeSource) {
@@ -201,17 +266,28 @@ export default function KnowledgePage() {
             <div className="knowledge-stats"><div><b>{sources.length}</b><span>전체 데이터</span></div><div><b>{activeCount}</b><span>답변에 사용</span></div><div><b>{readyCount}</b><span>분석 완료</span></div></div>
           </div>
           <section className="knowledge-add" aria-labelledby="add-source-title">
-            <div className="add-heading"><div><span className="add-mark">＋</span><h2 id="add-source-title">새 데이터 추가</h2></div><p>웹사이트, PDF, 직접 입력 중 자료에 맞는 방식을 선택하세요.</p></div>
+            <div className="add-heading"><div><span className="add-mark">＋</span><h2 id="add-source-title">새 데이터 추가</h2></div><p>자료를 등록하거나 랜덤 질문으로 놓친 운영 기준을 발견하세요.</p></div>
             <div className="source-tabs" role="tablist" aria-label="자료 형식">
-              {(Object.keys(TYPE_META) as SourceType[]).map((type) => <button className={sourceType === type ? "active" : ""} type="button" role="tab" aria-selected={sourceType === type} key={type} onClick={() => setSourceType(type)}><span>{TYPE_META[type].icon}</span><b>{TYPE_META[type].label}</b><small>{TYPE_META[type].description}</small></button>)}
+              {(Object.keys(TYPE_META) as AddMode[]).map((type) => <button className={sourceType === type ? "active" : ""} type="button" role="tab" aria-selected={sourceType === type} key={type} onClick={() => setSourceType(type)}><span>{TYPE_META[type].icon}</span><b>{TYPE_META[type].label}</b><small>{TYPE_META[type].description}</small></button>)}
             </div>
-            <form className="source-form" onSubmit={addSource}>
+            {sourceType !== "random" ? <form className="source-form" onSubmit={addSource}>
               <label className="field"><span>데이터 제목</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예) 2026년 사업 신청 안내" maxLength={120} /></label>
               {sourceType === "website" && <label className="field field-wide"><span>웹사이트 주소</span><input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://example.org/program" /></label>}
               {sourceType === "pdf" && <div className="field field-wide"><span>PDF 파일</span><input className="sr-only" ref={fileRef} type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} /><button className={`file-drop${file ? " selected" : ""}`} type="button" onClick={() => fileRef.current?.click()}><span className="file-symbol">PDF</span><span><b>{file ? file.name : "PDF 파일을 선택하세요"}</b><small>{file ? `${(file.size / 1024 / 1024).toFixed(1)}MB · 텍스트 분석 준비됨` : "최대 20MB · 텍스트가 포함된 PDF 권장"}</small></span><strong>{file ? "변경" : "파일 선택"}</strong></button></div>}
               {sourceType === "text" && <label className="field field-wide"><span>데이터 내용</span><textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="담당자 추가 안내를 입력해 주세요." /></label>}
               <div className="source-form-footer"><p><span>✓</span> 등록한 데이터는 이 사업의 챗봇 답변에만 반영됩니다.</p><button className="knowledge-submit" disabled={saving}>{saving ? "분석하고 있어요…" : "데이터 추가"}</button></div>
-            </form>
+            </form> : <form className="random-question-card" onSubmit={saveRandomAnswer}>
+              <div className="random-question-heading"><span>텍스트(랜덤)</span><small>복수 선택 가능</small></div>
+              {randomLoading ? <div className="random-question-state"><span className="loading-ring" /><b>사업 내용을 보고 질문을 고르고 있어요</b></div> : randomQuestion ? <>
+                <h3>{randomQuestion.question}</h3>
+                <p className="random-question-guide">기관에서 실제로 적용하는 내용을 모두 선택하세요. 선택 결과는 담당자 보완 데이터로 자동 등록됩니다.</p>
+                <div className="random-options">
+                  {randomQuestion.options.map((option) => <label className={randomSelections.includes(option) ? "selected" : ""} key={option}><input type="checkbox" checked={randomSelections.includes(option)} onChange={() => toggleRandomOption(option)} /><span>{option}</span></label>)}
+                </div>
+                <label className="field random-note"><span>추가 설명 <small>선택 사항</small></span><textarea value={randomNote} onChange={(event) => setRandomNote(event.target.value)} placeholder="선택지에 없거나 담당자가 추가로 정해야 할 내용을 적어 주세요." /></label>
+                <div className="source-form-footer"><p><span>✓</span> 완료한 질문은 사라지고 새로운 질문이 나타납니다.</p><button className="knowledge-submit" disabled={saving}>{saving ? "저장하고 있어요…" : "선택한 내용 추가"}</button></div>
+              </> : <div className="random-question-state complete"><span>✓</span><b>{randomComplete ? "준비된 랜덤 질문을 모두 완료했습니다." : "질문을 불러오지 못했습니다."}</b><p>필요한 운영 기준이 생기면 직접 입력으로 추가해 주세요.</p></div>}
+            </form>}
           </section>
           {notice && <div className={`knowledge-notice ${notice.tone}`} role="status"><span>{notice.tone === "success" ? "✓" : "!"}</span>{notice.text}<button type="button" aria-label="알림 닫기" onClick={() => setNotice(null)}>×</button></div>}
           <section className="knowledge-list" aria-labelledby="knowledge-list-title">
