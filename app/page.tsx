@@ -504,7 +504,7 @@ export default function Home() {
                       <article className={`answer${message.answer.review ? " review" : ""}`}>
                         <div className="answer-top">
                           <span>{message.answer.review ? "확인 필요 답변" : "공고문 기반 답변"}</span>
-                          <span>{message.answer.confidence ? `신뢰도 ${message.answer.confidence}%` : "근거 없음"}</span>
+                          <span>{message.answer.confidence ? `근거 신뢰도 ${message.answer.confidence}%` : "근거 없음"}</span>
                         </div>
                         <p>{message.answer.text}</p>
                         {business.pdf ? <a className="source" href={`${business.pdf}#page=${message.answer.page}`} target="_blank" rel="noreferrer">▣ 근거 보기 · {message.answer.source}<span>›</span></a> : <span className="source">▣ 등록 데이터 · {message.answer.source}</span>}

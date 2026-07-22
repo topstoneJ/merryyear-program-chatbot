@@ -165,11 +165,16 @@ function parseGeminiAnswer(raw: string): Answer {
   const answerText = prefix && !parsed.text.trim().startsWith(prefix)
     ? `${prefix}\n\n${parsed.text.trim()}`
     : parsed.text.trim();
+  const confidence = parsed.review || parsed.decision === "consult"
+    ? 65
+    : parsed.decision === "need_info"
+      ? 80
+      : 95;
   return {
     text: answerText,
     source: parsed.source,
     page: Math.max(1, Math.round(parsed.page ?? 1)),
-    confidence: Math.min(99, Math.max(0, Math.round(parsed.confidence ?? 90))),
+    confidence,
     review: Boolean(parsed.review),
   };
 }
@@ -204,10 +209,9 @@ async function askGemini(businessId: BusinessId, businessName: string, question:
             text: { type: "string" },
             source: { type: "string" },
             page: { type: "integer" },
-            confidence: { type: "integer" },
             review: { type: "boolean" },
           },
-          required: ["decision", "text", "source", "page", "confidence", "review"],
+          required: ["decision", "text", "source", "page", "review"],
         },
       },
     }),

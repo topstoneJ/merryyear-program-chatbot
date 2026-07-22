@@ -23,3 +23,12 @@ test("income eligibility keeps conclusion-first answer contracts", async () => {
   assert.match(route, /추가 정보가 필요합니다\. 가구원 수를 알려주세요\./);
   assert.match(route, /담당자 문의가 필요합니다\./);
 });
+
+test("model answers use a deterministic evidence confidence scale", async () => {
+  const route = await readFile(new URL("app/api/chat/route.ts", root), "utf8");
+
+  assert.match(route, /parsed\.review \|\| parsed\.decision === "consult"[\s\S]*\? 65/);
+  assert.match(route, /parsed\.decision === "need_info"[\s\S]*\? 80[\s\S]*: 95/);
+  assert.doesNotMatch(route, /Math\.round\(parsed\.confidence/);
+  assert.doesNotMatch(route, /required: \[[^\]]*"confidence"/);
+});
