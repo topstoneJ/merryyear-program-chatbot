@@ -322,7 +322,7 @@ export default function Home() {
     setSelectedSurvey([]);
   }
 
-  function ask(nextQuestion: string) {
+  async function ask(nextQuestion: string) {
     const trimmed = nextQuestion.trim();
     if (!trimmed) return;
 
@@ -330,12 +330,26 @@ export default function Home() {
     setQuestion("");
     setMessages((previous) => [...previous, { id, question: trimmed, thinking: true }]);
 
-    window.setTimeout(() => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, question: trimmed, manual: manuals[businessId] }),
+      });
+      const payload = await response.json() as { answer?: Answer; error?: string };
+      if (!response.ok || !payload.answer) throw new Error(payload.error || "Answer request failed");
+
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.id === id ? { ...message, thinking: false, answer: payload.answer } : message,
+        ),
+      );
+    } catch {
       const answer = buildAnswer(businessId, trimmed, manuals[businessId]);
       setMessages((previous) =>
         previous.map((message) => (message.id === id ? { ...message, thinking: false, answer } : message)),
       );
-    }, 650);
+    }
   }
 
   function submitQuestion(event: FormEvent) {
