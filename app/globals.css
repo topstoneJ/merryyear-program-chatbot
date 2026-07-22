@@ -626,6 +626,10 @@ h1 em {
 .random-note > span small { color: #999087; font-size: 8px; font-weight: 650; }
 .random-note textarea { min-height: 78px; }
 .random-question-card .source-form-footer { margin-top: 16px; }
+.random-actions { display: flex; align-items: center; gap: 8px; }
+.random-skip { color: #686058; cursor: pointer; background: #fff; border: 1px solid #d8cec4; border-radius: 11px; padding: 11px 16px; font-size: 11px; font-weight: 800; }
+.random-skip:hover { color: #a04620; border-color: #e4a37e; }
+.random-skip:disabled { opacity: .55; cursor: wait; }
 .random-question-state { min-height: 230px; color: #756d65; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
 .random-question-state > b { font-size: 12px; }
 .random-question-state.complete > span { width: 34px; height: 34px; color: #fff; background: var(--green); border-radius: 50%; display: grid; place-items: center; font-weight: 900; }
@@ -780,6 +784,8 @@ h1 em {
   .source-form { grid-template-columns: 1fr; padding: 14px; }
   .random-question-card { padding: 15px; }
   .random-options { grid-template-columns: 1fr; }
+  .random-actions { width: 100%; }
+  .random-actions button { flex: 1; }
   .source-form-footer { display: grid; }
   .source-form-footer p { line-height: 1.5; }
   .knowledge-submit { width: 100%; }

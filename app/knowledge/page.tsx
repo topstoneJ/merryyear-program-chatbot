@@ -205,6 +205,29 @@ export default function KnowledgePage() {
     } finally { setSaving(false); setRandomLoading(false); }
   }
 
+  async function skipRandomQuestion() {
+    if (!randomQuestion) return;
+    setSaving(true); setNotice(null);
+    try {
+      const response = await fetch("/api/random-question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, questionId: randomQuestion.id, action: "skip" }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "질문을 건너뛰지 못했습니다.");
+
+      setRandomQuestion(null); setRandomSelections([]); setRandomNote(""); setRandomLoading(true);
+      const nextResponse = await fetch(`/api/random-question?businessId=${encodeURIComponent(businessId)}`);
+      const nextPayload = await nextResponse.json() as { question?: RandomQuestion | null; complete?: boolean; error?: string };
+      if (!nextResponse.ok) throw new Error(nextPayload.error || "다음 질문을 불러오지 못했습니다.");
+      setRandomQuestion(nextPayload.question || null); setRandomComplete(Boolean(nextPayload.complete));
+      setNotice({ tone: "success", text: "질문을 건너뛰고 새로운 랜덤 질문으로 바꿨습니다." });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "질문을 건너뛰지 못했습니다." });
+    } finally { setSaving(false); setRandomLoading(false); }
+  }
+
   async function openDetail(source: KnowledgeSource) {
     setDetailLoading(true);
     const response = await fetch(`/api/knowledge?id=${encodeURIComponent(source.id)}`);
@@ -284,7 +307,7 @@ export default function KnowledgePage() {
                   {randomQuestion.options.map((option) => <label className={randomSelections.includes(option) ? "selected" : ""} key={option}><input type="checkbox" checked={randomSelections.includes(option)} onChange={() => toggleRandomOption(option)} /><span>{option}</span></label>)}
                 </div>
                 <label className="field random-note"><span>추가 설명 <small>선택 사항</small></span><textarea value={randomNote} onChange={(event) => setRandomNote(event.target.value)} placeholder="선택지에 없거나 담당자가 추가로 정해야 할 내용을 적어 주세요." /></label>
-                <div className="source-form-footer"><p><span>✓</span> 완료한 질문은 사라지고 새로운 질문이 나타납니다.</p><button className="knowledge-submit" disabled={saving}>{saving ? "저장하고 있어요…" : "선택한 내용 추가"}</button></div>
+                <div className="source-form-footer"><p><span>✓</span> 완료하거나 건너뛴 질문은 사라지고 새로운 질문이 나타납니다.</p><div className="random-actions"><button className="random-skip" type="button" disabled={saving} onClick={skipRandomQuestion}>건너뛰기</button><button className="knowledge-submit" disabled={saving}>{saving ? "처리하고 있어요…" : "선택한 내용 추가"}</button></div></div>
               </> : <div className="random-question-state complete"><span>✓</span><b>{randomComplete ? "준비된 랜덤 질문을 모두 완료했습니다." : "질문을 불러오지 못했습니다."}</b><p>필요한 운영 기준이 생기면 직접 입력으로 추가해 주세요.</p></div>}
             </form>}
           </section>

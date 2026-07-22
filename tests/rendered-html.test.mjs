@@ -50,8 +50,11 @@ test("random text prompts create persistent multi-select knowledge", async () =>
   assert.match(page, /텍스트\(랜덤\)/);
   assert.match(page, /type="checkbox"/);
   assert.match(page, /복수 선택 가능/);
+  assert.match(page, />건너뛰기<\/button>/);
+  assert.match(page, /action: "skip"/);
   assert.match(page, /새로운 랜덤 질문으로 바꿨습니다/);
   assert.match(route, /status = 'completed'/);
+  assert.match(route, /status = 'skipped'/);
   assert.match(route, /INSERT INTO knowledge_sources/);
   assert.match(schema, /randomQuestions/);
   assert.match(exportRoute, /randomQuestions/);

@@ -7,7 +7,7 @@ type RandomQuestionRow = {
   question_key: string;
   question: string;
   options_json: string;
-  status: "active" | "completed";
+  status: "active" | "completed" | "skipped";
 };
 
 const COMMON_PROMPTS: Prompt[] = [
@@ -154,7 +154,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { businessId?: string; questionId?: string; selectedOptions?: string[]; note?: string };
+    const body = await request.json() as { businessId?: string; questionId?: string; selectedOptions?: string[]; note?: string; action?: "complete" | "skip" };
     if (!body.businessId || !body.questionId) {
       return Response.json({ error: "사업과 질문을 확인해 주세요." }, { status: 400 });
     }
@@ -163,6 +163,13 @@ export async function POST(request: Request) {
       "SELECT * FROM random_questions WHERE id = ? AND business_id = ? AND status = 'active'",
     ).bind(body.questionId, body.businessId).first<RandomQuestionRow>();
     if (!row) return Response.json({ error: "이미 완료했거나 사용할 수 없는 질문입니다." }, { status: 409 });
+
+    if (body.action === "skip") {
+      await DB.prepare(
+        "UPDATE random_questions SET status = 'skipped', completed_at = ? WHERE id = ? AND status = 'active'",
+      ).bind(Date.now(), row.id).run();
+      return Response.json({ ok: true, skipped: true });
+    }
 
     const allowed = new Set(JSON.parse(row.options_json) as string[]);
     const selected = [...new Set((body.selectedOptions || []).map((item) => item.trim()).filter((item) => allowed.has(item)))];
