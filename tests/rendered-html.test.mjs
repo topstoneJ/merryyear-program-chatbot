@@ -13,6 +13,10 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.match(page, /사업별 데이터/);
   assert.match(page, /신규 사업 추가/);
   assert.match(page, /사업명 수정/);
+  assert.match(page, /\{index \+ 1\}/);
+  assert.match(page, /위로 이동/);
+  assert.match(page, /아래로 이동/);
+  assert.match(page, /order: next\.map/);
   assert.match(page, /등록 데이터 확인 및 수정/);
   assert.match(page, /\/api\/businesses/);
   assert.match(page, /\/api\/knowledge\?id=/);
@@ -22,6 +26,18 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.doesNotMatch(page, /className="consultation-link"/);
   assert.match(consultations, /<b>사업 안내 챗봇<\/b>/);
   assert.doesNotMatch(home, /데이터 관리 <span>↗<\/span>/);
+});
+
+test("business order is persisted in D1", async () => {
+  const [route, knowledge, schema] = await Promise.all([
+    readFile(new URL("app/api/businesses/route.ts", root), "utf8"),
+    readFile(new URL("db/knowledge.ts", root), "utf8"),
+    readFile(new URL("db/schema.ts", root), "utf8"),
+  ]);
+  assert.match(route, /UPDATE businesses SET sort_order/);
+  assert.match(route, /uniqueIds\.size === current\.length/);
+  assert.match(knowledge, /ORDER BY sort_order ASC/);
+  assert.match(schema, /sortOrder: integer\("sort_order"\)/);
 });
 
 test("public answers omit confidence labels", async () => {

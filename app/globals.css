@@ -17,6 +17,11 @@
 .sidebar-copy { color: var(--muted); margin: 0 10px 22px; font-size: 11px; line-height: 1.65; }
 .business-add-button { flex: none; width: 34px; height: 34px; color: #fff; cursor: pointer; border: 0; border-radius: 11px; background: linear-gradient(135deg, var(--gold), var(--orange)); font-size: 21px; box-shadow: 0 8px 18px #e7652728; }
 .knowledge-sidebar nav i.business-edit { color: #9d6d54; cursor: pointer; border: 1px solid #e6c7b4; border-radius: 7px; padding: 4px 6px; font-size: 8px; font-weight: 800; }
+.business-actions { display: grid; grid-template-columns: repeat(2, 20px); gap: 4px; justify-items: stretch; }
+.knowledge-sidebar nav i.business-move { color: #746b62; cursor: pointer; border: 1px solid #ddd3c9; border-radius: 6px; display: grid; place-items: center; width: 20px; height: 20px; font-size: 11px; font-weight: 900; }
+.knowledge-sidebar nav i.business-move:hover { color: var(--orange); border-color: #e6a47f; background: #fff8f2; }
+.knowledge-sidebar nav i.business-move[aria-disabled="true"] { opacity: .28; cursor: default; }
+.business-actions .business-edit { grid-column: 1 / -1; text-align: center; }
 .title-edit-button { color: #9d5b38; cursor: pointer; background: transparent; border: 0; margin: -3px 0 10px; padding: 0; font-size: 10px; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
 .knowledge-row.clickable { cursor: pointer; }
 .knowledge-row.clickable:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }

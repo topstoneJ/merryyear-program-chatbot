@@ -20,6 +20,7 @@ export type BusinessRow = {
   name: string;
   short_name: string;
   code: string;
+  sort_order: number;
   created_at: number;
   updated_at: number;
 };
@@ -51,6 +52,7 @@ export async function ensureKnowledgeSchema() {
       name TEXT NOT NULL,
       short_name TEXT NOT NULL,
       code TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
@@ -98,15 +100,15 @@ export async function ensureKnowledgeSchema() {
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS random_question_business_status_idx ON random_questions (business_id, status, created_at)"),
     DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS random_question_business_key_unique ON random_questions (business_id, question_key)"),
-    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, created_at, updated_at) VALUES ('enterprise', '사회적기업 시설·운영비 지원사업', '사회적기업 지원', 'SE', 0, 0)"),
-    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, created_at, updated_at) VALUES ('crisis', '위기아동가정 지원사업', '위기아동가정 지원', 'CA', 0, 0)"),
+    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('enterprise', '사회적기업 시설·운영비 지원사업', '사회적기업 지원', 'SE', 10, 0, 0)"),
+    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('crisis', '위기아동가정 지원사업', '위기아동가정 지원', 'CA', 20, 0, 0)"),
   ]);
   return DB;
 }
 
 export async function listBusinesses() {
   const DB = await ensureKnowledgeSchema();
-  const result = await DB.prepare("SELECT * FROM businesses ORDER BY CASE id WHEN 'enterprise' THEN 0 WHEN 'crisis' THEN 1 ELSE 2 END, created_at ASC")
+  const result = await DB.prepare("SELECT * FROM businesses ORDER BY sort_order ASC, created_at ASC, id ASC")
     .all<BusinessRow>();
   return result.results;
 }

@@ -29,6 +29,13 @@
       "when": 1784703849267,
       "tag": "0003_tidy_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784712111465,
+      "tag": "0004_wealthy_tigra",
+      "breakpoints": true
     }
   ]
 }

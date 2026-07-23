@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type SourceType = "website" | "pdf" | "text";
 type AddMode = SourceType | "random";
-type Business = { id: string; name: string; shortName: string; code: string };
+type Business = { id: string; name: string; shortName: string; code: string; sortOrder: number };
 type RandomQuestion = { id: string; question: string; options: string[] };
 type KnowledgeSource = {
   id: string;
@@ -55,6 +55,7 @@ export default function KnowledgePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [businessDialog, setBusinessDialog] = useState<{ mode: "add" | "rename"; name: string } | null>(null);
+  const [orderingBusinessId, setOrderingBusinessId] = useState<string | null>(null);
   const [detail, setDetail] = useState<KnowledgeSource | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -145,6 +146,33 @@ export default function KnowledgePage() {
     }
     setBusinessDialog(null);
     setNotice({ tone: "success", text: isAdd ? "새 사업을 추가했습니다." : "사업명을 변경했습니다." });
+  }
+
+  async function moveBusiness(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= businesses.length || orderingBusinessId) return;
+    const previous = [...businesses];
+    const next = [...businesses];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    setBusinesses(next);
+    setOrderingBusinessId(previous[index].id);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/businesses", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: next.map((item) => item.id) }),
+      });
+      const payload = await response.json() as { businesses?: Business[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "사업 순서를 변경하지 못했습니다.");
+      setBusinesses(payload.businesses || next);
+      setNotice({ tone: "success", text: "사업 순서를 변경했습니다." });
+    } catch (error) {
+      setBusinesses(previous);
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "사업 순서를 변경하지 못했습니다." });
+    } finally {
+      setOrderingBusinessId(null);
+    }
   }
 
   async function addSource(event: FormEvent) {
@@ -272,10 +300,14 @@ export default function KnowledgePage() {
           <div className="sidebar-heading sidebar-heading-actions"><div><span>DATA</span><h2>사업별 데이터</h2></div><button className="business-add-button" type="button" aria-label="신규 사업 추가" onClick={() => setBusinessDialog({ mode: "add", name: "" })}>＋</button></div>
           <p className="sidebar-copy">챗봇이 참고할 자료와 상담 내역을 사업 단위로 관리합니다.</p>
           <nav aria-label="사업 선택">
-            {businesses.map((item) => (
+            {businesses.map((item, index) => (
               <button className={item.id === businessId ? "active" : ""} type="button" key={item.id} onClick={() => setBusinessId(item.id)}>
-                <span className="business-code">{item.code}</span><span><b>{item.shortName}</b><small>{item.id === businessId ? `${sources.length}개 데이터` : "사업 데이터"}</small></span>
-                <i className="business-edit" role="button" tabIndex={0} aria-label={`${item.name} 이름 수정`} onClick={(event) => { event.stopPropagation(); setBusinessId(item.id); setBusinessDialog({ mode: "rename", name: item.name }); }}>수정</i>
+                <span className="business-code">{index + 1}</span><span><b>{item.shortName}</b><small>{item.id === businessId ? `${sources.length}개 데이터` : "사업 데이터"}</small></span>
+                <span className="business-actions">
+                  <i className="business-move" role="button" tabIndex={index === 0 ? -1 : 0} aria-disabled={index === 0 || Boolean(orderingBusinessId)} aria-label={`${item.name} 위로 이동`} onClick={(event) => { event.stopPropagation(); moveBusiness(index, -1); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); moveBusiness(index, -1); } }}>↑</i>
+                  <i className="business-move" role="button" tabIndex={index === businesses.length - 1 ? -1 : 0} aria-disabled={index === businesses.length - 1 || Boolean(orderingBusinessId)} aria-label={`${item.name} 아래로 이동`} onClick={(event) => { event.stopPropagation(); moveBusiness(index, 1); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); moveBusiness(index, 1); } }}>↓</i>
+                  <i className="business-edit" role="button" tabIndex={0} aria-label={`${item.name} 이름 수정`} onClick={(event) => { event.stopPropagation(); setBusinessId(item.id); setBusinessDialog({ mode: "rename", name: item.name }); }}>수정</i>
+                </span>
               </button>
             ))}
           </nav>

@@ -22,6 +22,7 @@ export const businesses = sqliteTable("businesses", {
   name: text("name").notNull(),
   shortName: text("short_name").notNull(),
   code: text("code").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
