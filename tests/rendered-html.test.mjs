@@ -16,6 +16,8 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.match(page, /\{index \+ 1\}/);
   assert.match(page, /위로 이동/);
   assert.match(page, /아래로 이동/);
+  assert.match(page, />▲<\/i>/);
+  assert.match(page, />▼<\/i>/);
   assert.match(page, /order: next\.map/);
   assert.match(page, /등록 데이터 확인 및 수정/);
   assert.match(page, /\/api\/businesses/);
