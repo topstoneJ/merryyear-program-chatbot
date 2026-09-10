@@ -29,12 +29,12 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.doesNotMatch(page, /메인에 노출하기|등록 웹사이트 열기/);
   assert.match(page, /\/api\/businesses/);
   assert.match(page, /\/api\/knowledge\?id=/);
-  assert.match(page, /<b>사업 안내 챗봇<\/b>/);
+  assert.match(page, /<BrandLink \/>/);
   assert.match(page, /<AdminNav current="knowledge"/);
   assert.match(consultations, /<AdminNav current="consultations"/);
   assert.doesNotMatch(consultations, /주말 전체 · 평일/);
   assert.doesNotMatch(page, /className="consultation-link"/);
-  assert.match(consultations, /<b>사업 안내 챗봇<\/b>/);
+  assert.match(consultations, /<BrandLink \/>/);
   assert.doesNotMatch(home, /데이터 관리 <span>↗<\/span>/);
 });
 
@@ -62,7 +62,7 @@ test("public answers omit confidence labels", async () => {
   assert.doesNotMatch(page, /최근 사업 공고<\/span><span className="ready"/);
   assert.doesNotMatch(page, /관리자 추가 안내/);
   assert.doesNotMatch(page, /▣ 자료 기반 답변|♢ 추측 없는 안내/);
-  assert.match(page, /공고문과 담당자 안내 자료를 검토해 정확하게 답변 드릴게요/);
+  assert.match(page, /등록된 안내 자료를 바탕으로 답변해 드릴게요/);
   assert.match(page, /홈페이지 안내 보러가기/);
   assert.match(page, /homepage-link disabled/);
   assert.match(page, /aria-disabled="true"/);
@@ -150,7 +150,7 @@ test("chat input enforces question and conversation limits and cycles thinking d
   assert.match(page, /question\.length > 150/);
   assert.match(page, /completedMessages\.length >= MAX_CHAT_TURNS/);
   assert.match(page, /conversationCharacters >= MAX_CHAT_CHARACTERS/);
-  assert.match(page, /disabled=\{conversationLimitReached\}/);
+  assert.match(page, /disabled=\{!businessId \|\| conversationLimitReached\}/);
   assert.match(css, /\.conversation-limit/);
   assert.match(css, /animation: thinking-dot-one 3s steps\(1, end\) infinite/);
   assert.match(css, /@keyframes thinking-dot-three/);
@@ -197,7 +197,7 @@ test("administrator pages use an id and password session instead of ChatGPT iden
   ]);
   assert.match(session, /ADMIN_SESSION_SECRET/);
   assert.match(session, /iterations: 100_000/);
-  assert.match(session, /HttpOnly|merryyear_admin_session/);
+  assert.match(session, /HttpOnly|program_guide_admin_session/);
   assert.match(login, /관리자 로그인/);
   assert.match(layout, /getAdminSession/);
   assert.doesNotMatch(layout, /getChatGPTUser/);

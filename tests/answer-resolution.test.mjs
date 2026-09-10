@@ -29,18 +29,18 @@ test('staff referrals recover a missing model contact from registered text',asyn
 });
 
 test('staff contact recognition allows a line break between the department and phone',async()=>{
- const knowledge={sources:[{id:'contact',businessId:'test',title:'문의처',type:'text',updatedAt:1,url:null,parts:[{id:'0',title:'문의처',text:'열매나눔재단 임팩트사업1팀 담당자\n사업 담당자 전화번호: 02-2665-0046',pages:[]}]}],conflicts:[],withheldParts:0};
+ const knowledge={sources:[{id:'contact',businessId:'test',title:'문의처',type:'text',updatedAt:1,url:null,parts:[{id:'0',title:'문의처',text:'예시기관 사업운영팀 담당자\n사업 담당자 전화번호: 02-1234-5678',pages:[]}]}],conflicts:[],withheldParts:0};
  const h=chatHarness({knowledge,draft:{decision:'consult',resolution:'missing_policy',evidenceKind:'none',source:'',text:'담당자 확인이 필요해요.',contactPhone:'',contactEvidence:''}});
- const r=await h.ask();assert.match(r.payload.answer.text,/02-2665-0046/);assert.equal(JSON.parse(h.requests[0].input).verifiedBusinessContact.phone,'02-2665-0046');
+ const r=await h.ask();assert.match(r.payload.answer.text,/02-1234-5678/);assert.equal(JSON.parse(h.requests[0].input).verifiedBusinessContact.phone,'02-1234-5678');
 });
 
 test('business inquiry section wins over unrelated phone numbers in other sources',async()=>{
  const knowledge={sources:[
   {id:'site',businessId:'test',title:'기관 홈페이지',type:'website',updatedAt:2,url:null,parts:[{id:'0',title:'기관 소개',text:'후원 문의: 02-9999-9999',pages:[]}]},
-  {id:'guide',businessId:'test',title:'2026 공고문',type:'pdf',updatedAt:1,url:null,parts:[{id:'7',title:'문의처',text:'열매나눔재단 임팩트사업1팀\n사업 담당자 전화번호: 02-2665-0046',pages:[7]}]},
+  {id:'guide',businessId:'test',title:'2026 공고문',type:'pdf',updatedAt:1,url:null,parts:[{id:'7',title:'문의처',text:'예시기관 사업운영팀\n사업 담당자 전화번호: 02-1234-5678',pages:[7]}]},
  ],conflicts:[],withheldParts:0};
  const h=chatHarness({knowledge,draft:{decision:'consult',resolution:'missing_policy',evidenceKind:'none',source:'',text:'담당자 확인이 필요해요.',contactPhone:'',contactEvidence:''}});
- const r=await h.ask();assert.match(r.payload.answer.text,/02-2665-0046/);assert.doesNotMatch(r.payload.answer.text,/02-9999-9999/);
+ const r=await h.ask();assert.match(r.payload.answer.text,/02-1234-5678/);assert.doesNotMatch(r.payload.answer.text,/02-9999-9999/);
 });
 
 test('verified business contact removes a contradictory missing-contact claim',async()=>{

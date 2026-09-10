@@ -16,7 +16,7 @@ test('brand images reject unsupported, oversized and mismatched content', async 
   for (const file of [new File(['<svg/>'], 'a.svg',{type:'image/svg+xml'}),new File(['not PNG'], 'a.png',{type:'image/png'}),new File([new Uint8Array(3*1024*1024+1)],'large.png',{type:'image/png'})]) assert.equal(await branding.validBrandImage(file), false);
 });
 test('saved image links change when replaced; no image preserves defaults', () => {
-  assert.equal(branding.brandingUrls(null).socialImageUrl, '/og.png');
+  assert.equal(branding.brandingUrls(null).socialImageUrl, '/default-social-image.svg');
   assert.notEqual(branding.brandingUrls({favicon_key:'first'}).faviconUrl, branding.brandingUrls({favicon_key:'second'}).faviconUrl);
 });
 test('settings authenticate uploads, preserve unselected images, and serve saved bytes publicly', async () => {
@@ -52,14 +52,14 @@ test('default thumbnail uses white 1200x630 canvas and centers the original logo
   let drawn, captionDrawn;
   const context = {fillStyle:'',fillRect(...args){assert.equal(this.fillStyle,'#ffffff');assert.deepEqual(args,[0,0,1200,630]);},drawImage(...args){drawn=args;},fillText(...args){captionDrawn=args;}};
   const canvas = {width:0,height:0,getContext:()=>context,toBlob:callback=>callback(new Blob(['png'],{type:'image/png'}))};
-  globalThis.Image = class {naturalWidth=437;naturalHeight=64;async decode(){assert.equal(this.src,'/default-social-logo.png');}};
+  globalThis.Image = class {naturalWidth=420;naturalHeight=106;async decode(){assert.equal(this.src,'/default-organization-logo.svg');}};
   globalThis.document = {createElement:()=>canvas,fonts:{ready:Promise.resolve()}};
   try {
     const generator = await moduleAt('app/settings/default-social-image.ts',()=>({}));
     const file = await generator.createDefaultSocialImage('함께 만드는 변화');
     assert.equal(file.type,'image/png'); assert.equal(canvas.width,1200); assert.equal(canvas.height,630);
     assert.equal(drawn[1]+drawn[3]/2,600); assert.equal(drawn[2]+drawn[4]/2,315);
-    assert.ok(Math.abs(drawn[3]/drawn[4]-437/64)<0.0001);
+    assert.ok(Math.abs(drawn[3]/drawn[4]-420/106)<0.0001);
     assert.equal(captionDrawn,undefined);
   } finally { globalThis.Image=originalImage;globalThis.document=originalDocument; }
 });

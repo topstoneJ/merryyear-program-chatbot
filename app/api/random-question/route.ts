@@ -46,75 +46,8 @@ const COMMON_PROMPTS: Prompt[] = [
   },
 ];
 
-const BUSINESS_PROMPTS: Record<string, Prompt[]> = {
-  enterprise: [
-    {
-      key: "enterprise-preliminary-status",
-      question: "사회적기업 인증·지정 상태가 신청 기간 중 변경되는 기업은 어떤 시점을 기준으로 판단하나요?",
-      options: ["신청일 기준", "공고일 기준", "심사일 기준", "대출 실행일 기준"],
-    },
-    {
-      key: "enterprise-fund-exhaustion",
-      question: "융자 재원이 조기 소진될 가능성이 있을 때 신청자에게 어떤 안내를 추가할까요?",
-      options: ["접수 순서대로 심사", "접수해도 지원이 확정되지 않음", "조기 마감 사실을 별도 공지", "취소분 발생 시 대기 신청 검토"],
-    },
-    {
-      key: "enterprise-mixed-expense",
-      question: "지원 가능한 비용과 불가능한 비용이 한 계약서에 함께 포함되면 어떻게 안내하나요?",
-      options: ["지원 가능 항목만 분리 견적 요청", "계약 전체를 지원 대상에서 제외", "증빙을 나눠 제출하면 검토", "담당자 사전 확인을 요청"],
-    },
-    {
-      key: "enterprise-existing-debt",
-      question: "기존 대출이나 보증이 있는 기업에 추가로 확인해야 할 조건이 있나요?",
-      options: ["기존 부채 현황", "연체·체납 여부", "담보 또는 보증 가능 여부", "기존 대출의 자금 사용 목적"],
-    },
-    {
-      key: "enterprise-lease-relationship",
-      question: "시설 임차 계약의 상대방이 대표자 또는 특수관계인일 때 별도 제한이 있나요?",
-      options: ["원칙적으로 지원 불가", "시세와 계약 증빙 확인 후 검토", "이사회 의결 자료 추가 제출", "별도 제한 없음"],
-    },
-    {
-      key: "enterprise-change-plan",
-      question: "선정 후 시설·운영비 사용 계획을 변경하려면 어떤 절차가 필요한가요?",
-      options: ["변경 전 사전 승인", "변경 후 결과보고 시 소명", "동일 항목 안에서는 자유롭게 변경", "변경 금액에 따라 절차를 구분"],
-    },
-  ],
-  crisis: [
-    {
-      key: "crisis-income-evidence",
-      question: "월소득이 중위소득 기준에 근접한 가정은 어떤 자료를 기준으로 최종 판단하나요?",
-      options: ["최근 건강보험료", "최근 3개월 급여·소득 자료", "공적 소득조회 자료", "사례관리기관의 소득 확인 의견"],
-    },
-    {
-      key: "crisis-household-member",
-      question: "주민등록상 가구원과 실제 생계를 함께하는 가구원이 다를 때 어떤 기준을 적용하나요?",
-      options: ["주민등록상 가구원", "실제 생계공동체", "건강보험 피부양 관계", "사례관리기관 확인 후 개별 판단"],
-    },
-    {
-      key: "crisis-six-month-proof",
-      question: "최근 6개월 이내 발생한 위기임을 확인할 때 인정할 수 있는 자료는 무엇인가요?",
-      options: ["진단서·입퇴원 확인서", "퇴직·휴폐업 자료", "경찰·법원·공공기관 확인서", "사례관리 기록과 담당자 의견"],
-    },
-    {
-      key: "crisis-urgent-payment",
-      question: "치료·퇴거 등 즉시 지원이 필요한 긴급 사례는 일반 심사와 다르게 처리할 수 있나요?",
-      options: ["긴급심사 가능", "일반 일정과 동일", "필수 서류 일부를 사후 보완", "담당자 사전 연락 후 개별 판단"],
-    },
-    {
-      key: "crisis-cap-exception",
-      question: "실제 필요 금액이 항목별 지원 한도를 초과할 때 어떤 방식으로 안내하나요?",
-      options: ["한도까지만 신청", "다른 지원기관과 분담 가능", "초과분 자부담 계획 제출", "예외 지원은 불가"],
-    },
-    {
-      key: "crisis-no-case-manager",
-      question: "지원이 시급하지만 현재 사례관리기관이 없는 가정에는 어떤 경로를 안내하나요?",
-      options: ["거주지 복지관 문의", "행정복지센터 문의", "학교·병원 사회복지 담당자 문의", "재단 담당자에게 신청기관 가능 여부 확인"],
-    },
-  ],
-};
-
-function promptsFor(businessId: string) {
-  return [...(BUSINESS_PROMPTS[businessId] || []), ...COMMON_PROMPTS];
+function promptsFor() {
+  return COMMON_PROMPTS;
 }
 
 function publicQuestion(row: RandomQuestionRow) {
@@ -141,7 +74,7 @@ export async function GET(request: Request) {
     const completed = await DB.prepare("SELECT question_key FROM random_questions WHERE business_id = ?")
       .bind(businessId).all<{ question_key: string }>();
     const completedKeys = new Set(completed.results.map((item) => item.question_key));
-    const promptPool = promptsFor(businessId);
+    const promptPool = promptsFor();
     let candidates = promptPool.filter((prompt) => !completedKeys.has(prompt.key));
     const recycled = candidates.length === 0;
     if (recycled) candidates = promptPool;

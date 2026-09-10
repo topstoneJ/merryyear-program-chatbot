@@ -52,6 +52,7 @@ pnpm build
 | 관리자 보안 | `ADMIN_SESSION_SECRET`, `API_KEY_ENCRYPTION_SECRET` |
 | 데이터베이스 | `DATABASE_URL`, `DATABASE_POOL_SIZE` |
 | Azure Storage | `AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_CONTAINER_NAME`, `AZURE_STORAGE_CONNECTION_STRING` |
+| 서비스 주소 | `SITE_URL` |
 
 Azure에서는 Storage 연결 문자열보다 관리 ID를 우선 사용합니다. 어떤 비밀값도 README, 마이그레이션, GitHub Actions 워크플로에 직접 기록하지 않습니다.
 
@@ -74,7 +75,13 @@ Azure에서는 Storage 연결 문자열보다 관리 ID를 우선 사용합니�
 4. Azure App Service 배포
 5. `/api/health` 상태 확인
 
-GitHub 저장소의 `production` 환경에 `AZURE_WEBAPP_PUBLISH_PROFILE` 시크릿을 설정해야 합니다. 이 시크릿에는 Azure 게시 프로필 원문을 저장하며 저장소 파일에는 포함하지 않습니다.
+GitHub 저장소의 `production` 환경에는 Azure 로그인 정보인 `AZURE_CREDENTIALS` 시크릿이 필요합니다. 배포 대상은 소스코드에 직접 적지 않고 아래 저장소 변수로 설정합니다.
+
+| GitHub 저장소 변수 | 내용 |
+| --- | --- |
+| `AZURE_WEBAPP_NAME` | Azure App Service 이름 |
+| `AZURE_RESOURCE_GROUP` | App Service가 속한 리소스 그룹 |
+| `AZURE_WEBAPP_URL` | 상태 확인에 사용할 공개 서비스 주소 |
 
 배포 대상 App Service의 시작 명령은 standalone 출력의 `server.js`를 실행하도록 구성해야 합니다. 데이터베이스·Storage·AI·관리자 관련 환경 변수는 Azure App Service에서 별도로 유지되므로 소스 배포 패키지에 운영 데이터를 넣지 않습니다.
 
@@ -86,6 +93,13 @@ GitHub 저장소의 `production` 환경에 `AZURE_WEBAPP_PUBLISH_PROFILE` 시크
 - GitHub Actions는 저장소 소스에서 새 standalone 패키지를 만들며 로컬 데이터 디렉터리나 기존 배포 압축 파일을 재사용하지 않습니다.
 - 배포 전 `tests/deployment-data-safety.test.mjs`가 데이터 포함 방지 규칙을 검사합니다.
 
+## 새 기관 설치와 기존 운영 데이터
+
+- 새 데이터베이스에는 기관명, 연락처, 사업, 안내 자료가 자동 등록되지 않습니다. 최초 최고관리자가 설정 화면에서 기관 정보와 사업을 직접 등록합니다.
+- 범용 기본 로고·파비콘·공유 이미지만 소스에 포함되며 특정 기관의 문서나 이미지 예시는 포함하지 않습니다.
+- 프로그램 배포는 App Service의 실행 파일만 교체합니다. PostgreSQL의 사업·안내 자료·상담내역과 Blob Storage의 브랜드 이미지는 별도 저장소에 유지됩니다.
+- 다른 기관에 설치할 때는 새로운 PostgreSQL, Blob Storage, App Service 설정을 사용해야 하며 기존 기관의 운영 저장소를 복제하지 않습니다.
+
 ## 프로젝트 구조
 
 | 경로 | 역할 |
@@ -93,6 +107,6 @@ GitHub 저장소의 `production` 환경에 `AZURE_WEBAPP_PUBLISH_PROFILE` 시크
 | `app/` | 사용자·관리자 화면과 API 라우트 |
 | `db/` | PostgreSQL 접근, 스키마 초기화, 도메인 쿼리 |
 | `drizzle/` | 스키마 전용 마이그레이션과 메타데이터 |
-| `public/` | 정적 이미지, 폰트, PDF.js 런타임 |
+| `public/` | 범용 정적 이미지와 PDF.js 런타임 |
 | `tests/` | 기능·보안·배포 데이터 안전성 회귀 테스트 |
 | `.github/workflows/` | Azure 빌드·배포 자동화 |

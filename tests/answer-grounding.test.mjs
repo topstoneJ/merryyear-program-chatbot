@@ -35,9 +35,9 @@ test('strict response contract rejects invented documents and malformed decision
  assert.equal(parseGeminiAnswer(JSON.stringify({...draft,source:'a',page:2}),k,h.settings,['content']).page,2);
 });
 test('operator question survives unverified page metadata without publishing the page',async()=>{
- const h=chatHarness({draft:{text:'이 사업은 열매나눔재단에서 운영해요.',page:1}});
+ const h=chatHarness({draft:{text:'이 사업은 예시기관에서 운영해요.',page:1}});
  const r=await h.ask({question:'이 사업을 운영하는 기관은 어디인가요?'});
- assert.equal(r.status,200);assert.equal(r.payload.answer.text,'이 사업은 열매나눔재단에서 운영해요.');
+ assert.equal(r.status,200);assert.equal(r.payload.answer.text,'이 사업은 예시기관에서 운영해요.');
  assert.equal(r.payload.answer.page,0);assert.equal(r.payload.answer.review,true);assert.equal(h.records.length,1);
  assert.deepEqual(h.requests[0].response_format.schema.properties.page.enum,[0]);
  assert.deepEqual(h.requests[0].response_format.schema.properties.source.enum,['','doc']);

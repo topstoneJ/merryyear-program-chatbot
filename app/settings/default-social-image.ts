@@ -1,7 +1,7 @@
 // Compose the supplied logo without redrawing its lettering or changing its ratio.
 export async function createDefaultSocialImage(): Promise<File> {
   const image = new Image();
-  image.src = "/default-social-logo.png";
+  image.src = "/default-organization-logo.svg";
   await image.decode();
   const canvas = document.createElement("canvas");
   canvas.width = 1200;
@@ -17,5 +17,5 @@ export async function createDefaultSocialImage(): Promise<File> {
   context.imageSmoothingQuality = "high";
   context.drawImage(image, (1200 - width) / 2, (630 - height) / 2, width, height);
   const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("이미지를 생성하지 못했습니다.")), "image/png"));
-  return new File([blob], "열매나눔재단-기본-썸네일.png", { type: "image/png" });
+  return new File([blob], "기관-기본-썸네일.png", { type: "image/png" });
 }

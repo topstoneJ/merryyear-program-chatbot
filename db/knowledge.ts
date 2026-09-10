@@ -150,7 +150,7 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
     )`),
     DB.prepare(`INSERT OR IGNORE INTO site_settings
       (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
-      VALUES ('default', '열매나눔재단', '02-2665-0046', '열매나눔재단 사업,\n질문으로 쉽게 확인하세요', '선택한 사업에 대해 궁금한 부분을 빠르게 안내드립니다.', '공고문과 담당자 안내 자료를 검토해 정확하게 답변 드릴게요.', '#f26a2e', 0)`),
+      VALUES ('default', '기관명 미설정', '', '사업 안내,\n질문으로 쉽게 확인하세요', '관리자 화면에서 기관과 사업 정보를 설정해 주세요.', '등록된 안내 자료를 바탕으로 답변해 드릴게요.', '#f26a2e', 0)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (
       email TEXT PRIMARY KEY NOT NULL,
       created_at INTEGER NOT NULL
@@ -168,8 +168,6 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
-    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('enterprise', '사회적기업 시설·운영비 지원사업', '사회적기업 지원', 'SE', 10, 0, 0)"),
-    DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('crisis', '위기아동가정 지원사업', '위기아동가정 지원', 'CA', 20, 0, 0)"),
   ]);
   const businessColumns = await DB.prepare("PRAGMA table_info(businesses)").all<{ name: string }>();
   if (!businessColumns.results.some((column) => column.name === "is_public")) {
