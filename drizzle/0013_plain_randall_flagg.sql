@@ -1,0 +1,1 @@
+ALTER TABLE `consultations` ADD `category_revision` text DEFAULT '' NOT NULL;

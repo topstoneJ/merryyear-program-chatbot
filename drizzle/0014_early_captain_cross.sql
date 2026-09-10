@@ -1,0 +1,1 @@
+ALTER TABLE `site_settings` ADD `answer_settings_json` text DEFAULT '{}' NOT NULL;

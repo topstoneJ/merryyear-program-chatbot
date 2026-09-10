@@ -1,4 +1,7 @@
+import { COUNT_SOURCE_KIND_SQL } from "@/db/source-limits";
+import { SOURCE_LIMITS, sourceLimitMessage } from "@/app/knowledge/source-limits";
 import { ensureKnowledgeSchema, getBusiness } from "@/db/knowledge";
+import { requireAdminApi } from "@/app/admin-session";
 
 type Prompt = { key: string; question: string; options: string[] };
 type RandomQuestionRow = {
@@ -125,6 +128,7 @@ function publicQuestion(row: RandomQuestionRow) {
 export async function GET(request: Request) {
   try {
     const businessId = new URL(request.url).searchParams.get("businessId") || "";
+    { const denied = await requireAdminApi({ businessId }); if (denied) return denied; }
     if (!businessId || !await getBusiness(businessId)) {
       return Response.json({ error: "올바른 사업을 선택해 주세요." }, { status: 400 });
     }
@@ -137,17 +141,19 @@ export async function GET(request: Request) {
     const completed = await DB.prepare("SELECT question_key FROM random_questions WHERE business_id = ?")
       .bind(businessId).all<{ question_key: string }>();
     const completedKeys = new Set(completed.results.map((item) => item.question_key));
-    const candidates = promptsFor(businessId).filter((prompt) => !completedKeys.has(prompt.key));
-    if (!candidates.length) return Response.json({ question: null, complete: true });
-
+    const promptPool = promptsFor(businessId);
+    let candidates = promptPool.filter((prompt) => !completedKeys.has(prompt.key));
+    const recycled = candidates.length === 0;
+    if (recycled) candidates = promptPool;
     const prompt = candidates[Math.floor(Math.random() * candidates.length)];
     const id = crypto.randomUUID();
+    const questionKey = recycled ? `${prompt.key}-${id}` : prompt.key;
     await DB.prepare(
       "INSERT INTO random_questions (id, business_id, question_key, question, options_json, status, selected_options_json, note, created_at) VALUES (?, ?, ?, ?, ?, 'active', '[]', '', ?)",
-    ).bind(id, businessId, prompt.key, prompt.question, JSON.stringify(prompt.options), Date.now()).run();
+    ).bind(id, businessId, questionKey, prompt.question, JSON.stringify(prompt.options), Date.now()).run();
     return Response.json({ question: { id, question: prompt.question, options: prompt.options } });
   } catch (error) {
-    console.error("Random question load failed", error);
+    console.error("Random question load failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "랜덤 질문을 불러오지 못했습니다." }, { status: 500 });
   }
 }
@@ -155,6 +161,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { businessId?: string; questionId?: string; selectedOptions?: string[]; note?: string; action?: "complete" | "skip" };
+    { const denied = await requireAdminApi({ businessId: body.businessId }); if (denied) return denied; }
     if (!body.businessId || !body.questionId) {
       return Response.json({ error: "사업과 질문을 확인해 주세요." }, { status: 400 });
     }
@@ -180,24 +187,25 @@ export async function POST(request: Request) {
     const sourceId = crypto.randomUUID();
     const title = `랜덤 질문 · ${row.question.replace(/[?？]/g, "").slice(0, 70)}`;
     const content = [
-      `[관리자 보완 안내]`,
+      `[담당자 보완 안내]`,
       `질문: ${row.question}`,
       selected.length ? `적용되는 내용:\n${selected.map((item) => `- ${item}`).join("\n")}` : "",
       note ? `추가 설명:\n${note}` : "",
     ].filter(Boolean).join("\n\n");
 
-    await DB.batch([
+    const results = await DB.batch([
       DB.prepare(
-        "INSERT INTO knowledge_sources (id, business_id, type, title, content, status, enabled, created_at, updated_at) VALUES (?, ?, 'text', ?, ?, 'ready', 1, ?, ?)",
-      ).bind(sourceId, body.businessId, title, content, now, now),
+        `INSERT INTO knowledge_sources (id, business_id, type, title, content, status, enabled, created_at, updated_at) SELECT ?, ?, 'random', ?, ?, 'ready', 1, ?, ? WHERE (${COUNT_SOURCE_KIND_SQL}) < ? AND EXISTS(SELECT 1 FROM random_questions WHERE id = ? AND status = 'active')`,
+      ).bind(sourceId, body.businessId, title, content, now, now, body.businessId, "random", SOURCE_LIMITS.random, row.id),
       DB.prepare(
-        "UPDATE random_questions SET status = 'completed', selected_options_json = ?, note = ?, knowledge_source_id = ?, completed_at = ? WHERE id = ? AND status = 'active'",
-      ).bind(JSON.stringify(selected), note, sourceId, now, row.id),
+        "UPDATE random_questions SET status = 'completed', selected_options_json = ?, note = ?, knowledge_source_id = ?, completed_at = ? WHERE id = ? AND status = 'active' AND EXISTS(SELECT 1 FROM knowledge_sources WHERE id = ?)",
+      ).bind(JSON.stringify(selected), note, sourceId, now, row.id, sourceId),
     ]);
+    if (!results[0].meta.changes) return Response.json({ error: sourceLimitMessage("random") }, { status: 409 });
 
     return Response.json({ ok: true, sourceId });
   } catch (error) {
-    console.error("Random question save failed", error);
+    console.error("Random question save failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "선택한 내용을 저장하지 못했습니다." }, { status: 500 });
   }
 }

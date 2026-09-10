@@ -1,9 +1,16 @@
-import { env } from "cloudflare:workers";
+import { buildAnswerKnowledge } from "@/app/answer-knowledge";
+import { isAnswerDecision, type AnswerDecision } from "@/app/answer-response";
+import { categoryRevision } from "./semantic-category";
+import { decisionFromAnswer, categoryFromQuestion } from "./consultation-decision";
+import { loadCategories, resolveCategory } from "./consultation-categories";
+import { snapshotKey, type ConflictReport } from "./conflict-check";
+import { ensureAzureSchema } from "./azure-schema";
+import { runtimeEnv, type DatabaseBinding } from "./runtime";
 
 export type KnowledgeSourceRow = {
   id: string;
   business_id: string;
-  type: "website" | "pdf" | "text";
+  type: "website" | "pdf" | "text" | "random";
   title: string;
   source_url: string | null;
   file_key: string | null;
@@ -21,6 +28,12 @@ export type BusinessRow = {
   short_name: string;
   code: string;
   sort_order: number;
+  is_public: number;
+  notice_url: string;
+  contact_department: string;
+  contact_email: string;
+  contact_phone: string;
+  contact_hours: string;
   created_at: number;
   updated_at: number;
 };
@@ -33,19 +46,23 @@ export type ConsultationRow = {
   summary: string;
   decision: string;
   category: string;
+  category_manual: number;
+  category_revision: string;
   source: string;
   confidence: number;
   review: number;
+  review_manual: number;
   created_at: number;
 };
 
 export function knowledgeEnv() {
-  return env as unknown as { DB?: D1Database; KNOWLEDGE_FILES?: R2Bucket };
+  return runtimeEnv();
 }
 
-export async function ensureKnowledgeSchema() {
-  const { DB } = knowledgeEnv();
-  if (!DB) throw new Error("Knowledge database is unavailable");
+const schemaInitializations = new WeakMap<object, Promise<DatabaseBinding>>();
+
+async function initializeKnowledgeSchema(DB: DatabaseBinding) {
+  await ensureAzureSchema(DB);
   await DB.batch([
     DB.prepare(`CREATE TABLE IF NOT EXISTS businesses (
       id TEXT PRIMARY KEY NOT NULL,
@@ -53,6 +70,12 @@ export async function ensureKnowledgeSchema() {
       short_name TEXT NOT NULL,
       code TEXT NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0,
+      is_public INTEGER NOT NULL DEFAULT 1,
+      notice_url TEXT NOT NULL DEFAULT '',
+      contact_department TEXT NOT NULL DEFAULT '',
+      contact_email TEXT NOT NULL DEFAULT '',
+      contact_phone TEXT NOT NULL DEFAULT '',
+      contact_hours TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
@@ -71,6 +94,19 @@ export async function ensureKnowledgeSchema() {
       updated_at INTEGER NOT NULL
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS knowledge_business_idx ON knowledge_sources (business_id, updated_at)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS knowledge_source_revisions (
+      id TEXT PRIMARY KEY NOT NULL,
+      source_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    DB.prepare("CREATE INDEX IF NOT EXISTS knowledge_revision_source_idx ON knowledge_source_revisions (source_id, created_at)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS data_repairs (
+      id TEXT PRIMARY KEY NOT NULL,
+      applied_at INTEGER NOT NULL
+    )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS consultations (
       id TEXT PRIMARY KEY NOT NULL,
       business_id TEXT NOT NULL,
@@ -100,16 +136,146 @@ export async function ensureKnowledgeSchema() {
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS random_question_business_status_idx ON random_questions (business_id, status, created_at)"),
     DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS random_question_business_key_unique ON random_questions (business_id, question_key)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS site_settings (
+      id TEXT PRIMARY KEY NOT NULL,
+      organization_name TEXT NOT NULL,
+      contact TEXT NOT NULL DEFAULT '',
+      logo_key TEXT,
+      main_headline TEXT NOT NULL,
+      main_subcopy TEXT NOT NULL,
+      chatbot_greeting TEXT NOT NULL,
+      primary_color TEXT NOT NULL DEFAULT '#f26a2e',
+      gemini_api_key_encrypted TEXT,
+      updated_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`INSERT OR IGNORE INTO site_settings
+      (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
+      VALUES ('default', '열매나눔재단', '02-2665-0046', '열매나눔재단 사업,\n질문으로 쉽게 확인하세요', '선택한 사업에 대해 궁금한 부분을 빠르게 안내드립니다.', '공고문과 담당자 안내 자료를 검토해 정확하게 답변 드릴게요.', '#f26a2e', 0)`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (
+      email TEXT PRIMARY KEY NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS admin_accounts (
+      id TEXT PRIMARY KEY NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      password_salt TEXT NOT NULL,
+      business_ids_json TEXT NOT NULL DEFAULT '[]',
+      can_manage_settings INTEGER NOT NULL DEFAULT 0,
+      can_view_consultations INTEGER NOT NULL DEFAULT 1,
+      can_delete_consultations INTEGER NOT NULL DEFAULT 0,
+      is_super_admin INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`),
     DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('enterprise', '사회적기업 시설·운영비 지원사업', '사회적기업 지원', 'SE', 10, 0, 0)"),
     DB.prepare("INSERT OR IGNORE INTO businesses (id, name, short_name, code, sort_order, created_at, updated_at) VALUES ('crisis', '위기아동가정 지원사업', '위기아동가정 지원', 'CA', 20, 0, 0)"),
   ]);
+  const businessColumns = await DB.prepare("PRAGMA table_info(businesses)").all<{ name: string }>();
+  if (!businessColumns.results.some((column) => column.name === "is_public")) {
+    await DB.prepare("ALTER TABLE businesses ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1").run();
+  }
+  for (const [name, definition] of [
+    ["notice_url", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_department", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_email", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_phone", "TEXT NOT NULL DEFAULT ''"],
+    ["contact_hours", "TEXT NOT NULL DEFAULT ''"],
+  ] as const) {
+    if (!businessColumns.results.some((column) => column.name === name)) {
+      await DB.prepare(`ALTER TABLE businesses ADD COLUMN ${name} ${definition}`).run();
+    }
+  }
+  await DB.prepare(`UPDATE businesses SET notice_url = COALESCE((
+    SELECT k.source_url FROM business_homepage_sources h
+    JOIN knowledge_sources k ON k.id = h.source_id AND k.business_id = h.business_id
+    WHERE h.business_id = businesses.id AND k.type = 'website' AND k.source_url IS NOT NULL
+    LIMIT 1
+  ), '') WHERE notice_url = ''`).run();
+  const settingsColumns = await DB.prepare("PRAGMA table_info(site_settings)").all<{ name: string }>();
+  if (!settingsColumns.results.some((column) => column.name === "gemini_api_key_encrypted")) {
+    await DB.prepare("ALTER TABLE site_settings ADD COLUMN gemini_api_key_encrypted TEXT").run();
+  }
+  const accountColumns = await DB.prepare("PRAGMA table_info(admin_accounts)").all<{ name: string }>();
+  if (!accountColumns.results.some((column) => column.name === "is_super_admin")) {
+    await DB.prepare("ALTER TABLE admin_accounts ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0").run();
+    await DB.prepare("UPDATE admin_accounts SET can_manage_settings = 1").run();
+    await DB.prepare("UPDATE admin_accounts SET is_super_admin = 1 WHERE id = (SELECT id FROM admin_accounts ORDER BY created_at, id LIMIT 1)").run();
+  }
   return DB;
 }
 
-export async function listBusinesses() {
+export async function ensureKnowledgeSchema() {
+  const { DB } = knowledgeEnv();
+  if (!DB) throw new Error("Knowledge database is unavailable");
+  const key = DB as unknown as object;
+  let pending = schemaInitializations.get(key);
+  if (!pending) {
+    pending = initializeKnowledgeSchema(DB).catch(error => {
+      schemaInitializations.delete(key);
+      throw error;
+    });
+    schemaInitializations.set(key, pending);
+  }
+  return pending;
+}
+
+export async function listAdminEmails() {
   const DB = await ensureKnowledgeSchema();
-  const result = await DB.prepare("SELECT * FROM businesses ORDER BY sort_order ASC, created_at ASC, id ASC")
-    .all<BusinessRow>();
+  const result = await DB.prepare("SELECT email FROM admin_users ORDER BY created_at ASC, email ASC").all<{ email: string }>();
+  return result.results.map((row) => row.email);
+}
+
+export async function isAdminEmail(email: string | null | undefined) {
+  if (!email) return false;
+  const DB = await ensureKnowledgeSchema();
+  const row = await DB.prepare("SELECT email FROM admin_users WHERE lower(email) = lower(?)").bind(email.trim()).first<{ email: string }>();
+  return Boolean(row);
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function apiKeyEncryptionKey() {
+  const secret = process.env.API_KEY_ENCRYPTION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.GEMINI_API_KEY;
+  if (!secret) throw new Error("Gemini API key encryption is unavailable");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+  return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+export async function encryptConfiguredGeminiApiKey(value: string) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await apiKeyEncryptionKey(), new TextEncoder().encode(value));
+  return `${bytesToBase64(iv)}.${bytesToBase64(new Uint8Array(encrypted))}`;
+}
+
+export async function getConfiguredGeminiApiKey() {
+  const fallback = process.env.GEMINI_API_KEY;
+  const DB = await ensureKnowledgeSchema();
+  const row = await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>();
+  if (!row?.gemini_api_key_encrypted) return fallback;
+  try {
+    const [iv, encrypted] = row.gemini_api_key_encrypted.split(".");
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(iv) }, await apiKeyEncryptionKey(), base64ToBytes(encrypted));
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return fallback;
+  }
+}
+
+export async function listBusinesses(includeHidden = true) {
+  const DB = await ensureKnowledgeSchema();
+  const result = await DB.prepare(
+    `SELECT * FROM businesses ${includeHidden ? "" : "WHERE is_public = 1"} ORDER BY sort_order ASC, created_at ASC, id ASC`,
+  ).all<BusinessRow>();
   return result.results;
 }
 
@@ -118,72 +284,60 @@ export async function getBusiness(businessId: string) {
   return DB.prepare("SELECT * FROM businesses WHERE id = ?").bind(businessId).first<BusinessRow>();
 }
 
-function decisionFromAnswer(answer: string) {
-  if (answer.startsWith("가능합니다.")) return "possible";
-  if (answer.startsWith("불가능합니다.")) return "impossible";
-  if (answer.startsWith("담당자 문의가 필요합니다.")) return "consult";
-  if (answer.startsWith("추가 정보가 필요합니다.")) return "need_info";
-  return "fact";
-}
-
-function categoryFromQuestion(question: string) {
-  if (/(자격|대상|가능|신청할 수)/.test(question)) return "신청 자격";
-  if (/(금액|얼마|지원금|한도)/.test(question)) return "지원 금액";
-  if (/(기간|언제|마감|접수)/.test(question)) return "신청 기간";
-  if (/(서류|방법|어떻게|제출)/.test(question)) return "신청 방법";
-  if (/(소득|월급|가구)/.test(question)) return "소득 기준";
-  return "기타";
-}
-
 export async function recordConsultation(input: {
+  decision?: AnswerDecision;
   businessId: string;
   question: string;
   answer: string;
   source: string;
   confidence: number;
   review?: boolean;
+  categoryId?: string;
 }) {
   const DB = await ensureKnowledgeSchema();
   const firstParagraph = input.answer.split(/\n\s*\n/)[0]?.trim() || input.answer.trim();
+  const categories = await loadCategories(DB);
+  const semantic = categories.find(c => c.id === input.categoryId && !c.replacement_id);
   await DB.prepare(`INSERT INTO consultations
-    (id, business_id, question, answer, summary, decision, category, source, confidence, review, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    (id, business_id, question, answer, summary, decision, category, source, confidence, review, created_at, category_revision)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(),
       input.businessId,
       input.question.slice(0, 2_000),
       input.answer.slice(0, 20_000),
       firstParagraph.slice(0, 500),
-      decisionFromAnswer(input.answer),
-      categoryFromQuestion(input.question),
+      isAnswerDecision(input.decision) ? input.decision : decisionFromAnswer(input.answer),
+      semantic?.id || resolveCategory(categoryFromQuestion(input.question), categories).id,
       input.source.slice(0, 500),
       input.confidence,
       input.review ? 1 : 0,
       Date.now(),
+      semantic ? categoryRevision(categories) : "",
     ).run();
 }
 
 export async function loadKnowledgeContext(businessId: string) {
-  try {
-    const DB = await ensureKnowledgeSchema();
-    const result = await DB.prepare(
-      "SELECT title, type, source_url, file_name, content FROM knowledge_sources WHERE business_id = ? AND enabled = 1 AND status != 'error' ORDER BY updated_at DESC LIMIT 20",
-    ).bind(businessId).all<Pick<KnowledgeSourceRow, "title" | "type" | "source_url" | "file_name" | "content">>();
-
-    let used = 0;
-    return result.results.flatMap((source) => {
-      const label = source.type === "website"
-        ? `${source.title} (${source.source_url || "웹사이트"})`
-        : source.type === "pdf"
-          ? `${source.title} (${source.file_name || "PDF"})`
-          : source.title;
-      const remaining = 14_000 - used;
-      if (remaining <= 0) return [];
-      const content = source.content.trim().slice(0, remaining);
-      used += content.length;
-      return content ? [`[추가 지식 · ${label}]\n${content}`] : [];
-    }).join("\n\n");
-  } catch {
-    return "";
-  }
+  const DB = await ensureKnowledgeSchema();
+  const result = await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? ORDER BY id")
+    .bind(businessId).all<KnowledgeSourceRow>();
+  const cached = await DB.prepare("SELECT report FROM knowledge_conflict_checks WHERE business_id = ? AND snapshot_key = ?")
+    .bind(businessId, await snapshotKey(result.results)).first<{ report: string }>();
+  let report: ConflictReport | null = null;
+  try { report = cached ? JSON.parse(cached.report) as ConflictReport : null; }
+  catch { /* Re-evaluate retained sources when the advisory cache is unreadable. */ }
+  const business = await DB.prepare("SELECT * FROM businesses WHERE id = ?").bind(businessId).first<BusinessRow>();
+  const details = business && [
+    business.notice_url && `사업안내 공고 링크: ${business.notice_url}`,
+    business.contact_department && `담당 부서: ${business.contact_department}`,
+    business.contact_email && `이메일: ${business.contact_email}`,
+    business.contact_phone && `연락처: ${business.contact_phone}`,
+    business.contact_hours && `전화 가능 시간: ${business.contact_hours}`,
+  ].filter(Boolean).join("\n");
+  const rows = details ? [{
+    id: `business-details-${businessId}`, business_id: businessId, type: "text" as const, title: "사업 필수 정보",
+    source_url: business?.notice_url || null, file_key: null, file_name: null, content: details,
+    status: "ready" as const, enabled: 1, created_at: business?.created_at || 0, updated_at: business?.updated_at || 0,
+  }, ...result.results] : result.results;
+  return buildAnswerKnowledge(rows, businessId, report);
 }
