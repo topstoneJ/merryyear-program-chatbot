@@ -1,0 +1,65 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: azure-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Assemble standalone deployment
+        shell: bash
+        run: |
+          mkdir -p deploy/.next
+          cp -R .next/standalone/. deploy/
+          cp -R .next/static deploy/.next/static
+          cp -R public deploy/public
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: merryyear-chatbot-v4
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy
+
+      - name: Verify production health
+        shell: bash
+        run: |
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 20 \
+              https://merryyear-chatbot-v4-hnd0b5fka2b8gghn.koreacentral-01.azurewebsites.net/api/health; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1

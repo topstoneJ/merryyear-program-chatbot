@@ -28,6 +28,14 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const requestId = crypto.randomUUID();
+    try {
+    if (url.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      const origin = request.headers.get("origin");
+      if ((origin && origin !== url.origin) || request.headers.get("sec-fetch-site") === "cross-site") {
+        return Response.json({ error: "허용되지 않은 요청입니다." }, { status: 403 });
+      }
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
@@ -40,7 +48,17 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(request, env, ctx);
+    const response = await handler.fetch(request, env, ctx);
+    if (response.headers.get("content-type")?.includes("text/html")) {
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", "no-cache, max-age=0, must-revalidate");
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
+    return response;
+    } catch (error) {
+      console.error("request_failed", { requestId, method: request.method, path: url.pathname, kind: error instanceof Error ? error.name : "UnknownError" });
+      return Response.json({ error: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", requestId }, { status: 503, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
+    }
   },
 };
 

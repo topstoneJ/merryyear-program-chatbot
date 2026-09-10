@@ -1,0 +1,1 @@
+ALTER TABLE `businesses` ADD `is_public` integer DEFAULT true NOT NULL;
