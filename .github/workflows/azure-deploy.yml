@@ -42,8 +42,12 @@ jobs:
         run: |
           mkdir -p deploy/.next
           cp -RL .next/standalone/. deploy/
+          swc_helpers_dir="$(dirname "$(node -p "require.resolve('@swc/helpers/package.json', { paths: [require.resolve('next/package.json')] })")")"
+          mkdir -p deploy/node_modules/@swc
+          cp -RL "$swc_helpers_dir" deploy/node_modules/@swc/helpers
           cp -R .next/static deploy/.next/static
           cp -R public deploy/public
+          node -e "require('./deploy/node_modules/next/dist/server/next')"
 
       - name: Sign in to Azure
         uses: azure/login@v2
