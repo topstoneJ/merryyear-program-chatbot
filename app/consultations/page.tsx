@@ -3,6 +3,7 @@
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import AnswerSupplement from "./answer-supplement";
 import AdminNav from "@/app/admin-nav";
+import BrandLink from "@/app/brand-link";
 import AdminPagination, { PAGE_SIZE_OPTIONS } from "@/app/admin-pagination";
 import CategoryManager, { type Category } from "./category-manager";
 
@@ -185,7 +186,7 @@ export default function ConsultationsPage() {
 
   return (
     <main className="consultation-shell" style={{ "--orange": brandColor, "--gold": brandColor } as CSSProperties}>
-      <header className="topbar knowledge-topbar"><a className="brand brand-logo" href="/"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>사업 안내 챗봇</b></a><AdminNav current="consultations" /></header>
+      <header className="topbar knowledge-topbar"><BrandLink /><AdminNav current="consultations" /></header>
       <div className="consultation-page">
         <section className="consultation-heading">
           <div><h1>상담내역</h1></div>

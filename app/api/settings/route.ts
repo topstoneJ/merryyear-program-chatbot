@@ -19,7 +19,7 @@ function publicSettings(row: SettingsRow) {
     ...brandingUrls(row),
     socialCaption: row.social_caption || "",
     organizationName: row.organization_name, contact: row.contact,
-    logoUrl: row.logo_key ? `/api/settings?logo=${row.updated_at}` : "/merryyear-logo.png",
+    logoUrl: row.logo_key ? `/api/settings?logo=${row.updated_at}` : "/default-organization-logo.svg",
     mainHeadline: row.main_headline, mainSubcopy: row.main_subcopy,
     chatbotGreeting: row.chatbot_greeting, chatPlaceholder: row.chat_placeholder ?? "선택한 사업에 대해 질문해 주세요", primaryColor: row.primary_color,
     apiKeyConfigured: Boolean(row.gemini_api_key_encrypted || process.env.GEMINI_API_KEY), updatedAt: row.updated_at,

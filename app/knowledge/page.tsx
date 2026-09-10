@@ -2,6 +2,7 @@
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import AdminNav from "@/app/admin-nav";
+import BrandLink from "@/app/brand-link";
 import AdminPagination, { PAGE_SIZE_OPTIONS } from "@/app/admin-pagination";
 import ConflictPanel from "./conflict-panel";
 import { useConflictReport } from "./use-conflict-report";
@@ -564,7 +565,7 @@ export default function KnowledgePage() {
   return (
     <main className="knowledge-shell" style={{ "--orange": brandColor, "--gold": brandColor } as CSSProperties}>
       <header className="topbar knowledge-topbar">
-        <a className="brand brand-logo" href="/" aria-label="열매나눔재단 사업 안내 챗봇 홈"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>사업 안내 챗봇</b></a>
+        <BrandLink />
         <AdminNav current="knowledge" />
       </header>
       <div className="knowledge-layout">

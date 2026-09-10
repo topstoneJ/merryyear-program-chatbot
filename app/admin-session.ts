@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { ensureKnowledgeSchema } from "@/db/knowledge";
 
-export const ADMIN_COOKIE = "merryyear_admin_session";
+export const ADMIN_COOKIE = "program_guide_admin_session";
 const SESSION_SECONDS = 60 * 60 * 12;
 export type AdminAccount = { id: string; username: string; password_hash: string; password_salt: string; business_ids_json: string; can_manage_settings: number; can_view_consultations: number; can_delete_consultations: number; is_super_admin: number };
 

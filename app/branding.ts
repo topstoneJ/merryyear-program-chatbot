@@ -14,7 +14,7 @@ export async function validBrandImage(file: File): Promise<boolean> {
 export type BrandingRow = { favicon_key: string | null; social_image_key: string | null; updated_at: number };
 export function brandingUrls(row?: BrandingRow | null) {
   return {
-    faviconUrl: row?.favicon_key ? `/api/settings?asset=favicon&v=${encodeURIComponent(row.favicon_key)}` : "/favicon-32x32.png",
-    socialImageUrl: row?.social_image_key ? `/api/settings?asset=social&v=${encodeURIComponent(row.social_image_key)}` : "/og.png",
+    faviconUrl: row?.favicon_key ? `/api/settings?asset=favicon&v=${encodeURIComponent(row.favicon_key)}` : "/default-favicon.svg",
+    socialImageUrl: row?.social_image_key ? `/api/settings?asset=social&v=${encodeURIComponent(row.social_image_key)}` : "/default-social-image.svg",
   };
 }

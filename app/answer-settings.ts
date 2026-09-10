@@ -85,5 +85,5 @@ export function answerStyleIssues(text: string, settings: AnswerSettings): strin
 }
 
 export function applyAnswerSettings<T extends { system_instruction: string }>(request: T, settings: AnswerSettings): T {
-  return { ...request, system_instruction: request.system_instruction.replace("당신은 열매나눔재단 사업 안내 챗봇입니다.", "당신은 선택한 기관·사업의 등록 자료를 안내하는 챗봇입니다.") + "\n\n" + buildAnswerInstruction(settings) };
+  return { ...request, system_instruction: request.system_instruction + "\n\n" + buildAnswerInstruction(settings) };
 }

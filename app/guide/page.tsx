@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import AdminNav from "@/app/admin-nav";
+import BrandLink from "@/app/brand-link";
 import { ensureKnowledgeSchema } from "@/db/knowledge";
 import GuidePanel from "./guide-panel";
 
@@ -13,7 +14,7 @@ export default async function GuidePage() {
 
   return <main className="settings-shell" style={{ "--brand-preview": primaryColor, "--orange": primaryColor, "--gold": primaryColor } as CSSProperties}>
     <header className="topbar knowledge-topbar">
-      <a className="brand brand-logo" href="/" aria-label="열매나눔재단 사업 안내 챗봇 홈"><img src="/merryyear-logo.png" alt="열매나눔재단" width={210} height={53} /><b>사업 안내 챗봇</b></a>
+      <BrandLink />
       <AdminNav current="guide" />
     </header>
     <section className="settings-page">

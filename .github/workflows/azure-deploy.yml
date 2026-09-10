@@ -16,6 +16,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_WEBAPP_URL: ${{ vars.AZURE_WEBAPP_URL }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -33,6 +37,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate deployment variables
+        shell: bash
+        run: |
+          test -n "$AZURE_WEBAPP_NAME"
+          test -n "$AZURE_RESOURCE_GROUP"
+          test -n "$AZURE_WEBAPP_URL"
 
       - name: Run tests
         run: pnpm test
@@ -59,18 +70,18 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: merryyear-chatbot-v4
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy
 
       - name: Restart Azure App Service
-        run: az webapp restart --resource-group "열매나눔재단" --name merryyear-chatbot-v4
+        run: az webapp restart --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME"
 
       - name: Verify production health
         shell: bash
         run: |
           for attempt in {1..30}; do
             if curl --fail --silent --show-error --max-time 20 \
-              https://merryyear-chatbot-v4-hnd0b5fka2b8gghn.koreacentral-01.azurewebsites.net/api/health; then
+              "${AZURE_WEBAPP_URL%/}/api/health"; then
               exit 0
             fi
             sleep 10
