@@ -26,6 +26,8 @@ test("deployment source contains no cloned runtime data or administrator passwor
   assert.match(ignore, /^\/build\/$/m);
   assert.match(workflow, /creds: \$\{\{ secrets\.AZURE_CREDENTIALS \}\}/);
   assert.match(workflow, /cp -RL \.next\/standalone/);
+  assert.match(workflow, /cp -RL "\$swc_helpers_dir" deploy\/node_modules\/@swc\/helpers/);
+  assert.match(workflow, /require\('\.\/deploy\/node_modules\/next\/dist\/server\/next'\)/);
   assert.match(workflow, /az webapp restart/);
   assert.doesNotMatch(workflow, /ADMIN_PASSWORD=/);
 });
