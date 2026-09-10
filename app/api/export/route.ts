@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       randomQuestions: randomQuestionRows,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("Drive export failed", error);
+    console.error("Drive export failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "백업 데이터를 만들지 못했습니다." }, { status: 500 });
   }
 }

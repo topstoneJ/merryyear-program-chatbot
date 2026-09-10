@@ -1,22 +1,26 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "merryyear-program-chatbot",
   "version": "0.1.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build",
-    "start": "vinext start",
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "build:cloudflare": "vinext build",
     "test": "pnpm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.2",
+    "@azure/storage-blob": "^12.33.0",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "pdfjs-dist": "^6.1.200",
+    "pg": "^8.23.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -24,6 +28,7 @@
     "@cloudflare/vite-plugin": "1.37.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",

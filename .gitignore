@@ -38,6 +38,21 @@ yarn-error.log*
 # typescript
 next-env.d.ts
 /dist/
+/build/
+gitleaks-*.json
 /.wrangler/
 /outputs/
 /work/
+.recovery/
+
+# local deployment packages and staging directories
+/azure-stage*/
+/azure-deploy*.zip
+/site*.tar
+
+# local databases and data exports
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup

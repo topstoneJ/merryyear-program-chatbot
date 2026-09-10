@@ -1,0 +1,1 @@
+ALTER TABLE `consultations` ADD `review_manual` integer DEFAULT 0 NOT NULL;

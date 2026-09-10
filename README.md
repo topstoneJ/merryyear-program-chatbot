@@ -1,98 +1,98 @@
-# vinext-starter
+# 사업 안내 챗봇 v4
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+사업 자료를 근거로 질문에 답하고 상담 기록과 운영 설정을 관리하는 Next.js 기반 챗봇입니다. 사용자 화면에서는 사업별 질문과 근거가 있는 답변을 제공하고, 관리자 화면에서는 사업·지식 자료·상담 내역·답변 규칙·브랜드·API 사용 설정을 관리합니다.
 
-## Prerequisites
+## 주요 기능
 
-- Node.js `>=22.13.0`
+- 활성 사업과 지식 자료를 범위로 제한한 근거 기반 답변
+- 출처 문서와 페이지 검증, 자료 충돌 감지, 자료 부족 안내
+- 상담 기록 조회·분류·보완 답변·내보내기
+- PDF 기반 지식 자료 등록과 공개 범위 관리
+- 답변 규칙, 모델, API, 브랜드 이미지와 화면 문구 설정
+- 관리자 계정별 상담·자료·설정 화면 접근 권한
+- Azure PostgreSQL과 Azure Blob Storage 연동
+- GitHub Actions를 통한 Azure App Service 자동 배포와 상태 확인
 
-## Quick Start
+답변 판정과 근거 처리의 상세 규칙은 [docs/answer-rules-v4.md](docs/answer-rules-v4.md)를 참고하세요.
+
+## 로컬 실행
+
+### 요구 사항
+
+- Node.js 22 이상
+- pnpm 10
+- PostgreSQL 데이터베이스
 
 ```bash
-npm install
-npm run dev
-npm run build
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-This starter does not use `wrangler.jsonc`.
+기본 개발 주소는 `http://localhost:3000`입니다. 환경 변수는 `.env.example`을 참고해 로컬 전용 `.env.local`에 설정합니다. `.env.local`과 운영 비밀값은 커밋하지 않습니다.
 
-## Included Shape
+### 검증 명령
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+pnpm test
+pnpm lint
+pnpm build
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+`pnpm test`는 배포용 Next.js 빌드와 Node 회귀 테스트를 함께 실행합니다. Drizzle 스키마 변경 후 마이그레이션 파일을 만들 때는 `pnpm db:generate`를 사용합니다.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+## 환경 변수
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+저장소에는 아래 변수의 이름과 비밀값이 없는 예시만 둡니다. 실제 값은 로컬 환경이나 Azure App Service 애플리케이션 설정에서 관리합니다.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+| 구분 | 변수 |
+| --- | --- |
+| AI 모델 | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| 자료 내보내기 | `DRIVE_EXPORT_KEY` |
+| 관리자 부트스트랩 | `ADMIN_ID`, `ADMIN_PASSWORD`, `ADMIN_BOOTSTRAP_REVISION` |
+| 관리자 보안 | `ADMIN_SESSION_SECRET`, `API_KEY_ENCRYPTION_SECRET` |
+| 데이터베이스 | `DATABASE_URL`, `DATABASE_POOL_SIZE` |
+| Azure Storage | `AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_CONTAINER_NAME`, `AZURE_STORAGE_CONNECTION_STRING` |
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+Azure에서는 Storage 연결 문자열보다 관리 ID를 우선 사용합니다. 어떤 비밀값도 README, 마이그레이션, GitHub Actions 워크플로에 직접 기록하지 않습니다.
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## 관리자와 권한
 
-## Useful Commands
+- 최고관리자는 관리자 계정을 생성·수정·삭제하고 화면별 접근 권한을 관리합니다.
+- 관리자 수정 화면에서 아이디와 비밀번호를 변경할 수 있습니다.
+- 비밀번호는 영어 대문자·소문자·특수기호를 포함해 8자 이상이어야 하며 입력은 20자로 제한됩니다.
+- `설정화면 접근` 권한과 `최고관리자` 권한은 별도로 관리합니다.
+- 최고관리자 권한 변경은 최고관리자만 수행할 수 있고, 시스템에는 항상 최소 1명의 최고관리자가 남아야 합니다.
+- 운영 계정의 아이디·비밀번호·해시·세션 정보는 소스와 문서에 저장하지 않습니다.
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## GitHub Actions와 Azure 배포
 
-## Learn More
+워크플로 파일은 `.github/workflows/azure-deploy.yml`입니다. `main` 브랜치에 변경 사항이 합쳐지거나 수동 실행하면 다음 순서로 배포합니다.
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+1. pnpm 의존성 설치
+2. 빌드 및 전체 테스트 실행
+3. Next.js standalone 배포 패키지 구성
+4. Azure App Service 배포
+5. `/api/health` 상태 확인
+
+GitHub 저장소의 `production` 환경에 `AZURE_WEBAPP_PUBLISH_PROFILE` 시크릿을 설정해야 합니다. 이 시크릿에는 Azure 게시 프로필 원문을 저장하며 저장소 파일에는 포함하지 않습니다.
+
+배포 대상 App Service의 시작 명령은 standalone 출력의 `server.js`를 실행하도록 구성해야 합니다. 데이터베이스·Storage·AI·관리자 관련 환경 변수는 Azure App Service에서 별도로 유지되므로 소스 배포 패키지에 운영 데이터를 넣지 않습니다.
+
+## 내부 데이터 제외 원칙
+
+- PostgreSQL 행 데이터, 관리자 계정 데이터, 상담 기록, 지식 자료 원문과 Storage 객체를 Git에 커밋하지 않습니다.
+- `drizzle/`에는 스키마 변경만 저장하며 운영 데이터를 넣는 `INSERT` 문을 두지 않습니다.
+- 데이터베이스 파일, 백업, 배포 압축 파일, 로컬 빌드 결과는 `.gitignore`에서 제외합니다.
+- GitHub Actions는 저장소 소스에서 새 standalone 패키지를 만들며 로컬 데이터 디렉터리나 기존 배포 압축 파일을 재사용하지 않습니다.
+- 배포 전 `tests/deployment-data-safety.test.mjs`가 데이터 포함 방지 규칙을 검사합니다.
+
+## 프로젝트 구조
+
+| 경로 | 역할 |
+| --- | --- |
+| `app/` | 사용자·관리자 화면과 API 라우트 |
+| `db/` | PostgreSQL 접근, 스키마 초기화, 도메인 쿼리 |
+| `drizzle/` | 스키마 전용 마이그레이션과 메타데이터 |
+| `public/` | 정적 이미지, 폰트, PDF.js 런타임 |
+| `tests/` | 기능·보안·배포 데이터 안전성 회귀 테스트 |
+| `.github/workflows/` | Azure 빌드·배포 자동화 |
