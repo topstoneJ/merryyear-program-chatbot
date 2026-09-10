@@ -13,7 +13,7 @@ export async function fetchWebsite(value: string) {
   let url = publicWebsiteUrl(value);
   const signal = AbortSignal.timeout(20_000);
   for (let count = 0; count < 6; count++) {
-    const response = await fetch(url.toString(), { redirect: "manual", signal, headers: { "User-Agent": "MerryYearKnowledgeBot/1.0" } });
+    const response = await fetch(url.toString(), { redirect: "manual", signal, headers: { "User-Agent": "ProgramGuideKnowledgeBot/1.0" } });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       await response.body?.cancel();
       const location = response.headers.get("location");

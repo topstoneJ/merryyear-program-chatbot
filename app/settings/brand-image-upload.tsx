@@ -24,7 +24,7 @@ export default function BrandImageUpload({ title, hint, currentUrl, value, onCha
       }} />
     </label>
     <div className="brand-image-preview"><img src={preview || currentUrl} alt={`${title} 미리보기`} /><span>{value?.name || "현재 이미지"}</span></div>
-    {onDefault && <div className="default-social-action"><button type="button" className="cancel-button" disabled={disabled} onClick={onDefault}>{generating ? "생성·등록 중…" : "기본 이미지"}</button><small className="field-help">흰색 배경 중앙에 재단 로고를 배치한 이미지를 생성해 바로 등록합니다.</small></div>}
+    {onDefault && <div className="default-social-action"><button type="button" className="cancel-button" disabled={disabled} onClick={onDefault}>{generating ? "생성·등록 중…" : "기본 이미지"}</button><small className="field-help">흰색 배경 중앙에 기관 로고를 배치한 이미지를 생성해 바로 등록합니다.</small></div>}
     {onReset && <button type="button" className="cancel-button design-reset-button" disabled={disabled} onClick={onReset}>초기화</button>}
     {value && <button type="button" className="cancel-button" disabled={disabled} onClick={() => { onChange(null); setError(""); }}>선택 취소</button>}
     {error && <p className="answer-settings-error" role="alert">{error}</p>}

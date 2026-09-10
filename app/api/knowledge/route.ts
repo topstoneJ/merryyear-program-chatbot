@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       return Response.json({ source: { ...publicSource(source), content: source.content } });
     }
 
-    const businessId = url.searchParams.get("businessId") || "enterprise";
+    const businessId = url.searchParams.get("businessId") || "";
     { const denied = await requireAdminApi({ businessId }); if (denied) return denied; }
     if (!await getBusiness(businessId)) return Response.json({ error: "올바른 사업을 선택해 주세요." }, { status: 400 });
     const result = await DB.prepare(
