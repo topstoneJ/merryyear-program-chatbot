@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p deploy/.next
-          cp -R .next/standalone/. deploy/
+          cp -RL .next/standalone/. deploy/
           cp -R .next/static deploy/.next/static
           cp -R public deploy/public
 
@@ -56,10 +56,13 @@ jobs:
           app-name: merryyear-chatbot-v4
           package: deploy
 
+      - name: Restart Azure App Service
+        run: az webapp restart --resource-group "열매나눔재단" --name merryyear-chatbot-v4
+
       - name: Verify production health
         shell: bash
         run: |
-          for attempt in {1..12}; do
+          for attempt in {1..30}; do
             if curl --fail --silent --show-error --max-time 20 \
               https://merryyear-chatbot-v4-hnd0b5fka2b8gghn.koreacentral-01.azurewebsites.net/api/health; then
               exit 0

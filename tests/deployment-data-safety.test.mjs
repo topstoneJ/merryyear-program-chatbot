@@ -25,6 +25,8 @@ test("deployment source contains no cloned runtime data or administrator passwor
   assert.match(ignore, /^\*\.backup$/m);
   assert.match(ignore, /^\/build\/$/m);
   assert.match(workflow, /creds: \$\{\{ secrets\.AZURE_CREDENTIALS \}\}/);
+  assert.match(workflow, /cp -RL \.next\/standalone/);
+  assert.match(workflow, /az webapp restart/);
   assert.doesNotMatch(workflow, /ADMIN_PASSWORD=/);
 });
 
