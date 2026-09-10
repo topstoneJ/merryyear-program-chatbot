@@ -14,6 +14,23 @@ export async function verifyPassword(password: string, account: AdminAccount) { 
 
 export async function ensureBootstrapAdmin() {
   const DB = await ensureKnowledgeSchema();
+  const revision = process.env.ADMIN_BOOTSTRAP_REVISION;
+  if (revision && process.env.ADMIN_ID && process.env.ADMIN_PASSWORD) {
+    const repairId = `admin-bootstrap:${revision}`;
+    const applied = await DB.prepare("SELECT id FROM data_repairs WHERE id = ?").bind(repairId).first<{ id: string }>();
+    if (!applied) {
+      const password = await hashPassword(process.env.ADMIN_PASSWORD);
+      const businesses = await DB.prepare("SELECT id FROM businesses ORDER BY sort_order").all<{ id: string }>();
+      const now = Date.now();
+      await DB.batch([
+        DB.prepare("UPDATE admin_accounts SET is_super_admin = 0, updated_at = ? WHERE username <> ?").bind(now, process.env.ADMIN_ID),
+        DB.prepare("DELETE FROM admin_accounts WHERE username = ?").bind(process.env.ADMIN_ID),
+        DB.prepare("INSERT INTO admin_accounts (id, username, password_hash, password_salt, business_ids_json, can_manage_settings, can_view_consultations, can_delete_consultations, is_super_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, ?, ?)").bind(crypto.randomUUID(), process.env.ADMIN_ID, password.hash, password.salt, JSON.stringify(businesses.results.map(item => item.id)), now, now),
+        DB.prepare("INSERT INTO data_repairs (id, applied_at) VALUES (?, ?)").bind(repairId, now),
+      ]);
+    }
+    return DB;
+  }
   const count = await DB.prepare("SELECT COUNT(*) count FROM admin_accounts").first<{ count: number }>();
   if (!count?.count && process.env.ADMIN_ID && process.env.ADMIN_PASSWORD) {
     const password = await hashPassword(process.env.ADMIN_PASSWORD);

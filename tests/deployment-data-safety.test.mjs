@@ -19,10 +19,20 @@ test("deployment source contains no cloned runtime data or administrator passwor
   assert.doesNotMatch(knowledgeDb, /INSERT OR IGNORE INTO admin_users/i);
   assert.match(envExample, /^ADMIN_ID=chatbot01$/m);
   assert.match(envExample, /^ADMIN_PASSWORD=$/m);
+  assert.match(envExample, /^ADMIN_BOOTSTRAP_REVISION=$/m);
   assert.match(ignore, /^\/azure-stage\*\/$/m);
   assert.match(ignore, /^\*\.db$/m);
   assert.match(ignore, /^\*\.backup$/m);
   assert.match(ignore, /^\/build\/$/m);
   assert.match(workflow, /publish-profile: \$\{\{ secrets\.AZURE_WEBAPP_PUBLISH_PROFILE \}\}/);
   assert.doesNotMatch(workflow, /ADMIN_PASSWORD=/);
+});
+
+test('a revisioned bootstrap keeps exactly one configured super administrator without embedding credentials', async () => {
+  const session = await readFile(new URL('../app/admin-session.ts', import.meta.url), 'utf8');
+  assert.match(session, /ADMIN_BOOTSTRAP_REVISION/);
+  assert.match(session, /UPDATE admin_accounts SET is_super_admin = 0/);
+  assert.match(session, /DELETE FROM admin_accounts WHERE username = \?/);
+  assert.match(session, /INSERT INTO data_repairs/);
+  assert.doesNotMatch(session, /ADMIN_PASSWORD\s*=\s*["']/);
 });
