@@ -41,10 +41,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p deploy/.next
-          cp -RL .next/standalone/. deploy/
-          swc_helpers_dir="$(dirname "$(node -p "require.resolve('@swc/helpers/package.json', { paths: [require.resolve('next/package.json')] })")")"
-          mkdir -p deploy/node_modules/@swc
-          cp -RL "$swc_helpers_dir" deploy/node_modules/@swc/helpers
+          cp .next/standalone/server.js deploy/server.js
+          cp -R .next/standalone/.next/. deploy/.next/
+          mkdir runtime-deps
+          cp package.json pnpm-lock.yaml pnpm-workspace.yaml runtime-deps/
+          pnpm install --prod --frozen-lockfile --config.node-linker=hoisted --dir runtime-deps
+          cp -R runtime-deps/node_modules deploy/node_modules
           cp -R .next/static deploy/.next/static
           cp -R public deploy/public
           node -e "require('./deploy/node_modules/next/dist/server/next')"
