@@ -17,7 +17,16 @@ test('brand images reject unsupported, oversized and mismatched content', async 
 });
 test('saved image links change when replaced; no image preserves defaults', () => {
   assert.equal(branding.brandingUrls(null).socialImageUrl, '/default-social-image.svg');
+  assert.equal(branding.brandingUrls({logo_key:'saved-logo',favicon_key:null,updated_at:123}).faviconUrl, '/api/settings?logo=123');
   assert.notEqual(branding.brandingUrls({favicon_key:'first'}).faviconUrl, branding.brandingUrls({favicon_key:'second'}).faviconUrl);
+});
+test('saved institution branding updates the browser tab title and icon', async () => {
+  const browserBranding = await moduleAt('app/browser-branding.ts', () => ({}));
+  const links = [{href:'/default-favicon.svg',removeAttribute(){}},{href:'/default-favicon.svg',removeAttribute(){}}];
+  const target = {title:'기관명 미설정 사업 안내 챗봇',querySelectorAll:()=>links};
+  browserBranding.syncBrowserBranding({organizationName:'새 기관',faviconUrl:'/api/settings?logo=123'},target);
+  assert.equal(target.title,'새 기관 사업 안내 챗봇');
+  assert.deepEqual(links.map(link=>link.href),['/api/settings?logo=123','/api/settings?logo=123']);
 });
 test('settings authenticate uploads, preserve unselected images, and serve saved bytes publicly', async () => {
   let denied = true;
@@ -72,7 +81,7 @@ test("thumbnail caption validates 20 Unicode characters and rejects 21", () => {
 
 test('share caption is used for Open Graph and Twitter descriptions while the image stays unchanged',async()=>{
   let caption='함께 만드는 변화';
-  const deps={'@/db/knowledge':{knowledgeEnv:()=>({DB:{prepare:()=>({first:async()=>({social_caption:caption,social_image_key:'existing'})})}})},'@/app/branding':branding,'next/font/google':{Noto_Sans_KR:()=>({})},'react/jsx-runtime':{},'./globals.css':{}};
+  const deps={'@/db/knowledge':{ensureKnowledgeSchema:async()=>({prepare:()=>({first:async()=>({social_caption:caption,social_image_key:'existing'})})})},'@/app/branding':branding,'next/font/google':{Noto_Sans_KR:()=>({})},'react/jsx-runtime':{},'./globals.css':{}};
   const layout=await moduleAt('app/layout.tsx',name=>deps[name]);
   const meta=await layout.generateMetadata();assert.equal(meta.openGraph.description,caption);assert.equal(meta.twitter.description,caption);assert.equal(meta.description,caption);
   caption='';const fallback=await layout.generateMetadata();assert.equal(fallback.openGraph.description,fallback.description);assert.deepEqual(fallback.openGraph.images,meta.openGraph.images);

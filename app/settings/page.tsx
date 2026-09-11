@@ -7,6 +7,7 @@ import AnswerSettingsPanel from "@/app/settings/answer-settings-panel";
 import { type AnswerSettings } from "@/app/answer-settings";
 import BrandImageUpload from "./brand-image-upload";
 import { createDefaultSocialImage } from "./default-social-image";
+import { syncBrowserBranding } from "../browser-branding";
 type Settings = { organizationName: string; contact: string; logoUrl: string; faviconUrl: string; socialImageUrl: string; socialCaption: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; primaryColor: string; apiKey?: string; apiKeyConfigured?: boolean };
 
 async function whiteImage(name: string, width: number, height: number) {
@@ -100,9 +101,7 @@ export default function SettingsPage() {
       const response = await fetch("/api/settings", { method: "PATCH", body: form }), payload = await response.json();
       if (!response.ok || !payload.settings) throw new Error(payload.error || "설정을 저장하지 못했습니다.");
       setSettings({ ...payload.settings, apiKey: "" }); setLogo(null); setFavicon(null); setSocialImage(null);
-      document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="shortcut icon"]').forEach(link => {
-        link.href = payload.settings.faviconUrl; link.removeAttribute("sizes"); link.removeAttribute("type");
-      });
+      syncBrowserBranding(payload.settings);
       setNotice("");
     } catch (error) { setNotice(error instanceof Error ? error.message : "설정을 저장하지 못했습니다. 다시 시도해 주세요."); }
     finally { setSaving(false); }
