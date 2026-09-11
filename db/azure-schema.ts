@@ -3,7 +3,6 @@ import type { DatabaseBinding } from "./runtime";
 let initialization: Promise<void> | undefined;
 
 export function ensureAzureSchema(DB: DatabaseBinding) {
-  if (!process.env.DATABASE_URL) return Promise.resolve();
   initialization ??= initialize(DB);
   return initialization;
 }

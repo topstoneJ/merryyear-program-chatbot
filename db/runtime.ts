@@ -2,6 +2,8 @@ import { ManagedIdentityCredential } from "@azure/identity";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { Readable } from "node:stream";
 import { Pool, types, type PoolClient, type QueryResult } from "pg";
+import { storageMode } from "./storage-mode";
+import { localEnv } from "./local-runtime";
 
 types.setTypeParser(20, (value) => Number(value));
 
@@ -168,7 +170,8 @@ function blobContainer() {
   return service.getContainerClient(containerName);
 }
 
-const connectionString = process.env.DATABASE_URL;
+const mode = storageMode();
+const connectionString = mode === "azure" ? process.env.DATABASE_URL : undefined;
 const postgres = connectionString
   ? new PostgresDatabase(new Pool({
       connectionString,
@@ -176,10 +179,12 @@ const postgres = connectionString
       ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: true },
     }))
   : null;
-const blob = process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_STORAGE_ACCOUNT_NAME
+const blob = mode === "azure" && (process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_STORAGE_ACCOUNT_NAME)
   ? new AzureBlobBinding()
   : null;
 
+let local: ReturnType<typeof localEnv> | undefined;
 export function runtimeEnv() {
+  if (mode === "local") return local ??= localEnv();
   return { DB: postgres, KNOWLEDGE_FILES: blob };
 }

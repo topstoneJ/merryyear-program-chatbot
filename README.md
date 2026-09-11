@@ -21,14 +21,22 @@
 
 - Node.js 22 이상
 - pnpm 10
-- PostgreSQL 데이터베이스
+- 로컬에서는 PostgreSQL 설치가 필요 없습니다. Node.js 내장 SQLite를 사용합니다.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-기본 개발 주소는 `http://localhost:3000`입니다. 환경 변수는 `.env.example`을 참고해 로컬 전용 `.env.local`에 설정합니다. `.env.local`과 운영 비밀값은 커밋하지 않습니다.
+기본 개발 주소는 `http://localhost:3000`입니다. `pnpm dev`는 이 컴퓨터에서만 접속 가능한 로컬 서버를 실행합니다. 데이터는 `.local-data/chatbot.sqlite`, 업로드 파일은 `.local-data/objects/`에 저장되며 서버 재시작이나 소스 업데이트 후에도 유지됩니다.
+
+최초 실행 시 로컬 관리자 ID `chatbot01`과 무작위 비밀번호·암호화 키가 `.local-data/settings.json`에 생성됩니다. 이 파일에서 초기 비밀번호를 확인하세요. 이미 생성된 관리자 비밀번호 변경은 설정 화면에서 합니다. 이 파일의 암호화 키를 삭제하거나 교체하지 마세요. AI 사용은 로컬 설정 화면에서 API 키를 별도로 입력합니다.
+
+Azure App Service에서는 `WEBSITE_INSTANCE_ID`로 실행 환경을 확인해 기존 PostgreSQL·Blob Storage를 사용합니다. 로컬에 Azure 연결 변수가 있어도 로컬 서버는 이를 사용하지 않습니다. Azure에서 로컬 저장소를 선택하거나 로컬에서 Azure 저장소를 선택하면 실행이 거부됩니다.
+
+로컬 수정 작업은 이 GitHub 저장소 폴더에서 진행합니다. 저장만으로 배포되지는 않으며, 검증한 소스코드를 `main`에 커밋·푸시하면 GitHub Actions가 Azure 프로그램을 업데이트합니다. 로컬 데이터와 Azure 데이터는 서로 복사하거나 동기화하지 않습니다. 예전 작업 폴더의 데이터도 자동 이동하지 않습니다.
+
+`.env.local`과 `.local-data/`는 Git에서 제외합니다. Actions는 추적 파일과 최종 배포 패키지에 로컬 데이터·환경 파일이 포함되면 배포를 중단합니다.
 
 ### 검증 명령
 

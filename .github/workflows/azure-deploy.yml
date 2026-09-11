@@ -45,6 +45,9 @@ jobs:
           test -n "$AZURE_RESOURCE_GROUP"
           test -n "$AZURE_WEBAPP_URL"
 
+      - name: Reject tracked runtime data
+        run: node scripts/check-deployment-data.mjs
+
       - name: Run tests
         run: pnpm test
 
@@ -61,6 +64,9 @@ jobs:
           cp -R .next/static deploy/.next/static
           cp -R public deploy/public
           node -e "require('./deploy/node_modules/next/dist/server/next')"
+
+      - name: Reject runtime data in deployment package
+        run: node scripts/check-deployment-data.mjs deploy
 
       - name: Sign in to Azure
         uses: azure/login@v2
