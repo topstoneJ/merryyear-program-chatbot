@@ -8,6 +8,7 @@ type SettingsRow = {
   gemini_api_key_encrypted: string | null;
   favicon_key: string | null; social_image_key: string | null;
   social_caption: string;
+  secondary_color: string;
 };
 
 function clean(value: FormDataEntryValue | null, limit: number) {
@@ -22,6 +23,7 @@ function publicSettings(row: SettingsRow) {
     logoUrl: row.logo_key ? `/api/settings?logo=${row.updated_at}` : "/default-organization-logo.svg",
     mainHeadline: row.main_headline, mainSubcopy: row.main_subcopy,
     chatbotGreeting: row.chatbot_greeting, chatPlaceholder: row.chat_placeholder ?? "선택한 사업에 대해 질문해 주세요", primaryColor: row.primary_color,
+    secondaryColor: row.secondary_color || "#808080",
     apiKeyConfigured: Boolean(row.gemini_api_key_encrypted || process.env.GEMINI_API_KEY), updatedAt: row.updated_at,
   };
 }
@@ -70,8 +72,9 @@ export async function PATCH(request: Request) {
     const mainSubcopy = clean(form.get("mainSubcopy"), 300);
     const chatbotGreeting = clean(form.get("chatbotGreeting"), 500);
     const primaryColor = clean(form.get("primaryColor"), 7);
+    const secondaryColor = form.has("secondaryColor") ? clean(form.get("secondaryColor"), 7) : null;
     const apiKey = clean(form.get("apiKey"), 300);
-    if (!organizationName || !mainHeadline || !mainSubcopy || !chatbotGreeting || !/^#[0-9a-f]{6}$/i.test(primaryColor)) {
+    if (!organizationName || !mainHeadline || !mainSubcopy || !chatbotGreeting || !/^#[0-9a-f]{6}$/i.test(primaryColor) || (secondaryColor !== null && !/^#[0-9a-f]{6}$/i.test(secondaryColor))) {
       return Response.json({ error: "입력 내용을 확인해 주세요." }, { status: 400 });
     }
     const DB = await ensureKnowledgeSchema();
@@ -103,8 +106,8 @@ export async function PATCH(request: Request) {
     }
     const updatedAt = Date.now();
     const encryptedApiKey = apiKey ? await encryptConfiguredGeminiApiKey(apiKey) : previous?.gemini_api_key_encrypted || null;
-    await DB.prepare(`UPDATE site_settings SET organization_name = ?, contact = ?, logo_key = ?, main_headline = ?, main_subcopy = ?, chatbot_greeting = ?, primary_color = ?, gemini_api_key_encrypted = ?, updated_at = ?, favicon_key = ?, social_image_key = ?, social_caption = ?, chat_placeholder = ? WHERE id = 'default'`)
-      .bind(organizationName, contact, logoKey, mainHeadline, mainSubcopy, chatbotGreeting, primaryColor, encryptedApiKey, updatedAt, faviconKey, socialImageKey, captionValue ?? previous?.social_caption ?? "", chatPlaceholder).run();
+    await DB.prepare(`UPDATE site_settings SET organization_name = ?, contact = ?, logo_key = ?, main_headline = ?, main_subcopy = ?, chatbot_greeting = ?, primary_color = ?, gemini_api_key_encrypted = ?, updated_at = ?, favicon_key = ?, social_image_key = ?, social_caption = ?, chat_placeholder = ?, secondary_color = ? WHERE id = 'default'`)
+      .bind(organizationName, contact, logoKey, mainHeadline, mainSubcopy, chatbotGreeting, primaryColor, encryptedApiKey, updatedAt, faviconKey, socialImageKey, captionValue ?? previous?.social_caption ?? "", chatPlaceholder, secondaryColor ?? previous?.secondary_color ?? "#808080").run();
     const row = await DB.prepare("SELECT * FROM site_settings WHERE id = 'default'").first<SettingsRow>();
     return Response.json({ settings: row ? publicSettings(row) : null });
   } catch (error) {

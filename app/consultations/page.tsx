@@ -1,5 +1,6 @@
 "use client";
 
+import { brandTheme } from "@/app/branding";
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import AnswerSupplement from "./answer-supplement";
 import AdminNav from "@/app/admin-nav";
@@ -63,7 +64,7 @@ export default function ConsultationsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [consultationPage, setConsultationPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [brandColor, setBrandColor] = useState("#f26a2e");
+  const [brandColor, setBrandColor] = useState("#000000");
 
   const business = useMemo(() => businesses.find((item) => item.id === businessId), [businesses, businessId]);
   const savedMinutes = summary.total * 3;
@@ -185,7 +186,7 @@ export default function ConsultationsPage() {
   }
 
   return (
-    <main className="consultation-shell" style={{ "--orange": brandColor, "--gold": brandColor } as CSSProperties}>
+    <main className="consultation-shell" style={brandTheme(brandColor) as CSSProperties}>
       <header className="topbar knowledge-topbar"><BrandLink /><AdminNav current="consultations" /></header>
       <div className="consultation-page">
         <section className="consultation-heading">

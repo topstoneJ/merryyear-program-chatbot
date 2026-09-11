@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { ensureKnowledgeSchema } from "@/db/knowledge";
-import { brandingUrls, type BrandingRow } from "@/app/branding";
+import { brandingUrls, brandTheme, type BrandingRow } from "@/app/branding";
+import type { CSSProperties } from "react";
 import "./globals.css";
+import "./brand-surfaces.css";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +40,16 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  let theme = brandTheme();
+  try {
+    const row = await (await ensureKnowledgeSchema()).prepare("SELECT primary_color, secondary_color FROM site_settings WHERE id = 'default'").first<{ primary_color: string; secondary_color: string }>();
+    if (row) theme = brandTheme(row.primary_color, row.secondary_color);
+  } catch { /* Safe neutral defaults while settings are unavailable. */ }
   return (
     <html lang="ko">
       <head><link rel="stylesheet" href="/fonts/noto-sans-kr/style.css" /></head>
-      <body className="antialiased">
+      <body className="antialiased" style={theme as CSSProperties}>
         {children}
       </body>
     </html>

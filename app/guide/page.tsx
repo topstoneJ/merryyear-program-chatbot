@@ -1,3 +1,4 @@
+import { brandTheme } from "@/app/branding";
 import type { CSSProperties } from "react";
 import AdminNav from "@/app/admin-nav";
 import BrandLink from "@/app/brand-link";
@@ -5,14 +6,14 @@ import { ensureKnowledgeSchema } from "@/db/knowledge";
 import GuidePanel from "./guide-panel";
 
 export default async function GuidePage() {
-  let primaryColor = "#f26a2e";
+  let primaryColor = "#000000";
   try {
     const DB = await ensureKnowledgeSchema();
     const settings = await DB.prepare("SELECT primary_color FROM site_settings WHERE id = 'default'").first<{ primary_color: string }>();
     if (/^#[0-9a-f]{6}$/i.test(settings?.primary_color || "")) primaryColor = settings!.primary_color;
   } catch { /* Use the default brand color if settings are temporarily unavailable. */ }
 
-  return <main className="settings-shell" style={{ "--brand-preview": primaryColor, "--orange": primaryColor, "--gold": primaryColor } as CSSProperties}>
+  return <main className="settings-shell" style={brandTheme(primaryColor) as CSSProperties}>
     <header className="topbar knowledge-topbar">
       <BrandLink />
       <AdminNav current="guide" />

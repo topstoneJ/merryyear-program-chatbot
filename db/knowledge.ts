@@ -144,13 +144,13 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       main_headline TEXT NOT NULL,
       main_subcopy TEXT NOT NULL,
       chatbot_greeting TEXT NOT NULL,
-      primary_color TEXT NOT NULL DEFAULT '#f26a2e',
+      primary_color TEXT NOT NULL DEFAULT '#000000',
       gemini_api_key_encrypted TEXT,
       updated_at INTEGER NOT NULL
     )`),
     DB.prepare(`INSERT OR IGNORE INTO site_settings
       (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
-      VALUES ('default', '기관명 미설정', '', '사업 안내,\n질문으로 쉽게 확인하세요', '관리자 화면에서 기관과 사업 정보를 설정해 주세요.', '등록된 안내 자료를 바탕으로 답변해 드릴게요.', '#f26a2e', 0)`),
+      VALUES ('default', '기관명 미설정', '', '사업 안내,\n질문으로 쉽게 확인하세요', '관리자 화면에서 기관과 사업 정보를 설정해 주세요.', '등록된 안내 자료를 바탕으로 답변해 드릴게요.', '#000000', 0)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS admin_users (
       email TEXT PRIMARY KEY NOT NULL,
       created_at INTEGER NOT NULL
@@ -191,6 +191,8 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
     LIMIT 1
   ), '') WHERE notice_url = ''`).run();
   const settingsColumns = await DB.prepare("PRAGMA table_info(site_settings)").all<{ name: string }>();
+  // Only correct the untouched installer row. Never overwrite a saved institution color.
+  await DB.prepare("UPDATE site_settings SET primary_color = '#000000' WHERE organization_name = '기관명 미설정' AND updated_at = 0 AND primary_color = '#f26a2e'").run();
   if (!settingsColumns.results.some((column) => column.name === "gemini_api_key_encrypted")) {
     await DB.prepare("ALTER TABLE site_settings ADD COLUMN gemini_api_key_encrypted TEXT").run();
   }

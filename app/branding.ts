@@ -1,5 +1,17 @@
 export const BRAND_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
 export const BRAND_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+export const DEFAULT_PRIMARY_COLOR = "#000000";
+export const DEFAULT_SECONDARY_COLOR = "#808080";
+export function brandTheme(primary = DEFAULT_PRIMARY_COLOR, secondary = DEFAULT_SECONDARY_COLOR) {
+  const main = /^#[0-9a-f]{6}$/i.test(primary) ? primary : DEFAULT_PRIMARY_COLOR;
+  const sub = /^#[0-9a-f]{6}$/i.test(secondary) ? secondary : DEFAULT_SECONDARY_COLOR;
+  const foreground = (color: string) => {
+    const rgb = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16) / 255)
+      .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 0.179 ? "#000000" : "#ffffff";
+  };
+  return { "--orange": main, "--gold": main, "--brand-preview": main, "--brand-secondary": sub, "--on-primary": foreground(main), "--on-secondary": foreground(sub) };
+}
 export function normalizeSocialCaption(value: string) { return value.normalize("NFC").replace(/[\r\n\u0000]/g, " ").trim(); }
 export function validSocialCaption(value: string) { return Array.from(normalizeSocialCaption(value)).length <= 20; }
 

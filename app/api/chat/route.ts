@@ -1,6 +1,7 @@
 import { findBusinessContact } from "@/app/answer-contact";
 import { getAdminSession, type AdminAccount } from "@/app/admin-session";
 import { loadAdminGuideContext } from "@/app/admin-guide-context";
+import { offlineGuideAnswer } from "@/app/admin-guide-offline";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS, chatHistorySize, parseChatHistory, chatContextInput, type ChatTurn } from "@/app/chat-context";
 import { maskResidentRegistrationNumber } from "@/app/resident-number";
 import { trackedGeminiFetch } from "@/db/api-usage";
@@ -113,7 +114,7 @@ async function askGemini(businessId: string, businessName: string, question: str
 
 async function askAdminGuide(question: string, history: ChatTurn[], account: AdminAccount): Promise<Answer> {
   const apiKey = await getConfiguredGeminiApiKey();
-  if (!apiKey) throw new Error("Gemini API key is not configured");
+  if (!apiKey) return offlineGuideAnswer(question);
   const operatingState = await loadAdminGuideContext(account);
   const modelRequest = {
     model: process.env.GEMINI_MODEL || "gemini-3.7-flash",
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
       const account = await getAdminSession();
       if (!account) return Response.json({ error: "선택한 사업을 찾을 수 없습니다." }, { status: 404 });
       stage = "generation";
-      const generatedAnswer = await askAdminGuide(question, history, account);
+      const generatedAnswer = await askAdminGuide(question, history, account).catch(() => offlineGuideAnswer(question));
       const answer = { ...generatedAnswer,
         text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
         source: ADMIN_GUIDE_BUSINESS_NAME,

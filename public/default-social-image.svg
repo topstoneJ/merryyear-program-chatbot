@@ -1,9 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title">
   <title id="title">사업 안내 챗봇</title>
-  <rect width="1200" height="630" fill="#f8f5f1"/>
-  <rect x="128" y="155" width="150" height="126" rx="28" fill="#f26a2e"/>
-  <path d="m181 281-34 39 6-52" fill="#f26a2e"/>
-  <circle cx="174" cy="218" r="9" fill="white"/><circle cx="203" cy="218" r="9" fill="white"/><circle cx="232" cy="218" r="9" fill="white"/>
-  <text x="330" y="235" fill="#302b27" font-family="sans-serif" font-size="70" font-weight="700">사업 안내 챗봇</text>
-  <text x="330" y="315" fill="#756b63" font-family="sans-serif" font-size="34">기관 설정 후 안내자료를 등록해 주세요</text>
+  <rect width="1200" height="630" fill="#ffffff"/>
 </svg>

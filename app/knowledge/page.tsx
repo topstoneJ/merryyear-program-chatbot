@@ -1,5 +1,6 @@
 "use client";
 
+import { brandTheme } from "@/app/branding";
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import AdminNav from "@/app/admin-nav";
 import BrandLink from "@/app/brand-link";
@@ -237,7 +238,7 @@ export default function KnowledgePage() {
   const [randomLoading, setRandomLoading] = useState(false);
   const [randomSelections, setRandomSelections] = useState<string[]>([]);
   const [randomNote, setRandomNote] = useState("");
-  const [brandColor, setBrandColor] = useState("#f26a2e");
+  const [brandColor, setBrandColor] = useState("#000000");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const business = useMemo(() => businesses.find((item) => item.id === businessId) || businesses[0], [businesses, businessId]);
@@ -563,7 +564,7 @@ export default function KnowledgePage() {
   }
 
   return (
-    <main className="knowledge-shell" style={{ "--orange": brandColor, "--gold": brandColor } as CSSProperties}>
+    <main className="knowledge-shell" style={brandTheme(brandColor) as CSSProperties}>
       <header className="topbar knowledge-topbar">
         <BrandLink />
         <AdminNav current="knowledge" />
