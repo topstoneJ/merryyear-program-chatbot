@@ -11,10 +11,14 @@ export async function validBrandImage(file: File): Promise<boolean> {
   return new TextDecoder().decode(bytes.slice(0, 4)) === "RIFF" && new TextDecoder().decode(bytes.slice(8, 12)) === "WEBP";
 }
 
-export type BrandingRow = { favicon_key: string | null; social_image_key: string | null; updated_at: number };
+export type BrandingRow = { logo_key?: string | null; favicon_key: string | null; social_image_key: string | null; updated_at: number };
 export function brandingUrls(row?: BrandingRow | null) {
   return {
-    faviconUrl: row?.favicon_key ? `/api/settings?asset=favicon&v=${encodeURIComponent(row.favicon_key)}` : "/default-favicon.svg",
+    faviconUrl: row?.favicon_key
+      ? `/api/settings?asset=favicon&v=${encodeURIComponent(row.favicon_key)}`
+      : row?.logo_key
+        ? `/api/settings?logo=${row.updated_at}`
+        : "/default-favicon.svg",
     socialImageUrl: row?.social_image_key ? `/api/settings?asset=social&v=${encodeURIComponent(row.social_image_key)}` : "/default-social-image.svg",
   };
 }

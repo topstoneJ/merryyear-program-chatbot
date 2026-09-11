@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { knowledgeEnv } from "@/db/knowledge";
+import { ensureKnowledgeSchema } from "@/db/knowledge";
 import { brandingUrls, type BrandingRow } from "@/app/branding";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
   const origin = process.env.SITE_URL || "http://localhost:3000";
   let branding: (BrandingRow & { organization_name?: string; social_caption?: string }) | null = null;
-  try { branding = await knowledgeEnv().DB?.prepare("SELECT organization_name, favicon_key, social_image_key, social_caption, updated_at FROM site_settings WHERE id = 'default'").first<BrandingRow & { organization_name?: string; social_caption?: string }>() || null; }
+  try { branding = await (await ensureKnowledgeSchema()).prepare("SELECT organization_name, logo_key, favicon_key, social_image_key, social_caption, updated_at FROM site_settings WHERE id = 'default'").first<BrandingRow & { organization_name?: string; social_caption?: string }>() || null; }
   catch { /* Preserve existing images if settings are temporarily unavailable. */ }
   const images = brandingUrls(branding);
   const title = `${branding?.organization_name?.trim() || "기관명 미설정"} 사업 안내 챗봇`;

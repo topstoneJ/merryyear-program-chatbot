@@ -4,11 +4,12 @@ import AnswerText from "./answer-text";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME } from "./admin-guide";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS } from "./chat-context";
 import { maskIdentityNumbers } from "./resident-number";
+import { syncBrowserBranding } from "./browser-branding";
 
 import { CSSProperties, FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 type BusinessId = string;
-export type SiteSettings = { updatedAt?: number; organizationName: string; contact: string; logoUrl: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; primaryColor: string };
+export type SiteSettings = { updatedAt?: number; organizationName: string; contact: string; logoUrl: string; faviconUrl?: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; primaryColor: string };
 
 type Answer = {
   text: string;
@@ -85,6 +86,9 @@ export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings
   const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => { if (previewSettings) return; fetch("/api/settings").then((response) => response.json()).then((payload: { settings?: SiteSettings }) => payload.settings && setSiteSettings(payload.settings)).catch(() => undefined); }, []);
+  useEffect(() => {
+    if (!previewSettings && siteSettings.faviconUrl) syncBrowserBranding({ organizationName: siteSettings.organizationName, faviconUrl: siteSettings.faviconUrl });
+  }, [previewSettings, siteSettings.organizationName, siteSettings.faviconUrl]);
   const fileRef = useRef<HTMLInputElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
