@@ -169,6 +169,13 @@
       "when": 1788971323919,
       "tag": "0023_lame_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789106400000,
+      "tag": "0024_secondary_color",
+      "breakpoints": true
     }
   ]
 }

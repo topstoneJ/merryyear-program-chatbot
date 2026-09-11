@@ -13,6 +13,10 @@ export type AdminGuideSection = {
 
 export const ADMIN_GUIDE_SECTIONS: AdminGuideSection[] = [
   {
+    title: "사업 안내 챗봇은 누가, 왜 만들었나요?",
+    bullets: ["반복되는 사업 문의 응대로 소진되는 비영리 종사자들을 위해 사회복지법인 열매나눔재단이 만들었어요."],
+  },
+  {
     title: "1. 처음 시작하기",
     steps: [
       "‘설정’-‘API 관리’에서 API 키를 입력하세요.",
@@ -199,7 +203,7 @@ export const ADMIN_GUIDE_SECTIONS: AdminGuideSection[] = [
       "상담내역을 외부로 전달할 때 개인정보 포함 여부를 확인해야 해요.",
     ],
   },
-];
+].map((section, index) => ({ ...section, title: `${index + 1}. ${section.title.replace(/^\d+\.\s*/, "")}` }));
 
 export const ADMIN_GUIDE_TEXT = [
   `${ADMIN_GUIDE_BUSINESS_NAME}\n기관 담당자가 사업 안내 챗봇을 설정하고 운영하는 방법을 안내해요. 이 가이드는 관리자 전용이며 수정하거나 삭제할 수 없어요. 가이드 대화는 실제 사업 상담내역에 저장되지 않아요.`,

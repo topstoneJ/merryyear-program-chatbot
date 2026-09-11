@@ -31,7 +31,7 @@ export function chatHarness(options = {}) {
     '@/db/knowledge': {
       ensureKnowledgeSchema: async () => ({ prepare: () => ({first:async () => ({answer_settings_json: JSON.stringify(settings)})}) }),
       getBusiness: async () => ({id:'test', name:'테스트 사업', is_public:options.public ?? 1}),
-      getConfiguredGeminiApiKey: async () => 'test-only-not-a-real-key',
+      getConfiguredGeminiApiKey: async () => options.noApiKey ? undefined : 'test-only-not-a-real-key',
       loadKnowledgeContext: async () => { if (options.knowledgeError) throw options.knowledgeError; return knowledge; },
       recordConsultation: async value => records.push(value),
     },

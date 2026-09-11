@@ -61,15 +61,18 @@ test('default thumbnail uses white 1200x630 canvas and centers the original logo
   let drawn, captionDrawn;
   const context = {fillStyle:'',fillRect(...args){assert.equal(this.fillStyle,'#ffffff');assert.deepEqual(args,[0,0,1200,630]);},drawImage(...args){drawn=args;},fillText(...args){captionDrawn=args;}};
   const canvas = {width:0,height:0,getContext:()=>context,toBlob:callback=>callback(new Blob(['png'],{type:'image/png'}))};
-  globalThis.Image = class {naturalWidth=420;naturalHeight=106;async decode(){assert.equal(this.src,'/default-organization-logo.svg');}};
+  globalThis.Image = class {naturalWidth=420;naturalHeight=106;async decode(){assert.equal(this.src,'/api/settings?logo=registered');}};
   globalThis.document = {createElement:()=>canvas,fonts:{ready:Promise.resolve()}};
   try {
     const generator = await moduleAt('app/settings/default-social-image.ts',()=>({}));
-    const file = await generator.createDefaultSocialImage('함께 만드는 변화');
+    const file = await generator.createDefaultSocialImage('/api/settings?logo=registered');
     assert.equal(file.type,'image/png'); assert.equal(canvas.width,1200); assert.equal(canvas.height,630);
     assert.equal(drawn[1]+drawn[3]/2,600); assert.equal(drawn[2]+drawn[4]/2,315);
     assert.ok(Math.abs(drawn[3]/drawn[4]-420/106)<0.0001);
     assert.equal(captionDrawn,undefined);
+    drawn=undefined;
+    await generator.createDefaultSocialImage('/default-organization-logo.svg');
+    assert.equal(drawn,undefined,'unconfigured thumbnail is completely white');
   } finally { globalThis.Image=originalImage;globalThis.document=originalDocument; }
 });
 

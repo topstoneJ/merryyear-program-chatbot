@@ -55,7 +55,9 @@ export default function ApiManagementPanel() {
     finally { setSaving(false); }
   }
   return <div className="api-management-panel">
-    <section className="settings-card"><h2>API 연결</h2><p className="field-help">현재 모델 · {usage?.model || "확인 중"}</p>
+    <section className="settings-card"><h2>API 설정</h2><p className="field-help">사용 모델 · {usage?.model || "확인 중"}</p>
+      <p className="api-connection-status" role="status">{!usage ? "API 설정 확인 중" : usage.apiKeyConfigured ? "API 키 등록됨 · 실제 연결 미확인" : "API 키 미등록 · AI 답변 사용 불가"}</p>
+      <p className="field-help">모델명은 사용할 AI를 뜻하며 연결 성공 표시가 아닙니다. 가이드 문서의 기본 안내는 API 키 없이도 이용할 수 있습니다.</p>
       {usage && <p className="field-help">{usage.rates ? `현재 등록 단가: 100만 토큰당 입력 $${usage.rates.input}, 출력·생각 $${usage.rates.output}, 캐시 입력 $${usage.rates.cached}. ` : "현재 모델의 단가가 등록되지 않아 요금을 계산할 수 없습니다. "}{usage.pricingUrl ? <a href={usage.pricingUrl} target="_blank" rel="noreferrer">{usage.provider} 공식 요금표</a> : "공식 요금표가 등록되지 않은 모델입니다."}</p>}
       <label className="field"><span>API 키</span><input type="password" autoComplete="new-password" value={apiKey} disabled={saving || !usage} maxLength={300} onChange={e => setApiKey(e.target.value)} placeholder={usage?.apiKeyConfigured ? "설정됨 · 변경할 때만 새 키 입력" : "API 키 입력"} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void saveKey(); } }} /></label>
       <div className="api-key-actions"><button type="button" className="knowledge-submit" disabled={saving || !apiKey.trim() || !usage} onClick={() => void saveKey()}>{saving ? "처리 중…" : "API 키 저장"}</button><button type="button" className="danger-button" disabled={saving || !usage?.storedApiKeyConfigured} onClick={() => setConfirmDelete(true)}>API 키 삭제</button></div>
