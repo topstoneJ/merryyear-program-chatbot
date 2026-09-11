@@ -56,3 +56,15 @@ gitleaks-*.json
 *.sqlite3
 *.dump
 *.backup
+
+# Local runtime data and settings must never be deployed.
+/.local-data/
+/local-data/
+/uploads/
+/backups/
+/deploy/
+/runtime-deps/
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
