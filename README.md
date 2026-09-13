@@ -34,7 +34,7 @@ pnpm dev
 
 기본 개발 주소는 `http://localhost:3000`입니다. `pnpm dev`는 이 컴퓨터에서만 접속 가능한 로컬 서버를 실행합니다. 데이터는 `.local-data/chatbot.sqlite`, 업로드 파일은 `.local-data/objects/`에 저장되며 서버 재시작이나 소스 업데이트 후에도 유지됩니다.
 
-최초 실행 시 로컬 관리자 ID `chatbot01`과 무작위 비밀번호·암호화 키가 `.local-data/settings.json`에 생성됩니다. 이 파일에서 초기 비밀번호를 확인하세요. 이미 생성된 관리자 비밀번호 변경은 설정 화면에서 합니다. 이 파일의 암호화 키를 삭제하거나 교체하지 마세요. AI 사용은 로컬 설정 화면에서 API 키를 별도로 입력합니다.
+최초 실행 시 로컬 관리자 ID `chatbot01`, 초기 비밀번호 `Chatbot01!`, 무작위 암호화 키가 `.local-data/settings.json`에 생성됩니다. 이미 생성된 관리자 정보는 덮어쓰지 않으며 계정 수정은 설정 화면에서 합니다. 이 파일의 암호화 키를 삭제하거나 교체하지 마세요. AI 사용은 로컬 설정 화면에서 API 키를 별도로 입력합니다.
 
 Azure App Service에서는 `WEBSITE_INSTANCE_ID`로 실행 환경을 확인해 기존 PostgreSQL·Blob Storage를 사용합니다. 로컬에 Azure 연결 변수가 있어도 로컬 서버는 이를 사용하지 않습니다. Azure에서 로컬 저장소를 선택하거나 로컬에서 Azure 저장소를 선택하면 실행이 거부됩니다.
 

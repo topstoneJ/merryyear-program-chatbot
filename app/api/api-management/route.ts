@@ -1,5 +1,5 @@
 import { requireAdminApi } from "@/app/admin-session";
-import { ensureKnowledgeSchema, encryptConfiguredGeminiApiKey } from "@/db/knowledge";
+import { configuredGeminiApiKeyStatus, ensureKnowledgeSchema, encryptConfiguredGeminiApiKey, GEMINI_API_KEY_DISABLED } from "@/db/knowledge";
 import { koreanDayBounds, selectedRangeBounds, modelRates, modelPricingInfo } from "@/db/api-pricing";
 
 export async function GET(request: Request) {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const settings = await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>();
     return Response.json({ date: day.label, dateKey: day.key, currentDate: koreanDayBounds().key, model, totals, breakdown: breakdown.results, trackingStartedAt: started?.firstAt || null,
       models: models.results.map(item => ({ ...item, ...modelPricingInfo(item.model) })),
-      apiKeyConfigured: Boolean(settings?.gemini_api_key_encrypted || process.env.GEMINI_API_KEY), storedApiKeyConfigured: Boolean(settings?.gemini_api_key_encrypted), environmentApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY), rates: modelRates(model), ...modelPricingInfo(model) }, { headers: { "Cache-Control": "no-store" } });
+      ...configuredGeminiApiKeyStatus(settings?.gemini_api_key_encrypted), rates: modelRates(model), ...modelPricingInfo(model) }, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ error: "API 사용량을 불러오지 못했습니다." }, { status: 500 }); }
 }
 
@@ -29,8 +29,8 @@ export async function DELETE() {
   const denied = await requireAdminApi({ settings: true }); if (denied) return denied;
   try {
     const DB = await ensureKnowledgeSchema();
-    await DB.prepare("UPDATE site_settings SET gemini_api_key_encrypted = NULL, updated_at = ? WHERE id = 'default'").bind(Date.now()).run();
-    return Response.json({ apiKeyConfigured: Boolean(process.env.GEMINI_API_KEY), storedApiKeyConfigured: false });
+    await DB.prepare("UPDATE site_settings SET gemini_api_key_encrypted = ?, updated_at = ? WHERE id = 'default'").bind(GEMINI_API_KEY_DISABLED, Date.now()).run();
+    return Response.json(configuredGeminiApiKeyStatus(GEMINI_API_KEY_DISABLED));
   } catch { return Response.json({ error: "API 키를 삭제하지 못했습니다." }, { status: 500 }); }
 }
 

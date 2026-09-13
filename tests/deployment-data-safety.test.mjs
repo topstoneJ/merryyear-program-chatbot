@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("deployment source contains no cloned runtime data or administrator password", async () => {
+test("deployment source contains no cloned runtime data and declares only the requested bootstrap account", async () => {
   const [snapshot, adminUsersMigration, knowledgeDb, envExample, ignore, workflow] = await Promise.all([
     readFile(new URL("drizzle/0020_clone_snapshot.sql", root), "utf8"),
     readFile(new URL("drizzle/0008_admin_users.sql", root), "utf8"),
@@ -18,7 +18,7 @@ test("deployment source contains no cloned runtime data or administrator passwor
   assert.doesNotMatch(adminUsersMigration, /\bINSERT\b/i);
   assert.doesNotMatch(knowledgeDb, /INSERT OR IGNORE INTO admin_users/i);
   assert.match(envExample, /^ADMIN_ID=chatbot01$/m);
-  assert.match(envExample, /^ADMIN_PASSWORD=$/m);
+  assert.match(envExample, /^ADMIN_PASSWORD=Chatbot01!$/m);
   assert.match(envExample, /^ADMIN_BOOTSTRAP_REVISION=$/m);
   assert.match(ignore, /^\/azure-stage\*\/$/m);
   assert.match(ignore, /^\*\.db$/m);

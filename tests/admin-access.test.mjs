@@ -18,9 +18,15 @@ test('denied settings click opens an alert without navigation; allowed click nav
 });
 test('guide is a direct top-level link between business management and settings',async()=>{
  const nav=await load('app/admin-nav.tsx',{react:{useState:()=>[false,()=>{}],useEffect:()=>{}}});
- const links=nav.default({current:'guide'}).props.children;
+ const children=nav.default({current:'guide'}).props.children,links=children.filter(item=>item.type==='a');
  assert.deepEqual(links.map(link=>link.props.href),['/consultations','/knowledge','/guide','/settings']);
  const guide=links.find(link=>link.props.href==='/guide');
  assert.match(guide.props.className,/active/);
  assert.equal(guide.props.onClick,undefined);
+});
+test('logout clears the administrator cookie and returns to the main page',async()=>{
+ const previousWindow=globalThis.window,previousFetch=globalThis.fetch;const requests=[],moves=[];
+ globalThis.window={alert(){},location:{assign:url=>moves.push(url)}};
+ globalThis.fetch=async(url,options)=>{requests.push([url,options]);return Response.json({ok:true});};
+ try{const nav=await load('app/admin-nav.tsx',{react:{useState:()=>[false,()=>{}],useEffect:()=>{}}});const logout=nav.default({current:'consultations'}).props.children[0];assert.equal(logout.type,'button');assert.equal(logout.props.children,'로그아웃');await logout.props.onClick();assert.deepEqual(requests,[['/api/admin-login',{method:'DELETE'}]]);assert.deepEqual(moves,['/']);}finally{globalThis.window=previousWindow;globalThis.fetch=previousFetch;}
 });

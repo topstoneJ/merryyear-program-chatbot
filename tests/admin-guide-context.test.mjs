@@ -25,7 +25,7 @@ function database(log) {
 function loadContext(account, log) {
   return sourceLoader({
     '@/app/admin-session': { accountBusinessIds: value => JSON.parse(value.business_ids_json || '[]') },
-    '@/db/knowledge': { ensureKnowledgeSchema: async () => database(log) },
+    '@/db/knowledge': { ensureKnowledgeSchema: async () => database(log), configuredGeminiApiKeyStatus: stored => ({apiKeyConfigured:Boolean(stored)}) },
   })('app/admin-guide-context.ts').loadAdminGuideContext(account);
 }
 

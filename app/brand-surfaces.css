@@ -4,7 +4,7 @@
   color: var(--on-secondary);
   box-shadow: 0 7px 18px color-mix(in srgb, var(--brand-secondary) 18%, transparent);
 }
-.composer input:not(:disabled), .prompts button { border-color: var(--orange); }
+.composer input:not(:disabled) { border-color: var(--orange); }
 .composer.over-limit input { border-color: #d92d20; }
 .send, .knowledge-submit, .upload-button, .survey-save, .business-add-button,
 .active .business-code, .add-mark, .admin-link.active, .share-business.copied,

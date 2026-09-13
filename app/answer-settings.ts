@@ -37,6 +37,7 @@ export function parseAnswerSettings(value: unknown): AnswerSettings {
   const allowed = new Set(Object.keys(DEFAULT_ANSWER_SETTINGS));
   if (Object.keys(record).some(key => !allowed.has(key))) throw new Error("지원하지 않는 답변 설정입니다.");
   for (const option of ANSWER_OPTIONS) if (typeof record[option.key] !== "boolean") throw new Error("체크 항목을 확인해 주세요.");
+  if (ANSWER_OPTIONS.filter(option => record[option.key] === true).length > 3) throw new Error("답변 옵션은 최대 3개까지 선택할 수 있어요.");
   for (const style of ANSWER_STYLES) if (!style.choices.some(([key]) => key === record[style.key])) throw new Error("답변 스타일을 확인해 주세요.");
   return Object.fromEntries(Object.keys(DEFAULT_ANSWER_SETTINGS).map(key => [key, record[key]])) as AnswerSettings;
 }
@@ -48,7 +49,10 @@ export function readAnswerSettings(raw: string | null | undefined): AnswerSettin
     // Settings saved before the formal tone was removed keep the closest
     // supported behavior instead of resetting every preference to defaults.
     if (saved.tone === "formal") saved.tone = "polite";
-    return parseAnswerSettings({ ...DEFAULT_ANSWER_SETTINGS, ...saved });
+    const merged = { ...DEFAULT_ANSWER_SETTINGS, ...saved } as Record<string, unknown>;
+    let selected = 0;
+    for (const option of ANSWER_OPTIONS) if (merged[option.key] === true && ++selected > 3) merged[option.key] = false;
+    return parseAnswerSettings(merged);
   }
   catch { return { ...DEFAULT_ANSWER_SETTINGS }; }
 }
@@ -85,5 +89,5 @@ export function answerStyleIssues(text: string, settings: AnswerSettings): strin
 }
 
 export function applyAnswerSettings<T extends { system_instruction: string }>(request: T, settings: AnswerSettings): T {
-  return { ...request, system_instruction: request.system_instruction + "\n\n" + buildAnswerInstruction(settings) };
+  return { ...request, system_instruction: request.system_instruction.replace("당신은 열매나눔재단 사업 안내 챗봇입니다.", "당신은 선택한 기관·사업의 등록 자료를 안내하는 챗봇입니다.") + "\n\n" + buildAnswerInstruction(settings) };
 }

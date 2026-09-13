@@ -1,7 +1,7 @@
 import { accountBusinessIds, type AdminAccount } from "@/app/admin-session";
 import { readAnswerSettings } from "@/app/answer-settings";
 import { maskResidentRegistrationNumber } from "@/app/resident-number";
-import { ensureKnowledgeSchema, type BusinessRow } from "@/db/knowledge";
+import { configuredGeminiApiKeyStatus, ensureKnowledgeSchema, type BusinessRow } from "@/db/knowledge";
 
 type SourceCount = { business_id: string; type: string; status: string; enabled: number; count: number; latest_at: number | null };
 type ConsultationCount = { business_id: string; decision: string; category: string; count: number; review_count: number };
@@ -89,7 +89,7 @@ export async function loadAdminGuideContext(account: AdminAccount) {
       chatbotGreeting: settings.chatbot_greeting,
       primaryColor: settings.primary_color,
       answerStyle: readAnswerSettings(settings.answer_settings_json),
-      apiKeyConfigured: Boolean(settings.gemini_api_key_encrypted || process.env.GEMINI_API_KEY),
+      apiKeyConfigured: configuredGeminiApiKeyStatus(settings.gemini_api_key_encrypted).apiKeyConfigured,
       apiUsageLast30Days: { requests: usage?.requests || 0, failed: usage?.failed || 0 },
     } : null;
     scope.administratorPermissions = accounts.results.map(item => ({

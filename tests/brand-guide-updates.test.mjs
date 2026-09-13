@@ -15,6 +15,11 @@ const {offlineGuideAnswer}=load('app/admin-guide-offline.ts');
 
 test('brand defaults and text contrast support black, gray, white and custom colors',()=>{
   assert.equal(brandTheme()['--orange'],'#000000');
+  assert.notEqual(brandTheme()['--gold'],brandTheme()['--orange']);
+  assert.notEqual(brandTheme('#ffffff')['--gold'],brandTheme('#ffffff')['--orange']);
+  assert.notEqual(brandTheme('#f26a2e')['--brand-dark'],brandTheme('#f26a2e')['--orange']);
+  assert.notEqual(brandTheme('#f26a2e')['--brand-wash'],brandTheme('#f26a2e')['--orange']);
+  assert.notEqual(brandTheme('#f26a2e')['--brand-wash-soft'],brandTheme('#f26a2e')['--brand-wash']);
   assert.equal(brandTheme()['--brand-secondary'],'#808080');
   assert.equal(brandTheme('#000000')['--on-primary'],'#ffffff');
   assert.equal(brandTheme('#ffffff')['--on-primary'],'#000000');
@@ -39,7 +44,7 @@ test('real database migrates secondary color without replacing existing institut
     row=await DB.prepare('SELECT * FROM site_settings').first();
     assert.equal(row.organization_name,'기존 기관');assert.equal(row.primary_color,'#123456');assert.equal(row.secondary_color,'#abcdef');
     let denied=false;
-    const api=sourceLoader({'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,knowledgeEnv:()=>({}),encryptConfiguredGeminiApiKey:async()=>''}})('app/api/settings/route.ts');
+    const api=sourceLoader({'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,knowledgeEnv:()=>({}),encryptConfiguredGeminiApiKey:async()=>'',configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored)})}})('app/api/settings/route.ts');
     const request=(secondary)=>{const form=new FormData();for(const key of ['organizationName','mainHeadline','mainSubcopy','chatbotGreeting'])form.set(key,'기존 기관');form.set('primaryColor','#123456');if(secondary!==undefined)form.set('secondaryColor',secondary);return new Request('https://test/api/settings',{method:'PATCH',body:form});};
     assert.equal((await api.PATCH(request('bad'))).status,400);
     denied=true;assert.equal((await api.PATCH(request('#445566'))).status,403);denied=false;
@@ -75,10 +80,33 @@ test('guide falls back to the document when a registered API is unavailable',asy
   assert.equal(result.status,200);assert.match(result.payload.answer.text,/열매나눔재단/);assert.equal(h.records.length,0);
 });
 
+test('deleting an API key overrides an environment fallback and survives a database reload',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'api-delete-'));const DB=new LocalDatabase(dir);
+  const previous=process.env.GEMINI_API_KEY;process.env.GEMINI_API_KEY='environment-fallback';
+  try{
+    const knowledge=()=>sourceLoader({...builtins,'./runtime':{runtimeEnv:()=>({DB})}})('db/knowledge.ts');
+    await knowledge().ensureKnowledgeSchema();
+    assert.equal(await knowledge().getConfiguredGeminiApiKey(),'environment-fallback');
+    const knowledgeModule=knowledge();
+    const route=sourceLoader({'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/knowledge':knowledgeModule,'@/db/api-pricing':{}})('app/api/api-management/route.ts');
+    const response=await route.DELETE();assert.equal(response.status,200);assert.equal((await response.json()).apiKeyConfigured,false);
+    assert.equal(await knowledge().getConfiguredGeminiApiKey(),undefined);
+    assert.equal((await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id='default'").first()).gemini_api_key_encrypted,knowledgeModule.GEMINI_API_KEY_DISABLED);
+  }finally{
+    if(previous===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=previous;
+    DB.close();await rm(dir,{recursive:true,force:true});
+  }
+});
+
 test('visual brand roles and API status are not hard-coded to orange or connection success',async()=>{
   const surfaces=await readFile(new URL('../app/brand-surfaces.css',import.meta.url),'utf8');
   assert.match(surfaces,/\.user-message\s*\{\s*background: var\(--brand-secondary\)/);
   const css=await readFile(new URL('../app/globals.css',import.meta.url),'utf8');assert.doesNotMatch(css,/#f26a2e|#f6b73c|#ee9f77/i);
-  const ui=await readFile(new URL('../app/settings/api-management-panel.tsx',import.meta.url),'utf8');assert.match(ui,/API 키 미등록/);assert.match(ui,/실제 연결 미확인/);
+  assert.match(css,/\.settings-shell \{ min-height: 100vh; background: #f4f4f4; \}/);
+  const homeBackground=css.match(/\.home-shell::before \{[\s\S]*?\n\}/)?.[0]??'';
+  assert.match(homeBackground,/var\(--brand-wash\)/);assert.match(homeBackground,/var\(--brand-wash-soft\)/);assert.doesNotMatch(homeBackground,/var\(--brand-secondary\)/);
+  assert.match(css,/html \{ background: #f4f4f4;/);assert.match(css,/body \{[\s\S]*?background: #f4f4f4;/);
+  assert.doesNotMatch(css,/linear-gradient\((?:90deg|135deg), var\(--orange\), var\(--orange\)\)/);
+  const ui=await readFile(new URL('../app/settings/api-management-panel.tsx',import.meta.url),'utf8');assert.match(ui,/API 없음/);assert.match(ui,/usage\?\.apiKeyConfigured \? ` · 사용 모델/);assert.match(ui,/usage\?\.apiKeyConfigured && <p className="field-help">/);
   const blank=await readFile(new URL('../public/default-social-image.svg',import.meta.url),'utf8');assert.match(blank,/fill="#ffffff"/);assert.doesNotMatch(blank,/<text|<path|<circle/);
 });

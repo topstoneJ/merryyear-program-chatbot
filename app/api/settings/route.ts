@@ -1,4 +1,4 @@
-import { encryptConfiguredGeminiApiKey, ensureKnowledgeSchema, knowledgeEnv } from "@/db/knowledge";
+import { configuredGeminiApiKeyStatus, encryptConfiguredGeminiApiKey, ensureKnowledgeSchema, knowledgeEnv } from "@/db/knowledge";
 import { requireAdminApi } from "@/app/admin-session";
 import { brandingUrls, validBrandImage, normalizeSocialCaption, validSocialCaption } from "@/app/branding";
 
@@ -24,7 +24,7 @@ function publicSettings(row: SettingsRow) {
     mainHeadline: row.main_headline, mainSubcopy: row.main_subcopy,
     chatbotGreeting: row.chatbot_greeting, chatPlaceholder: row.chat_placeholder ?? "선택한 사업에 대해 질문해 주세요", primaryColor: row.primary_color,
     secondaryColor: row.secondary_color || "#808080",
-    apiKeyConfigured: Boolean(row.gemini_api_key_encrypted || process.env.GEMINI_API_KEY), updatedAt: row.updated_at,
+    apiKeyConfigured: configuredGeminiApiKeyStatus(row.gemini_api_key_encrypted).apiKeyConfigured, updatedAt: row.updated_at,
   };
 }
 
