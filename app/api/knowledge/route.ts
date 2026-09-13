@@ -200,7 +200,7 @@ export async function POST(request: Request) {
       const pdfBuffer = fileBytes.buffer.slice(fileBytes.byteOffset, fileBytes.byteOffset + fileBytes.byteLength) as ArrayBuffer;
       await KNOWLEDGE_FILES.put(fileKey, new Response(pdfBuffer).body!, {
         httpMetadata: { contentType: "application/pdf" },
-        customMetadata: { title, businessId },
+        customMetadata: { title: encodeURIComponent(title), businessId },
       });
       status = "ready";
     }

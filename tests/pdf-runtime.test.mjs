@@ -22,6 +22,7 @@ test("PDF registration bypasses Azure multipart parsing and validates actual PDF
   assert.match(route, /Buffer\.from\(String\(value\("fileBase64"\)/);
   assert.match(route, /decode\(fileBytes\.subarray\(0, 5\)\) !== "%PDF-"/);
   assert.match(route, /new Response\(pdfBuffer\)\.body!/);
+  assert.match(route, /customMetadata: \{ title: encodeURIComponent\(title\), businessId \}/);
 });
 
 test("production bundle contains the packaged PDF.js loader and public worker URL", async () => {
