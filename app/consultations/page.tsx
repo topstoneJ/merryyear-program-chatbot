@@ -64,7 +64,7 @@ export default function ConsultationsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [consultationPage, setConsultationPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [brandColor, setBrandColor] = useState("#000000");
+  const [brandColor, setBrandColor] = useState("#f26a2e");
 
   const business = useMemo(() => businesses.find((item) => item.id === businessId), [businesses, businessId]);
   const savedMinutes = summary.total * 3;

@@ -1,6 +1,5 @@
 "use client";
 
-import { brandTheme } from "./branding";
 import AnswerText from "./answer-text";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME } from "./admin-guide";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS } from "./chat-context";
@@ -73,7 +72,7 @@ const EMPTY_BUSINESS: Business = {
 };
 
 export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings } = {}) {
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(previewSettings || { organizationName: "기관명 미설정", contact: "", logoUrl: "/default-organization-logo.svg", mainHeadline: "사업 안내,\n질문으로 쉽게 확인하세요", mainSubcopy: "관리자 화면에서 기관과 사업 정보를 설정해 주세요.", chatbotGreeting: "등록된 안내 자료를 바탕으로 답변해 드릴게요.", primaryColor: "#000000", secondaryColor: "#808080", chatPlaceholder: "선택한 사업에 대해 질문해 주세요" });
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(previewSettings || { organizationName: "기관명 미설정", contact: "", logoUrl: "/default-organization-logo.svg", mainHeadline: "사업 안내,\n질문으로 쉽게 확인하세요", mainSubcopy: "관리자 화면에서 기관과 사업 정보를 설정해 주세요.", chatbotGreeting: "등록된 안내 자료를 바탕으로 답변해 드릴게요.", primaryColor: "#f26a2e", chatPlaceholder: "선택한 사업에 대해 질문해 주세요" });
   const [businessId, setBusinessId] = useState<BusinessId>("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [question, setQuestion] = useState("");
@@ -251,7 +250,7 @@ export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings
   }
 
   return (
-    <main className="home-shell" style={brandTheme(siteSettings.primaryColor, siteSettings.secondaryColor) as CSSProperties}>
+    <main className="public-shell" style={{ "--orange": siteSettings.primaryColor, "--gold": siteSettings.primaryColor } as CSSProperties}>
       <header className="topbar">
         <a className="brand brand-logo" href="#" aria-label={`${siteSettings.organizationName} 사업 안내 챗봇 홈`}>
           <img src={siteSettings.logoUrl} alt={siteSettings.organizationName} width={210} height={53} />

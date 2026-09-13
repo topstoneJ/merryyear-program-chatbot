@@ -5,11 +5,11 @@ import { readFile } from "node:fs/promises";
 const source = path => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("requested Azure UI and behavior updates are present without replacing storage adapters", async () => {
-  const [knowledge, api, apiUi, answerSettings, answerUi, accountApi, accountUi, nav, loginApi, css, surfaces, pdfPage, runtime] = await Promise.all([
+  const [knowledge, api, apiUi, answerSettings, answerUi, accountApi, accountUi, nav, loginApi, css, pdfPage, runtime] = await Promise.all([
     source("db/knowledge.ts"), source("app/api/api-management/route.ts"), source("app/settings/api-management-panel.tsx"),
     source("app/answer-settings.ts"), source("app/settings/answer-settings-panel.tsx"), source("app/api/admin-accounts/route.ts"),
     source("app/settings/account-manager.tsx"), source("app/admin-nav.tsx"), source("app/api/admin-login/route.ts"),
-    source("app/globals.css"), source("app/brand-surfaces.css"), source("app/knowledge/page.tsx"), source("db/runtime.ts"),
+    source("app/globals.css"), source("app/knowledge/page.tsx"), source("db/runtime.ts"),
   ]);
 
   assert.match(runtime, /@azure\/storage-blob|postgres|pg/i);
@@ -42,9 +42,8 @@ test("requested Azure UI and behavior updates are present without replacing stor
   assert.match(css, /@media \(max-width: 980px\)[\s\S]*\.knowledge-topbar \.topbar-actions[\s\S]*justify-content: safe center/);
   assert.match(css, /\.chat \{[^}]*border: 1px solid #8b77603d/);
   assert.match(css, /\.prompts button \{[^}]*border: 1px solid var\(--line\)/);
-  assert.match(css, /\.answer\.review \{ background: var\(--brand-wash-soft\); border-color: #d9d9d9; \}/);
-  assert.doesNotMatch(surfaces, /\.composer input:not\(:disabled\), \.prompts button/);
-  assert.match(surfaces, /\.composer input:not\(:disabled\) \{ border-color: var\(--orange\); \}/);
+  assert.match(css, /\.answer\.review \{ background: var\(--brand-surface\); border-color: #e4dacd; \}/);
+  assert.match(css, /\.composer input \{[^}]*border: 1px solid var\(--brand-border\)/);
   assert.match(pdfPage, /await import\("pdfjs-dist"\)/);
   assert.doesNotMatch(pdfPage, /await import\([^\n]*moduleUrl/);
 });
