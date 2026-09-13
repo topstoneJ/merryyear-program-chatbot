@@ -10,8 +10,18 @@ test("PDF.js is bundled from the installed package and its worker ships publicly
     readFile(new URL("public/vendor/pdfjs-6.1.200/pdf.worker.min.mjs", root)),
   ]);
   assert.match(page, /await import\("pdfjs-dist"\)/);
+  assert.match(page, /fileBase64: await fileToBase64\(file\)/);
+  assert.match(page, /headers: \{ "Content-Type": "application\/json" \}/);
   assert.doesNotMatch(page, /await import\([^\n]*moduleUrl/);
   assert.ok(worker.length > 1_000_000);
+});
+
+test("PDF registration bypasses Azure multipart parsing and validates actual PDF bytes", async () => {
+  const route = await readFile(new URL("app/api/knowledge/route.ts", root), "utf8");
+  assert.match(route, /includes\("application\/json"\)/);
+  assert.match(route, /Buffer\.from\(String\(value\("fileBase64"\)/);
+  assert.match(route, /decode\(fileBytes\.subarray\(0, 5\)\) !== "%PDF-"/);
+  assert.match(route, /new Response\(pdfBuffer\)\.body!/);
 });
 
 test("production bundle contains the packaged PDF.js loader and public worker URL", async () => {
