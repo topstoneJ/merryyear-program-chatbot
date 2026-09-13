@@ -6,7 +6,7 @@ import { ensureKnowledgeSchema } from "@/db/knowledge";
 import GuidePanel from "./guide-panel";
 
 export default async function GuidePage() {
-  let primaryColor = "#000000";
+  let primaryColor = "#f26a2e";
   try {
     const DB = await ensureKnowledgeSchema();
     const settings = await DB.prepare("SELECT primary_color FROM site_settings WHERE id = 'default'").first<{ primary_color: string }>();

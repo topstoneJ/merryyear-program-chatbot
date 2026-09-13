@@ -237,7 +237,7 @@ export default function KnowledgePage() {
   const [randomLoading, setRandomLoading] = useState(false);
   const [randomSelections, setRandomSelections] = useState<string[]>([]);
   const [randomNote, setRandomNote] = useState("");
-  const [brandColor, setBrandColor] = useState("#000000");
+  const [brandColor, setBrandColor] = useState("#f26a2e");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const business = useMemo(() => businesses.find((item) => item.id === businessId) || businesses[0], [businesses, businessId]);

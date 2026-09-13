@@ -13,18 +13,18 @@ const {brandTheme}=load('app/branding.ts');
 const {ADMIN_GUIDE_SECTIONS}=load('app/admin-guide.ts');
 const {offlineGuideAnswer}=load('app/admin-guide-offline.ts');
 
-test('brand defaults and text contrast support black, gray, white and custom colors',()=>{
-  assert.equal(brandTheme()['--orange'],'#000000');
-  assert.notEqual(brandTheme()['--gold'],brandTheme()['--orange']);
-  assert.notEqual(brandTheme('#ffffff')['--gold'],brandTheme('#ffffff')['--orange']);
-  assert.notEqual(brandTheme('#f26a2e')['--brand-dark'],brandTheme('#f26a2e')['--orange']);
+test('brand defaults match the local design and preserve readable custom colors',()=>{
+  assert.equal(brandTheme()['--orange'],'#f26a2e');
+  assert.equal(brandTheme()['--gold'],brandTheme()['--orange']);
+  assert.equal(brandTheme('#ffffff')['--gold'],brandTheme('#ffffff')['--orange']);
+  assert.notEqual(brandTheme('#f26a2e')['--brand-deep'],brandTheme('#f26a2e')['--orange']);
   assert.notEqual(brandTheme('#f26a2e')['--brand-wash'],brandTheme('#f26a2e')['--orange']);
   assert.notEqual(brandTheme('#f26a2e')['--brand-wash-soft'],brandTheme('#f26a2e')['--brand-wash']);
   assert.equal(brandTheme()['--brand-secondary'],'#808080');
   assert.equal(brandTheme('#000000')['--on-primary'],'#ffffff');
   assert.equal(brandTheme('#ffffff')['--on-primary'],'#000000');
   assert.equal(brandTheme('#123456','#abcdef')['--brand-secondary'],'#abcdef');
-  assert.equal(brandTheme('invalid','invalid')['--orange'],'#000000');
+  assert.equal(brandTheme('invalid','invalid')['--orange'],'#f26a2e');
 });
 
 test('real database migrates secondary color without replacing existing institutional data',async()=>{
@@ -33,7 +33,7 @@ test('real database migrates secondary color without replacing existing institut
   try{
     await loader()('db/knowledge.ts').ensureKnowledgeSchema();
     let row=await DB.prepare("SELECT * FROM site_settings WHERE id='default'").first();
-    assert.equal(row.primary_color,'#000000');assert.equal(row.secondary_color,'#808080');
+    assert.equal(row.primary_color,'#f26a2e');assert.equal(row.secondary_color,'#808080');
     await DB.prepare("UPDATE site_settings SET organization_name='기존 기관',primary_color='#123456',updated_at=123").run();
     await DB.prepare('ALTER TABLE site_settings DROP COLUMN secondary_color').run();
     await loader()('db/knowledge.ts').ensureKnowledgeSchema();
@@ -98,15 +98,14 @@ test('deleting an API key overrides an environment fallback and survives a datab
   }
 });
 
-test('visual brand roles and API status are not hard-coded to orange or connection success',async()=>{
-  const surfaces=await readFile(new URL('../app/brand-surfaces.css',import.meta.url),'utf8');
-  assert.match(surfaces,/\.user-message\s*\{\s*background: var\(--brand-secondary\)/);
-  const css=await readFile(new URL('../app/globals.css',import.meta.url),'utf8');assert.doesNotMatch(css,/#f26a2e|#f6b73c|#ee9f77/i);
-  assert.match(css,/\.settings-shell \{ min-height: 100vh; background: #f4f4f4; \}/);
-  const homeBackground=css.match(/\.home-shell::before \{[\s\S]*?\n\}/)?.[0]??'';
-  assert.match(homeBackground,/var\(--brand-wash\)/);assert.match(homeBackground,/var\(--brand-wash-soft\)/);assert.doesNotMatch(homeBackground,/var\(--brand-secondary\)/);
-  assert.match(css,/html \{ background: #f4f4f4;/);assert.match(css,/body \{[\s\S]*?background: #f4f4f4;/);
-  assert.doesNotMatch(css,/linear-gradient\((?:90deg|135deg), var\(--orange\), var\(--orange\)\)/);
+test('visual brand roles match the local design and API status is accurate',async()=>{
+  const css=await readFile(new URL('../app/globals.css',import.meta.url),'utf8');
+  assert.match(css,/--orange: #f26a2e/);
+  assert.match(css,/\.public-shell \{[\s\S]*?radial-gradient[\s\S]*?var\(--brand-surface-strong\)/);
+  assert.match(css,/\.headline-brand \{[^}]*var\(--brand-light\)[^}]*var\(--brand-deep\)/);
+  assert.match(css,/\.answer\.review \{ background: var\(--brand-surface\); border-color: #e4dacd; \}/);
+  assert.match(css,/\.chat \{[^}]*border: 1px solid #8b77603d/);
+  assert.match(css,/\.composer input \{[^}]*border: 1px solid var\(--brand-border\)/);
   const ui=await readFile(new URL('../app/settings/api-management-panel.tsx',import.meta.url),'utf8');assert.match(ui,/API 없음/);assert.match(ui,/usage\?\.apiKeyConfigured \? ` · 사용 모델/);assert.match(ui,/usage\?\.apiKeyConfigured && <p className="field-help">/);
   const blank=await readFile(new URL('../public/default-social-image.svg',import.meta.url),'utf8');assert.match(blank,/fill="#ffffff"/);assert.doesNotMatch(blank,/<text|<path|<circle/);
 });

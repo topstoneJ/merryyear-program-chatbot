@@ -3,7 +3,6 @@ import { ensureKnowledgeSchema } from "@/db/knowledge";
 import { brandingUrls, brandTheme, type BrandingRow } from "@/app/branding";
 import type { CSSProperties } from "react";
 import "./globals.css";
-import "./brand-surfaces.css";
 
 export const dynamic = "force-dynamic";
 
