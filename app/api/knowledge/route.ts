@@ -130,9 +130,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let stage = "read-form";
   try {
     const form = await request.formData();
     const businessId = String(form.get("businessId") || "");
+    stage = "authorize";
     { const denied = await requireAdminApi({ businessId }); if (denied) return denied; }
     const type = String(form.get("type") || "");
     const title = cleanText(String(form.get("title") || ""), 120);
@@ -140,6 +142,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "사업, 자료 형식, 제목을 확인해 주세요." }, { status: 400 });
     }
     const kind = type as LimitedSourceKind;
+    stage = "prepare-database";
     const DB = await ensureKnowledgeSchema();
     const count = await DB.prepare(COUNT_SOURCE_KIND_SQL).bind(businessId, kind).first<number>("COUNT(*)");
     if (Number(count) >= SOURCE_LIMITS[kind]) return Response.json({ error: sourceLimitMessage(kind) }, { status: 409 });
@@ -176,11 +179,13 @@ export async function POST(request: Request) {
       if (file.size > 20 * 1024 * 1024) return Response.json({ error: "PDF는 20MB 이하만 등록할 수 있습니다." }, { status: 400 });
       fileName = cleanText(file.name, 180);
       const extractedText = cleanAnalysisInput(String(form.get("extractedText") || ""), "PDF");
+      stage = "analyze-pdf";
       content = await analyzeSourceWithGemini(title, fileName, extractedText, "PDF");
       const { KNOWLEDGE_FILES } = knowledgeEnv();
       if (!KNOWLEDGE_FILES) throw new Error("Knowledge file storage is unavailable");
       const safeName = fileName.replace(/[^a-zA-Z0-9._가-힣-]/g, "-");
       fileKey = `knowledge/${businessId}/${id}/${safeName}`;
+      stage = "store-pdf";
       await KNOWLEDGE_FILES.put(fileKey, file.stream(), {
         httpMetadata: { contentType: "application/pdf" },
         customMetadata: { title, businessId },
@@ -188,6 +193,7 @@ export async function POST(request: Request) {
       status = "ready";
     }
 
+    stage = "insert-database";
     const inserted = await DB.prepare(
       `INSERT INTO knowledge_sources (id, business_id, type, title, source_url, file_key, file_name, content, status, enabled, created_at, updated_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ? WHERE (${COUNT_SOURCE_KIND_SQL}) < ?`,
     ).bind(id, businessId, type, title, sourceUrl, fileKey, fileName, content, status, now, now, businessId, kind, SOURCE_LIMITS[kind]).run();
@@ -201,7 +207,11 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof KnowledgeIntegrityError ? error.message : error instanceof Error && ["AI 분석을 위한 API 키가 설정되지 않았습니다.", "PDF에서 분석할 텍스트를 충분히 추출하지 못했습니다. 이미지 PDF라면 OCR이 필요합니다."].includes(error.message)
       ? error.message : "지식을 등록하지 못했습니다.";
-    console.error("Knowledge create failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
+    console.error("Knowledge create failed", {
+      requestId: crypto.randomUUID(), stage,
+      kind: error instanceof Error ? error.name : "UnknownError",
+      reason: error instanceof Error ? error.message.slice(0, 300) : "Unknown failure",
+    });
     return Response.json({ error: message }, { status: error instanceof KnowledgeIntegrityError ? 400 : 500 });
   }
 }
