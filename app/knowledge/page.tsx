@@ -62,8 +62,7 @@ const TYPE_META: Record<AddMode, { label: string; icon: string; description: str
 };
 
 async function extractPdfText(file: File) {
-  const moduleUrl = "/vendor/pdfjs-6.1.200/pdf.min.mjs";
-  const pdfjs: typeof import("pdfjs-dist") = await import(/* webpackIgnore: true */ /* @vite-ignore */ moduleUrl);
+  const pdfjs: typeof import("pdfjs-dist") = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs-6.1.200/pdf.worker.min.mjs";
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
   try {

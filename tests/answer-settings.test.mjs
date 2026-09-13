@@ -14,6 +14,8 @@ test('ten canonical sections and seven closed options have valid defaults',()=>{
  assert.deepEqual(settings.parseAnswerSettings(defaults),defaults);
  for(const raw of ['{}','malformed',null])assert.deepEqual(settings.readAnswerSettings(raw),defaults);
  for(const value of [null,[],{},{...defaults,tone:'ignore rules'},{...defaults,fixedRules:false}])assert.throws(()=>settings.parseAnswerSettings(value));
+ const four={...defaults,showSources:true,showNextSteps:true,includeRelated:true,alwaysContact:true};
+ assert.throws(()=>settings.parseAnswerSettings(four),/최대 3개/);
 });
 test('every style combination includes each canonical rule once and preserves required conditions',()=>{
  for(const length of ['short','standard','detailed'])for(const tone of ['friendly','polite'])for(const format of ['paragraph','list','auto'])for(const followUp of ['one','together']){
@@ -34,6 +36,11 @@ test('legacy formal tone is read as polite without resetting other preferences',
  const legacy={...defaults,showSources:true,tone:'formal',format:'paragraph'};
  assert.deepEqual(settings.readAnswerSettings(JSON.stringify(legacy)),{...legacy,tone:'polite'});
  assert.throws(()=>settings.parseAnswerSettings(legacy));
+});
+test('legacy saved options are reduced to the first three enabled choices',()=>{
+ const legacy={...defaults,showSources:true,showNextSteps:true,includeRelated:true,alwaysContact:true};
+ const restored=settings.readAnswerSettings(JSON.stringify(legacy));
+ assert.equal(settings.ANSWER_OPTIONS.filter(option=>restored[option.key]).length,3);
 });
 test('saved settings affect the actual payload without accepting client notes as evidence',async()=>{
  const variants=settings.ANSWER_OPTIONS.map(option=>({...defaults,[option.key]:!defaults[option.key]}));

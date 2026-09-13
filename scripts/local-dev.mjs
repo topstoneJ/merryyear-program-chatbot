@@ -17,7 +17,7 @@ catch (error) {
   if (error.code !== "ENOENT") throw error;
   settings = {
     ADMIN_ID: "chatbot01",
-    ADMIN_PASSWORD: `Local!${randomBytes(7).toString("hex")}`,
+    ADMIN_PASSWORD: "Chatbot01!",
     ADMIN_SESSION_SECRET: randomBytes(32).toString("hex"),
     API_KEY_ENCRYPTION_SECRET: randomBytes(32).toString("hex"),
   };

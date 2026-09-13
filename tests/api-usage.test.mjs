@@ -35,12 +35,14 @@ test('usage wrapper preserves the response, records failed attempts, and never s
 test('API management rejects unauthorized requests and saves or deletes only the encrypted API key',async()=>{
   let denied=true;const writes=[];
   const DB={prepare:sql=>({bind:(...args)=>({run:async()=>{writes.push({sql,args});}})})};
-  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async key=>'encrypted-'+key}});
+  const disabled='!disabled';
+  const status=(stored,fallback)=>({apiKeyConfigured:stored!==disabled&&Boolean(stored||fallback),storedApiKeyConfigured:stored!==disabled&&Boolean(stored),environmentApiKeyConfigured:Boolean(fallback)});
+  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async key=>'encrypted-'+key,GEMINI_API_KEY_DISABLED:disabled,configuredGeminiApiKeyStatus:status}});
   const request=key=>new Request('https://test/api/api-management',{method:'PATCH',body:JSON.stringify({apiKey:key})});
   assert.equal((await route.GET()).status,403);assert.equal((await route.PATCH(request('test-only'))).status,403);assert.equal((await route.DELETE()).status,403);assert.equal(writes.length,0);
   denied=false;assert.equal((await route.PATCH(request(' '))).status,400);assert.equal(writes.length,0);
   assert.equal((await route.PATCH(request('test-only'))).status,200);assert.equal(writes[0].args[0],'encrypted-test-only');assert.ok(!writes[0].sql.includes('primary_color'));
-  assert.equal((await route.DELETE()).status,200);assert.match(writes[1].sql,/gemini_api_key_encrypted = NULL/);assert.equal(writes[1].args.length,1);
+  const deleted=await route.DELETE();assert.equal(deleted.status,200);assert.match(writes[1].sql,/gemini_api_key_encrypted = \?/);assert.equal(writes[1].args[0],disabled);assert.equal((await deleted.json()).apiKeyConfigured,false);
 });
 
 test('selected dates validate calendar days and reject future dates',()=>{
@@ -69,7 +71,7 @@ test('range route isolates Korean day boundaries and preserves costs across API 
   insert.run(boundary+1,'gpt-5.4','knowledge',null);
   insert.run(pricing.selectedDayBounds('2024-02-29').end,'gemini-3.8-flash','chat',7);
   const DB={prepare(sql){const stmt=db.prepare(sql);const wrap=args=>({first:async()=>stmt.get(...args)||null,all:async()=>({results:stmt.all(...args)})});return {...wrap([]),bind:(...args)=>wrap(args)};}};
-  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB}});
+  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored),storedApiKeyConfigured:Boolean(stored),environmentApiKeyConfigured:false})}});
   const get=(from,to=from)=>route.GET(new Request(`https://test/api/api-management?from=${from}&to=${to}`));
   const response=await get('2024-02-29');assert.equal(response.status,200);const result=await response.json();
   assert.equal(result.dateKey,'2024-02-29~2024-02-29');assert.equal(result.totals.requests,2);assert.equal(result.totals.estimatedUsd,0.2);assert.equal(result.totals.unpriced,1);

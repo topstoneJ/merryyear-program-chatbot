@@ -257,10 +257,23 @@ export async function encryptConfiguredGeminiApiKey(value: string) {
   return `${bytesToBase64(iv)}.${bytesToBase64(new Uint8Array(encrypted))}`;
 }
 
+// Persist an explicit opt-out so an environment fallback cannot silently
+// reactivate a key after an administrator deletes it or restarts the server.
+export const GEMINI_API_KEY_DISABLED = "!disabled";
+export function configuredGeminiApiKeyStatus(stored: string | null | undefined, fallback = process.env.GEMINI_API_KEY) {
+  const disabled = stored === GEMINI_API_KEY_DISABLED;
+  return {
+    apiKeyConfigured: !disabled && Boolean(stored || fallback),
+    storedApiKeyConfigured: !disabled && Boolean(stored),
+    environmentApiKeyConfigured: Boolean(fallback),
+  };
+}
+
 export async function getConfiguredGeminiApiKey() {
   const fallback = process.env.GEMINI_API_KEY;
   const DB = await ensureKnowledgeSchema();
   const row = await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>();
+  if (row?.gemini_api_key_encrypted === GEMINI_API_KEY_DISABLED) return undefined;
   if (!row?.gemini_api_key_encrypted) return fallback;
   try {
     const [iv, encrypted] = row.gemini_api_key_encrypted.split(".");

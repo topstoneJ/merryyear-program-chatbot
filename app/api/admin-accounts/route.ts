@@ -4,7 +4,7 @@ import { listBusinesses } from "@/db/knowledge";
 function publicAccount(account: AdminAccount, allBusinessIds: string[]) { return { id: account.id, username: account.username, businessIds: account.is_super_admin ? allBusinessIds : accountBusinessIds(account), canViewConsultations: Boolean(account.is_super_admin || account.can_view_consultations), canDeleteConsultations: Boolean(account.is_super_admin || account.can_delete_consultations), canManageSettings: Boolean(account.can_manage_settings || account.is_super_admin), isSuperAdmin: Boolean(account.is_super_admin) }; }
 const validUsername = (value: string) => /^[a-zA-Z0-9_-]{4,60}$/.test(value);
 const validPassword = (value: string) => value.length >= 8 && value.length <= 20 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[^a-zA-Z0-9]/.test(value);
-const passwordError = "비밀번호는 영어 대소문자와 특수기호를 포함해 8자 이상 입력해 주세요.";
+const passwordError = "비밀번호는 영어 대소문자와 특수기호를 포함해 8자 이상 20자 이하로 입력해 주세요.";
 
 export async function GET() { const denied = await requireAdminApi({ settings: true }); if (denied) return denied; const DB = await ensureBootstrapAdmin(); const result = await DB.prepare("SELECT * FROM admin_accounts ORDER BY is_super_admin DESC, created_at").all<AdminAccount>(); const current = await getAdminSession(), businesses = (await listBusinesses()).map(item => ({ id: item.id, name: item.name })); return Response.json({ accounts: result.results.map(account => publicAccount(account, businesses.map(item => item.id))), currentAccountId: current?.id, canManageSuperAdmins: Boolean(current?.is_super_admin), businesses }); }
 export async function POST(request: Request) {
