@@ -132,12 +132,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let stage = "read-form";
   try {
-    const form = await request.formData();
-    const businessId = String(form.get("businessId") || "");
+    const isJson = request.headers.get("content-type")?.toLowerCase().includes("application/json");
+    const json = isJson ? await request.json() as Record<string, unknown> : null;
+    const form = isJson ? null : await request.formData();
+    const value = (key: string) => json ? json[key] : form?.get(key);
+    const businessId = String(value("businessId") || "");
     stage = "authorize";
     { const denied = await requireAdminApi({ businessId }); if (denied) return denied; }
-    const type = String(form.get("type") || "");
-    const title = cleanText(String(form.get("title") || ""), 120);
+    const type = String(value("type") || "");
+    const title = cleanText(String(value("title") || ""), 120);
     if (!await getBusiness(businessId) || !TYPES.has(type) || !title) {
       return Response.json({ error: "사업, 자료 형식, 제목을 확인해 주세요." }, { status: 400 });
     }
@@ -156,7 +159,7 @@ export async function POST(request: Request) {
     let status: "ready" | "stored" | "error" = "ready";
 
     if (type === "website") {
-      const rawUrl = String(form.get("url") || "").trim();
+      const rawUrl = String(value("url") || "").trim();
       let parsed: URL;
       try { parsed = publicWebsiteUrl(rawUrl); }
       catch { return Response.json({ error: "공개 웹사이트의 http 또는 https 주소를 입력해 주세요." }, { status: 400 }); }
@@ -170,15 +173,23 @@ export async function POST(request: Request) {
         status = "error";
       }
     } else if (type === "text") {
-      content = validateKnowledgeContent(cleanAnalysisInput(String(form.get("content") || ""), "텍스트"));
+      content = validateKnowledgeContent(cleanAnalysisInput(String(value("content") || ""), "텍스트"));
     } else {
-      const file = form.get("file");
-      if (!(file instanceof File) || file.type !== "application/pdf") {
+      const file = form?.get("file");
+      const fileType = isJson ? String(value("fileType") || "") : file instanceof File ? file.type : "";
+      if (fileType !== "application/pdf") {
         return Response.json({ error: "PDF 파일을 선택해 주세요." }, { status: 400 });
       }
-      if (file.size > 20 * 1024 * 1024) return Response.json({ error: "PDF는 20MB 이하만 등록할 수 있습니다." }, { status: 400 });
-      fileName = cleanText(file.name, 180);
-      const extractedText = cleanAnalysisInput(String(form.get("extractedText") || ""), "PDF");
+      let fileBytes: Uint8Array;
+      try {
+        fileBytes = isJson
+          ? new Uint8Array(Buffer.from(String(value("fileBase64") || ""), "base64"))
+          : new Uint8Array(await (file as File).arrayBuffer());
+      } catch { return Response.json({ error: "PDF 파일을 읽지 못했습니다." }, { status: 400 }); }
+      if (!fileBytes.length || fileBytes.length > 20 * 1024 * 1024) return Response.json({ error: "PDF는 20MB 이하만 등록할 수 있습니다." }, { status: 400 });
+      if (new TextDecoder("ascii").decode(fileBytes.subarray(0, 5)) !== "%PDF-") return Response.json({ error: "올바른 PDF 파일을 선택해 주세요." }, { status: 400 });
+      fileName = cleanText(String(isJson ? value("fileName") : (file as File).name), 180);
+      const extractedText = cleanAnalysisInput(String(value("extractedText") || ""), "PDF");
       stage = "analyze-pdf";
       content = await analyzeSourceWithGemini(title, fileName, extractedText, "PDF");
       const { KNOWLEDGE_FILES } = knowledgeEnv();
@@ -186,7 +197,8 @@ export async function POST(request: Request) {
       const safeName = fileName.replace(/[^a-zA-Z0-9._가-힣-]/g, "-");
       fileKey = `knowledge/${businessId}/${id}/${safeName}`;
       stage = "store-pdf";
-      await KNOWLEDGE_FILES.put(fileKey, file.stream(), {
+      const pdfBuffer = fileBytes.buffer.slice(fileBytes.byteOffset, fileBytes.byteOffset + fileBytes.byteLength) as ArrayBuffer;
+      await KNOWLEDGE_FILES.put(fileKey, new Response(pdfBuffer).body!, {
         httpMetadata: { contentType: "application/pdf" },
         customMetadata: { title, businessId },
       });

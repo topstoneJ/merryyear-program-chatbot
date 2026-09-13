@@ -84,6 +84,16 @@ async function extractPdfText(file: File) {
   } finally { await loadingTask.destroy(); }
 }
 
+async function fileToBase64(file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunkSize = 32_768;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
 const SECTION_RULES = [
   { title: "제출 서류", semanticTag: "documents", pattern: /제출 서류|구비 서류|증빙|영수증|계산서|세금계산서|견적서|계약서|거래명세|입금증|통장 사본|사진|사후 지출|지출 내역|서류 제출|첨부 서류/ },
   { title: "지원·제공 내용", semanticTag: "benefit", pattern: /지원(?!자|대상)|지원금|금액|비용|제공|혜택|물품/ },
@@ -414,12 +424,26 @@ export default function KnowledgePage() {
     if (sourceType === "pdf" && !file) return setNotice({ tone: "error", text: "PDF 파일을 선택해 주세요." });
     setSaving(true); setNotice(null);
     try {
-      const form = new FormData();
-      form.set("businessId", businessId); form.set("type", sourceType); form.set("title", title.trim());
-      if (sourceType === "website") form.set("url", url.trim());
-      if (sourceType === "text") form.set("content", content.trim());
-      if (sourceType === "pdf" && file) { form.set("file", file); form.set("extractedText", await extractPdfText(file)); }
-      const response = await fetch("/api/knowledge", { method: "POST", body: form });
+      let request: RequestInit;
+      if (sourceType === "pdf" && file) {
+        request = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId, type: sourceType, title: title.trim(),
+            fileName: file.name, fileType: file.type,
+            fileBase64: await fileToBase64(file),
+            extractedText: await extractPdfText(file),
+          }),
+        };
+      } else {
+        const form = new FormData();
+        form.set("businessId", businessId); form.set("type", sourceType); form.set("title", title.trim());
+        if (sourceType === "website") form.set("url", url.trim());
+        if (sourceType === "text") form.set("content", content.trim());
+        request = { method: "POST", body: form };
+      }
+      const response = await fetch("/api/knowledge", request);
       const payload = await response.json() as { source?: KnowledgeSource; error?: string };
       if (!response.ok || !payload.source) throw new Error(payload.error || "데이터를 등록하지 못했습니다.");
       setSources((previous) => [payload.source!, ...previous]); resetForm(); checkChangedData(businessId);
