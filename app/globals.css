@@ -221,6 +221,7 @@
 .color-setting span b { font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
 .color-setting span small { color: #887f77; margin-top: 3px; font-size: max(var(--admin-min-font, 0px), calc((9px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
 .color-setting i { height: 34px; background: var(--brand-preview); border-radius: 9px; }
+.secondary-color-control { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5ddd5; }
 .settings-notice { color: #286548; background: #eaf6ef; border: 1px solid #b8dec9; border-radius: 12px; margin: 16px 0 0; padding: 12px; font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 750; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .settings-actions .cancel-button { text-decoration: none; padding: 11px 16px; }
@@ -452,8 +453,8 @@ body {
 .public-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 30% 43%, var(--brand-surface-strong) 0, color-mix(in srgb, var(--orange) 8%, transparent) 22%, transparent 42%),
-    linear-gradient(135deg, color-mix(in srgb, var(--orange) 5%, white), white);
+    radial-gradient(circle at 30% 43%, color-mix(in srgb, var(--hero-gradient-color, #808080) 15%, white) 0, color-mix(in srgb, var(--hero-gradient-color, #808080) 8%, transparent) 22%, transparent 42%),
+    linear-gradient(135deg, color-mix(in srgb, var(--hero-gradient-color, #808080) 5%, white), white);
 }
 
 button, input, textarea, select { font: inherit; }

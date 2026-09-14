@@ -55,9 +55,9 @@ export default function SettingsPage() {
     if (!settings) return;
     const id = crypto.randomUUID();
     if (logo) previewLogo.current = URL.createObjectURL(logo);
-    const { organizationName, contact, logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor } = settings;
+    const { organizationName, contact, logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor, secondaryColor } = settings;
     try {
-      sessionStorage.setItem(`settings-preview:${id}`, JSON.stringify({ organizationName, contact, logoUrl: previewLogo.current || logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor }));
+      sessionStorage.setItem(`settings-preview:${id}`, JSON.stringify({ organizationName, contact, logoUrl: previewLogo.current || logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor, secondaryColor }));
       setPreviewId(id);
     } catch { if (previewLogo.current) URL.revokeObjectURL(previewLogo.current); previewLogo.current = ""; setNotice("미리보기를 열지 못했습니다. 브라우저 저장 공간을 확인해 주세요."); }
   }
@@ -93,7 +93,7 @@ export default function SettingsPage() {
     event.preventDefault(); if (!settings || saving || generatingDefault) return; setSaving(true); setNotice("");
     try {
       const form = new FormData();
-      for (const key of ["organizationName", "contact", "mainHeadline", "mainSubcopy", "chatbotGreeting", "chatPlaceholder", "primaryColor"] as const) form.set(key, settings[key]);
+      for (const key of ["organizationName", "contact", "mainHeadline", "mainSubcopy", "chatbotGreeting", "chatPlaceholder", "primaryColor", "secondaryColor"] as const) form.set(key, settings[key]);
       if (logo) form.set("logo", logo);
       if (favicon) form.set("favicon", favicon);
       form.set("socialCaption", settings.socialCaption || "");
@@ -117,7 +117,13 @@ export default function SettingsPage() {
         <section className="settings-card"><h2>채팅화면</h2><label className="field"><span>챗봇 기본 안내문</span><textarea value={settings.chatbotGreeting} onChange={e => setSettings({ ...settings, chatbotGreeting: e.target.value })} /></label><label className="field"><span>채팅창 내 기본 문구</span><input value={settings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요"} maxLength={150} onChange={e => setSettings({ ...settings, chatPlaceholder: e.target.value })} /><small className="field-help">질문을 입력하기 전에 채팅 입력창에 표시되는 문구입니다.</small></label></section>
       </div> : tab === "design" ? <div className="settings-grid">
         <section className="settings-card"><h2>기관 로고</h2><div className="field"><input ref={fileRef} className="sr-only" type="file" accept="image/*" onChange={e => setLogo(e.target.files?.[0] || null)} /><button className="logo-upload" type="button" onClick={() => fileRef.current?.click()}><img src={logoDisplayUrl || settings.logoUrl} alt="로고 미리보기" /><span><b>{logo?.name || "현재 기관 로고"}</b><small>PNG·JPG·WEBP, 최대 3MB</small></span><strong>변경</strong></button><button className="cancel-button design-reset-button" type="button" disabled={saving} onClick={() => void whiteImage("white-logo.png", 420, 106).then(setLogo)}>초기화</button></div></section>
-        <section className="settings-card"><h2>브랜드 컬러</h2><label className="color-setting"><input type="color" value={settings.primaryColor} onChange={e => setSettings({ ...settings, primaryColor: e.target.value })} /><span><b>메인 컬러</b><small>{settings.primaryColor}</small></span><i /></label><button className="cancel-button design-reset-button" type="button" disabled={saving} onClick={() => setSettings({ ...settings, primaryColor: "#ffffff" })}>초기화</button></section>
+        <section className="settings-card"><h2>브랜드 컬러</h2><label className="color-setting"><input type="color" aria-label="메인 컬러" value={settings.primaryColor} onChange={e => setSettings({ ...settings, primaryColor: e.target.value })} /><span><b>메인 컬러</b><small>{settings.primaryColor}</small></span><i /></label><button className="cancel-button design-reset-button" type="button" disabled={saving} onClick={() => setSettings({ ...settings, primaryColor: "#ffffff" })}>초기화</button>
+          <div className="secondary-color-control">
+            <label className="color-setting"><input type="color" aria-label="서브컬러" aria-describedby="secondary-color-help" value={settings.secondaryColor || "#808080"} onChange={e => setSettings({ ...settings, secondaryColor: e.target.value })} /><span><b>서브컬러</b><small>{settings.secondaryColor || "#808080"}</small></span><i style={{ background: settings.secondaryColor || "#808080" }} /></label>
+            <p id="secondary-color-help" className="field-help">메인화면 타이틀 뒤 그라데이션에만 적용됩니다. 채팅 말풍선과 버튼 색상은 바뀌지 않습니다.</p>
+            <button className="cancel-button design-reset-button" type="button" aria-label="서브컬러 초기화" disabled={saving} onClick={() => setSettings({ ...settings, secondaryColor: "#808080" })}>초기화</button>
+          </div>
+        </section>
         <section className="settings-card brand-images-card"><h2>브라우저 탭 아이콘</h2>
           <BrandImageUpload title="브라우저 탭 아이콘" hint="원본 비율을 유지하고 정중앙에 배치돼요. · PNG·JPG·WEBP, 최대 3MB" currentUrl={settings.faviconUrl} value={favicon} onChange={setFavicon} disabled={saving} onReset={() => void whiteImage("white-favicon.png", 64, 64).then(setFavicon)} />
         </section>
