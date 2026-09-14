@@ -4,7 +4,8 @@ import { loadAdminGuideContext } from "@/app/admin-guide-context";
 import { offlineGuideAnswer } from "@/app/admin-guide-offline";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS, chatHistorySize, parseChatHistory, chatContextInput, type ChatTurn } from "@/app/chat-context";
 import { maskResidentRegistrationNumber } from "@/app/resident-number";
-import { trackedGeminiFetch } from "@/db/api-usage";
+import { trackedGeminiJson } from "@/db/api-usage";
+import { createChatTiming, type ChatTiming } from "@/app/chat-timing";
 import { loadCategories, type QuestionCategory } from "@/db/consultation-categories";
 import { CATEGORY_GUIDANCE } from "@/db/semantic-category";
 import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-settings";
@@ -50,12 +51,18 @@ function modelOutputText(payload: GeminiPayload) {
   return output.trim();
 }
 
-async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[]): Promise<Answer> {
+async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming): Promise<Answer> {
   const DB = await ensureKnowledgeSchema();
-  const settingsRow = await DB.prepare("SELECT answer_settings_json FROM site_settings WHERE id = 'default'").first<{ answer_settings_json: string }>();
+  const { settingsRow, allCategories, apiKey } = await timing.measure("configuration", async () => {
+    const [settingsRow, allCategories] = await Promise.all([
+      DB.prepare("SELECT answer_settings_json, gemini_api_key_encrypted FROM site_settings WHERE id = 'default'")
+        .first<{ answer_settings_json: string; gemini_api_key_encrypted: string | null }>(),
+      loadCategories(DB),
+    ]);
+    return { settingsRow, allCategories, apiKey: await getConfiguredGeminiApiKey(settingsRow) };
+  });
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
-  const categories = (await loadCategories(DB) as QuestionCategory[]).filter(category => !category.replacement_id);
-  const apiKey = await getConfiguredGeminiApiKey();
+  const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
   if (!apiKey) throw new Error("Gemini API key is not configured");
   const modelRequest = {
     model: process.env.GEMINI_MODEL || "gemini-3.7-flash",
@@ -88,12 +95,11 @@ async function askGemini(businessId: string, businessName: string, question: str
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await trackedGeminiFetch("chat", {
+      const { response, payload } = await trackedGeminiJson<GeminiPayload>("chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey, "Api-Revision": "2026-05-20" },
         body: JSON.stringify(modelRequest),
-      });
-      const payload = await response.json() as GeminiPayload;
+      }, timing.add);
       if (!response.ok) {
         const retryable = response.status === 408 || response.status === 409 || response.status === 425 || response.status === 429 || response.status >= 500;
         const error = Object.assign(new Error(payload.error?.message || "Gemini request failed"), { retryable });
@@ -103,7 +109,7 @@ async function askGemini(businessId: string, businessName: string, question: str
       }
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
-      return parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id));
+      return await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id)));
     } catch (error) {
       lastError = error;
       if (attempt === 1 || (error as { retryable?: boolean }).retryable === false) throw error;
@@ -112,7 +118,7 @@ async function askGemini(businessId: string, businessName: string, question: str
   throw lastError;
 }
 
-async function askAdminGuide(question: string, history: ChatTurn[], account: AdminAccount): Promise<Answer> {
+async function askAdminGuide(question: string, history: ChatTurn[], account: AdminAccount, timing: ChatTiming): Promise<Answer> {
   const apiKey = await getConfiguredGeminiApiKey();
   if (!apiKey) return offlineGuideAnswer(question);
   const operatingState = await loadAdminGuideContext(account);
@@ -125,12 +131,11 @@ async function askAdminGuide(question: string, history: ChatTurn[], account: Adm
       type: "object", properties: { text: { type: "string" } }, required: ["text"],
     } },
   };
-  const response = await trackedGeminiFetch("chat", {
+  const { response, payload } = await trackedGeminiJson<GeminiPayload>("chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey, "Api-Revision": "2026-05-20" },
     body: JSON.stringify(modelRequest),
-  });
-  const payload = await response.json() as GeminiPayload;
+  }, timing.add);
   if (!response.ok) throw new Error(payload.error?.message || "Gemini request failed");
   const raw = modelOutputText(payload);
   if (!raw) throw new Error("Gemini returned an empty response");
@@ -147,51 +152,55 @@ async function askAdminGuide(question: string, history: ChatTurn[], account: Adm
 
 export async function POST(request: Request) {
   let stage = "request";
+  const timing = createChatTiming();
+  const reply = (payload: unknown, status = 200) => Response.json(payload, {
+    status, headers: { "Server-Timing": timing.finish(status), "Cache-Control": "no-store" },
+  });
   try {
     const body = await request.json() as { businessId?: string; question?: string; history?: unknown };
     let history: ChatTurn[];
     try { history = parseChatHistory(body.history); }
-    catch (error) { return Response.json({ error: (error as Error).message }, { status: 400 }); }
+    catch (error) { return reply({ error: (error as Error).message }, 400); }
     const businessId = body.businessId;
     const question = typeof body.question === "string" ? maskResidentRegistrationNumber(body.question.trim()) : "";
     if (typeof businessId !== "string" || !businessId || !question || question.length > 150) {
-      return Response.json({ error: "올바른 질문을 입력해 주세요." }, { status: 400 });
+      return reply({ error: "올바른 질문을 입력해 주세요." }, 400);
     }
     if (history.length >= MAX_CHAT_TURNS || chatHistorySize(history) + question.length > MAX_CHAT_CHARACTERS) {
-      return Response.json({ error: CHAT_LIMIT_MESSAGE }, { status: 400 });
+      return reply({ error: CHAT_LIMIT_MESSAGE }, 400);
     }
     if (businessId === ADMIN_GUIDE_BUSINESS_ID) {
       const account = await getAdminSession();
-      if (!account) return Response.json({ error: "선택한 사업을 찾을 수 없습니다." }, { status: 404 });
+      if (!account) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
       stage = "generation";
-      const generatedAnswer = await askAdminGuide(question, history, account).catch(() => offlineGuideAnswer(question));
+      const generatedAnswer = await timing.measure("generation", () => askAdminGuide(question, history, account, timing).catch(() => offlineGuideAnswer(question)));
       const answer = { ...generatedAnswer,
         text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
         source: ADMIN_GUIDE_BUSINESS_NAME,
       };
-      return Response.json({ answer, question });
+      return reply({ answer, question });
     }
     stage = "business";
-    const business = await getBusiness(businessId);
-    if (!business || (!business.is_public && !(await getAdminSession())?.is_super_admin)) return Response.json({ error: "선택한 사업을 찾을 수 없습니다." }, { status: 404 });
+    const business = await timing.measure("business", () => getBusiness(businessId));
+    if (!business || (!business.is_public && !(await getAdminSession())?.is_super_admin)) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
     stage = "knowledge";
-    const knowledge = await loadKnowledgeContext(businessId);
+    const knowledge = await timing.measure("knowledge", () => loadKnowledgeContext(businessId));
     stage = "generation";
-    const generatedAnswer = await askGemini(businessId, business.name, question, knowledge, history);
+    const generatedAnswer = await timing.measure("generation", () => askGemini(businessId, business.name, question, knowledge, history, timing));
     const answer = { ...generatedAnswer,
       text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
       source: maskResidentRegistrationNumber(generatedAnswer.source),
     };
-    await recordConsultation({ businessId, question, categoryId: answer.categoryId, decision: answer.decision,
+    await timing.measure("consultation", () => recordConsultation({ businessId, question, categoryId: answer.categoryId, decision: answer.decision,
       answer: answer.text, source: answer.source, confidence: answer.confidence, review: answer.review,
-    }).catch(() => console.error("Consultation recording failed"));
-    return Response.json({ answer, question });
+    }).catch(() => console.error("Consultation recording failed")));
+    return reply({ answer, question });
   } catch (error) {
     // Log only allowlisted failure reasons, never questions, model output or API keys.
     const knownReasons = ["Invalid Gemini response contract", "Unknown answer source", "Unverified answer page", "Eligibility decision without a source", "Unexpected contact evidence", "Gemini returned an empty response", "Gemini API key is not configured", "Knowledge context exceeds safe comparison limit"];
     const message = error instanceof Error ? error.message : "";
     const reason = knownReasons.includes(message) ? message : error instanceof SyntaxError ? "Invalid JSON" : "Upstream or infrastructure failure";
     console.error("Chat answer failed", { stage, reason });
-    return Response.json({ error: "답변을 만드는 중 문제가 생겼습니다. 잠시 후 다시 질문해 주세요." }, { status: 502 });
+    return reply({ error: "답변을 만드는 중 문제가 생겼습니다. 잠시 후 다시 질문해 주세요." }, 502);
   }
 }

@@ -32,6 +32,26 @@ test('usage wrapper preserves the response, records failed attempts, and never s
   assert.ok(!JSON.stringify(records).includes('test-secret'));assert.ok(!JSON.stringify(records).includes('private-question'));
   networkFail=true;await assert.rejects(wrapper.trackedGeminiFetch('chat',init));assert.equal(records.length,2);assert.equal(records[1][4],0);assert.equal(records[1][9],null);
 });
+
+test('chat JSON path parses once and durably records success, HTTP errors and malformed responses', async()=>{
+  const records=[],timings=[];let reads=0,mode='success';
+  const payload={steps:[],usage:{total_input_tokens:20,total_output_tokens:7}};
+  const DB={prepare:()=>({bind:(...values)=>({run:async()=>records.push(values)})})};
+  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing},async()=>{
+    if(mode==='network')throw new Error('network');
+    return {status:mode==='http'?429:200,ok:mode!=='http',clone(){throw new Error('must not clone');},async json(){reads++;if(mode==='malformed')throw new SyntaxError('malformed');return payload;}};
+  });
+  const init={body:JSON.stringify({model:'gemini-3.7-flash',input:'private-question'}),headers:{'x-goog-api-key':'secret'}};
+  const result=await wrapper.trackedGeminiJson('chat',init,(...args)=>timings.push(args));
+  assert.strictEqual(result.payload,payload);assert.equal(reads,1);assert.equal(records.length,1);
+  assert.equal(records[0][5],20);assert.equal(records[0][6],7);
+  mode='http';assert.equal((await wrapper.trackedGeminiJson('chat',init)).response.status,429);
+  mode='malformed';await assert.rejects(wrapper.trackedGeminiJson('chat',init),SyntaxError);
+  mode='network';await assert.rejects(wrapper.trackedGeminiJson('chat',init));
+  assert.deepEqual(records.map(r=>r[4]),[200,429,200,0]);
+  assert.deepEqual(timings.map(t=>t[0]),['model','usage']);
+  assert.doesNotMatch(JSON.stringify(records),/private-question|secret/);
+});
 test('API management rejects unauthorized requests and saves or deletes only the encrypted API key',async()=>{
   let denied=true;const writes=[];
   const DB={prepare:sql=>({bind:(...args)=>({run:async()=>{writes.push({sql,args});}})})};

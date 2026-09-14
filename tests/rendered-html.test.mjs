@@ -286,7 +286,7 @@ test("guide is a top-level page for every authenticated administrator", async ()
   assert.match(businesses, /운영 가이드는 수정할 수 없습니다/);
   assert.match(chat, /if \(businessId === ADMIN_GUIDE_BUSINESS_ID\)/);
   assert.match(chat, /const account = await getAdminSession\(\);\s*if \(!account\)/);
-  assert.match(chat, /return Response\.json\(\{ answer, question \}\);/);
+  assert.match(chat, /return reply\(\{ answer, question \}\);/);
   assert.match(home, /ADMIN_GUIDE_BUSINESS_NAME/);
 });
 

@@ -268,10 +268,11 @@ export function configuredGeminiApiKeyStatus(stored: string | null | undefined, 
   };
 }
 
-export async function getConfiguredGeminiApiKey() {
+export async function getConfiguredGeminiApiKey(settingsRow?: { gemini_api_key_encrypted: string | null } | null) {
   const fallback = process.env.GEMINI_API_KEY;
-  const DB = await ensureKnowledgeSchema();
-  const row = await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>();
+  const row = settingsRow === undefined
+    ? await (await ensureKnowledgeSchema()).prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>()
+    : settingsRow;
   if (row?.gemini_api_key_encrypted === GEMINI_API_KEY_DISABLED) return undefined;
   if (!row?.gemini_api_key_encrypted) return fallback;
   try {

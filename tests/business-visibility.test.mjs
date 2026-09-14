@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
+import { sourceLoader } from './load-source.mjs';
 async function load(path, mocks) { const out={}; new Function("require","exports",ts.transpileModule(await readFile(new URL(path,import.meta.url),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(()=>mocks,out);return out; }
 test("main list exposes hidden businesses only to super admins and is never cached",async()=>{
  let account=null;const rows=[{id:"public",is_public:1},{id:"private",is_public:0}];
@@ -38,6 +39,6 @@ test("admin guide is absent from management and rejects direct changes",async()=
 });
 test("private chat is blocked before any knowledge or AI access for non-super-admins",async()=>{
  let account=null;
- const api=await load("../app/api/chat/route.ts",{ADMIN_GUIDE_BUSINESS_ID:"__admin-guide",MAX_CHAT_TURNS:100,MAX_CHAT_CHARACTERS:50000,chatHistorySize:()=>0,parseChatHistory:()=>[],maskResidentRegistrationNumber:s=>s,getBusiness:async()=>({is_public:0}),getAdminSession:async()=>account});
+ const api=await load("../app/api/chat/route.ts",{...sourceLoader()('app/chat-timing.ts'),ADMIN_GUIDE_BUSINESS_ID:"__admin-guide",MAX_CHAT_TURNS:100,MAX_CHAT_CHARACTERS:50000,chatHistorySize:()=>0,parseChatHistory:()=>[],maskResidentRegistrationNumber:s=>s,getBusiness:async()=>({is_public:0}),getAdminSession:async()=>account});
  for(const viewer of [null,{is_super_admin:0,can_manage_settings:1}]){account=viewer;assert.equal((await api.POST(new Request("https://test",{method:"POST",body:JSON.stringify({businessId:"private",question:"질문"})}))).status,404);}
 });
