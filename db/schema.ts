@@ -30,6 +30,7 @@ export const knowledgeSources = sqliteTable("knowledge_sources", {
   content: text("content").notNull().default(""),
   status: text("status").notNull().default("ready"),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  sharedAllBusinesses: integer("shared_all_businesses", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [

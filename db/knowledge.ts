@@ -18,6 +18,7 @@ export type KnowledgeSourceRow = {
   content: string;
   status: "ready" | "stored" | "error";
   enabled: number;
+  shared_all_businesses?: number;
   created_at: number;
   updated_at: number;
 };
@@ -330,7 +331,7 @@ export async function recordConsultation(input: {
 
 export async function loadKnowledgeContext(businessId: string) {
   const DB = await ensureKnowledgeSchema();
-  const result = await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? ORDER BY id")
+  const result = await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? OR shared_all_businesses = 1 ORDER BY id")
     .bind(businessId).all<KnowledgeSourceRow>();
   const cached = await DB.prepare("SELECT report FROM knowledge_conflict_checks WHERE business_id = ? AND snapshot_key = ?")
     .bind(businessId, await snapshotKey(result.results)).first<{ report: string }>();

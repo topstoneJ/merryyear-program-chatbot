@@ -46,6 +46,7 @@ function publicSource(row: KnowledgeSourceRow & { is_random?: number; is_main?: 
     fileName: row.file_name,
     status: row.status,
     enabled: Boolean(row.enabled),
+    sharedAllBusinesses: row.shared_all_businesses === 1,
     contentLength: row.content.length,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -234,16 +235,21 @@ export async function PATCH(request: Request) {
     if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
       return Response.json({ error: "변경할 지식 정보를 확인해 주세요." }, { status: 400 });
     }
-    const body = rawBody as { id?: unknown; enabled?: unknown; title?: unknown; content?: unknown };
+    const body = rawBody as { id?: unknown; enabled?: unknown; title?: unknown; content?: unknown; sharedAllBusinesses?: unknown };
+    if (body.sharedAllBusinesses !== undefined && typeof body.sharedAllBusinesses !== "boolean") return Response.json({ error: "공통 적용 여부를 확인해 주세요." }, { status: 400 });
     if (typeof body.id !== "string" || !body.id.trim()) return Response.json({ error: "변경할 지식을 확인해 주세요." }, { status: 400 });
     const sourceId = body.id.trim();
     const DB = await ensureKnowledgeSchema();
-    const source = await DB.prepare("SELECT business_id, title, content FROM knowledge_sources WHERE id = ?").bind(sourceId).first<{ business_id: string; title: string; content: string }>();
+    const source = await DB.prepare("SELECT business_id, title, content, shared_all_businesses FROM knowledge_sources WHERE id = ?").bind(sourceId).first<{ business_id: string; title: string; content: string; shared_all_businesses: number }>();
     if (!source) return Response.json({ error: "지식을 찾을 수 없습니다." }, { status: 404 });
     { const denied = await requireAdminApi({ businessId: source?.business_id }); if (denied) return denied; }
     if (typeof body.enabled === "boolean") {
       await DB.prepare("UPDATE knowledge_sources SET enabled = ?, updated_at = ? WHERE id = ?")
         .bind(body.enabled ? 1 : 0, Date.now(), sourceId).run();
+    } else if (typeof body.sharedAllBusinesses === "boolean" && body.title === undefined && body.content === undefined) {
+      // Scope changes must not rewrite or re-analyze the retained source content.
+      await DB.prepare("UPDATE knowledge_sources SET shared_all_businesses = ?, updated_at = ? WHERE id = ?")
+        .bind(Number(body.sharedAllBusinesses), Date.now(), sourceId).run();
     } else {
       const title = cleanText(typeof body.title === "string" ? body.title : "", 120);
       const content = validateKnowledgeContent(typeof body.content === "string" ? body.content.replace(/\u0000/g, "").trim() : "");
@@ -252,8 +258,8 @@ export async function PATCH(request: Request) {
       await DB.batch([
         DB.prepare("INSERT INTO knowledge_source_revisions (id, source_id, title, content, reason, created_at) VALUES (?, ?, ?, ?, 'manual_update', ?)")
           .bind(crypto.randomUUID(), sourceId, source.title, source.content, now),
-        DB.prepare("UPDATE knowledge_sources SET title = ?, content = ?, status = 'ready', updated_at = ? WHERE id = ?")
-          .bind(title, content, now, sourceId),
+        DB.prepare("UPDATE knowledge_sources SET title = ?, content = ?, status = 'ready', updated_at = ?, shared_all_businesses = ? WHERE id = ?")
+          .bind(title, content, now, typeof body.sharedAllBusinesses === "boolean" ? Number(body.sharedAllBusinesses) : source.shared_all_businesses, sourceId),
         DB.prepare("DELETE FROM knowledge_conflict_checks WHERE business_id = ?").bind(source.business_id),
       ]);
     }

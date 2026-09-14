@@ -17,6 +17,7 @@ async function initialize(DB: DatabaseBinding) {
     DB.prepare(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT ''`),
     DB.prepare(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS contact_hours TEXT NOT NULL DEFAULT ''`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS knowledge_sources (id TEXT PRIMARY KEY, business_id TEXT NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, source_url TEXT, file_key TEXT, file_name TEXT, content TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'ready', enabled INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL)`),
+    DB.prepare(`ALTER TABLE knowledge_sources ADD COLUMN IF NOT EXISTS shared_all_businesses INTEGER NOT NULL DEFAULT 0`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS knowledge_source_revisions (id TEXT PRIMARY KEY, source_id TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, reason TEXT NOT NULL, created_at BIGINT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS data_repairs (id TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS consultations (id TEXT PRIMARY KEY, business_id TEXT NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, summary TEXT NOT NULL, decision TEXT NOT NULL, category TEXT NOT NULL, category_manual INTEGER NOT NULL DEFAULT 0, category_revision TEXT NOT NULL DEFAULT '', source TEXT NOT NULL, confidence INTEGER NOT NULL DEFAULT 0, review INTEGER NOT NULL DEFAULT 0, review_manual INTEGER NOT NULL DEFAULT 0, created_at BIGINT NOT NULL)`),

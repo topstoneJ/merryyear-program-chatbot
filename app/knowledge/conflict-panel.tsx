@@ -13,7 +13,7 @@ export default function ConflictPanel({ sourceId, report, busy, error }: {
     return <div className="conflict-excerpt"><small>{label}</small><strong>{doc?.title}{doc && !doc.enabled ? " · 사용 중지" : ""}</strong><span>{part?.title}{part?.pages.length ? ` · ${part.pages.join(", ")}쪽` : ""}</span><blockquote>{e.quote}</blockquote></div>;
   }
   return <section className="conflict-panel" role="tabpanel" id="conflict-panel" aria-labelledby="conflict-tab">
-    <p className="conflict-scope">저장된 내용을 같은 사업의 다른 등록 데이터와 비교합니다. 사용 중지된 자료도 포함됩니다. 수정 중인 내용은 저장 후 검사합니다.</p>
+    <p className="conflict-scope">저장된 내용을 같은 사업의 등록 데이터 및 다른 사업에도 공통 적용한 자료와 비교합니다. 사용 중지된 자료도 포함됩니다. 수정 중인 내용은 저장 후 검사합니다.</p>
     {busy ? <p role="status">다른 데이터와 충돌하는지 확인하고 있습니다…</p> : error ? <div role="alert"><p>{error}</p><p>데이터를 추가·수정·삭제하면 다시 검사합니다.</p></div> : !report ? <><p>저장된 검사 결과가 없습니다. 데이터를 추가·수정·삭제하면 검사합니다.</p></> : <>
       <p className="conflict-checked">검사 시각: {new Date(report.checkedAt).toLocaleString("ko-KR")}</p>
       {unavailable ? <p className="conflict-warning">이 자료는 내용을 읽을 수 없어 비교하지 못했습니다. 데이터를 확인해 주세요.</p> : <>
