@@ -21,6 +21,7 @@ test('secondary color is saved and previewed, and only colors the home backgroun
  const settings=await readFile(new URL('../app/settings/page.tsx',import.meta.url),'utf8');
  const css=await readFile(new URL('../app/globals.css',import.meta.url),'utf8');
  assert.match(settings,/aria-label="서브컬러"/);
+ assert.match(settings,/secondary-color-control[\s\S]*서브컬러[\s\S]*secondary-color-help[\s\S]*메인화면 타이틀 뒤 그라데이션에만 적용됩니다/);
  assert.match(settings,/"primaryColor", "secondaryColor"\] as const\) form.set/);
  assert.match(settings,/sessionStorage.setItem\([^\n]*primaryColor, secondaryColor/);
  const rules=css.split('}').filter(rule=>rule.includes('--hero-gradient-color'));
@@ -54,6 +55,8 @@ test('logo loading keeps a fixed slot and design controls use the compact reques
  assert.match(settings,/design-control-row"><button[\s\S]{0,400}>초기화<\/button><button className="logo-upload"/);
  assert.match(uploads,/brand-image-actions[\s\S]*초기화[\s\S]*logo-upload brand-image-file/);
  assert.match(settings,/brand-colors-row/);
+ assert.doesNotMatch(settings,/원본 비율을 유지하고 정중앙에 배치돼요/);
+ assert.match(settings,/title="브라우저 탭 아이콘" hint="PNG·JPG·WEBP, 최대 3MB"/);
  assert.match(settings,/settings-card-wide[\s\S]*chat-settings-row/);
  assert.match(css,/\.brand-colors-row \{[^}]*grid-template-columns: 1fr 1fr/);
  assert.match(css,/\.chat-settings-row \{[^}]*grid-template-columns: 1fr 1fr/);
