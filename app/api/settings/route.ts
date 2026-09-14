@@ -1,6 +1,7 @@
 import { configuredGeminiApiKeyStatus, encryptConfiguredGeminiApiKey, ensureKnowledgeSchema, knowledgeEnv } from "@/db/knowledge";
 import { requireAdminApi } from "@/app/admin-session";
 import { brandingUrls, validBrandImage, normalizeSocialCaption, validSocialCaption } from "@/app/branding";
+import { centeredFavicon } from "@/app/favicon-image";
 
 type SettingsRow = {
   organization_name: string; contact: string; logo_key: string | null; main_headline: string;
@@ -35,10 +36,19 @@ export async function GET(request: Request) {
   if (!row) return Response.json({ error: "설정을 찾을 수 없습니다." }, { status: 404 });
   if (url.searchParams.has("logo") || url.searchParams.has("asset")) {
     const asset = url.searchParams.get("asset");
-    const key = url.searchParams.has("logo") ? row.logo_key : asset === "favicon" ? row.favicon_key : asset === "social" ? row.social_image_key : null;
+    const isFavicon = !url.searchParams.has("logo") && asset === "favicon";
+    const key = url.searchParams.has("logo") ? row.logo_key : isFavicon ? row.favicon_key || row.logo_key : asset === "social" ? row.social_image_key : null;
     if (!key) return new Response(null, { status: 404 });
     const object = await knowledgeEnv().KNOWLEDGE_FILES?.get(key);
     if (!object) return new Response(null, { status: 404 });
+    if (isFavicon) {
+      try {
+        const icon = await centeredFavicon(await new Response(object.body).arrayBuffer());
+        return new Response(icon as Uint8Array<ArrayBuffer>, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
+      } catch {
+        return Response.redirect(new URL("/default-favicon.svg", request.url), 302);
+      }
+    }
     return new Response(object.body, { headers: { "Content-Type": object.httpMetadata?.contentType || "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
   }
   return Response.json({ settings: publicSettings(row) });

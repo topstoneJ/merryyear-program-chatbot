@@ -176,6 +176,13 @@
       "when": 1789106400000,
       "tag": "0024_secondary_color",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789344000000,
+      "tag": "0025_shared_knowledge",
+      "breakpoints": true
     }
   ]
 }

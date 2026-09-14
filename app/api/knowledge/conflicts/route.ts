@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   if (denied) return denied;
   try {
     const DB = await ensureKnowledgeSchema();
-    const rows = (await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? ORDER BY id").bind(businessId).all<KnowledgeSourceRow>()).results;
+    const rows = (await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? OR shared_all_businesses = 1 ORDER BY id").bind(businessId).all<KnowledgeSourceRow>()).results;
     const key = await snapshotKey(rows);
     const cached = await DB.prepare("SELECT report FROM knowledge_conflict_checks WHERE business_id = ? AND snapshot_key = ?").bind(businessId, key).first<{ report: string }>();
     return Response.json({ report: cached ? JSON.parse(cached.report) : null }, { headers: { "Cache-Control": "no-store" } });
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const denied = await requireAdminApi({ businessId: body.businessId });
     if (denied) return denied;
     const DB = await ensureKnowledgeSchema();
-    const readRows = async (): Promise<KnowledgeSourceRow[]> => (await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? ORDER BY id").bind(body.businessId).all<KnowledgeSourceRow>()).results;
+    const readRows = async (): Promise<KnowledgeSourceRow[]> => (await DB.prepare("SELECT * FROM knowledge_sources WHERE business_id = ? OR shared_all_businesses = 1 ORDER BY id").bind(body.businessId).all<KnowledgeSourceRow>()).results;
     const rows = await readRows();
     const key = await snapshotKey(rows);
     const cached = await DB.prepare("SELECT report FROM knowledge_conflict_checks WHERE business_id = ? AND snapshot_key = ?").bind(body.businessId, key).first<{ report: string }>();

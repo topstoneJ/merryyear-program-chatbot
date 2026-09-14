@@ -4,10 +4,12 @@ export type KnowledgeInputRow = {
   id: string; business_id: string; type: string; title: string;
   content: string; enabled: number; status: string; updated_at: number;
   source_url?: string | null; file_name?: string | null;
+  shared_all_businesses?: number;
 };
 export type AnswerKnowledgeSource = {
   id: string; businessId: string; title: string; type: string;
   updatedAt: number; url: string | null;
+  sharedAllBusinesses?: boolean;
   parts: Array<{ id: string; title: string; text: string; pages: number[] }>;
 };
 export type AnswerKnowledge = {
@@ -19,7 +21,7 @@ const normalized = (text: string) => text.replace(/\s+/g, " ").trim();
 
 export function buildAnswerKnowledge(rows: KnowledgeInputRow[], businessId: string, report?: ConflictReport | null): AnswerKnowledge {
   let withheldParts = 0;
-  const sources = rows.filter(row => row.business_id === businessId && row.enabled && row.status !== "error")
+  const sources = rows.filter(row => (row.business_id === businessId || row.shared_all_businesses === 1) && row.enabled && row.status !== "error")
     .sort((a, b) => b.updated_at - a.updated_at || a.id.localeCompare(b.id))
     .flatMap(row => {
       let parts: AnswerKnowledgeSource["parts"] = [];
@@ -43,7 +45,7 @@ export function buildAnswerKnowledge(rows: KnowledgeInputRow[], businessId: stri
           : [];
         parts = [{ id: "0", title: "본문", text: row.content.trim(), pages }];
       }
-      return parts.length ? [{ id: row.id, businessId, title: row.title, type: row.type,
+      return parts.length ? [{ id: row.id, businessId: row.business_id, sharedAllBusinesses: row.shared_all_businesses === 1, title: row.title, type: row.type,
         updatedAt: row.updated_at, url: row.source_url || null, parts }] : [];
     });
   const conflicts = (report?.conflicts || []).filter(conflict => {

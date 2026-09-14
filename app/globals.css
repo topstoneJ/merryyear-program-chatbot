@@ -1060,6 +1060,10 @@ h1 em {
 .conflict-tabs { display: flex; gap: 20px; border-bottom: 1px solid #ddd2c8; margin: 20px 0; }
 .conflict-tabs button { border: 0; border-bottom: 3px solid transparent; padding: 12px 0; background: transparent; color: #68615b; cursor: pointer; font-weight: 700; }
 .conflict-tabs button[aria-selected="true"] { color: var(--orange); border-bottom-color: var(--orange); }
+.knowledge-detail-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid #ddd2c8; margin: 20px 0; }
+.knowledge-detail-toolbar .conflict-tabs { margin: 0; border-bottom: 0; }
+.shared-knowledge-toggle { display: flex; align-items: center; gap: 8px; margin-left: auto; padding: 12px 0; font-size: 14px; cursor: pointer; }
+.shared-knowledge-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--orange); }
 .conflict-panel { font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.65; }
 .conflict-scope, .conflict-checked { color: #68615b; font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
 .conflict-warning { color: #b42318; font-weight: 700; }
