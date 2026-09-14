@@ -3,11 +3,30 @@ export const DEFAULT_CATEGORIES = ["신청 자격", "지원 내용", "신청 기
 
 import type { DatabaseBinding } from "./runtime";
 
-export async function loadCategories(DB: DatabaseBinding) {
+const initializations = new WeakMap<DatabaseBinding, Promise<unknown>>();
+
+export async function ensureDefaultCategories(DB: DatabaseBinding) {
+  let pending = initializations.get(DB);
+  if (!pending) {
+    pending = seedDefaultCategories(DB).catch(error => {
+      initializations.delete(DB);
+      throw error;
+    });
+    initializations.set(DB, pending);
+  }
+  await pending;
+}
+
+async function seedDefaultCategories(DB: DatabaseBinding) {
   // Tombstones retain default IDs so removed defaults are never seeded again.
   await DB.batch(DEFAULT_CATEGORIES.map((name, index) => DB.prepare(
     "INSERT OR IGNORE INTO consultation_categories (id, name, sort_order) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM consultation_categories WHERE replace(name, ' ', '') = ?)",
   ).bind(name, name, index, name.replace(/\s/g, ""))));
+}
+
+export async function loadCategories(DB: DatabaseBinding) {
+  await ensureDefaultCategories(DB);
+  // Only initialization is memoized. Always read current names/replacements.
   return (await DB.prepare("SELECT * FROM consultation_categories ORDER BY sort_order, id").all<QuestionCategory>()).results;
 }
 
