@@ -10,6 +10,7 @@ async function moduleAt(path, require) {
   return output;
 }
 const branding = await moduleAt('app/branding.ts', () => ({}));
+const publicSettingsModule = await moduleAt('app/public-settings.ts', name => name === '@/app/branding' ? branding : {configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored)})});
 const png = new File([new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0])], 'icon.png', {type:'image/png'});
 test('brand images reject unsupported, oversized and mismatched content', async () => {
   assert.equal(await branding.validBrandImage(png), true);
@@ -33,7 +34,7 @@ test('settings authenticate uploads, preserve unselected images, and serve saved
   let row = {logo_key:null,favicon_key:'old-icon',social_image_key:'old-social',gemini_api_key_encrypted:'encrypted',updated_at:0};
   const objects = new Map();
   const DB = {prepare(sql) { return { async first(){return row;},bind(...values){return {async run(){row = values.length === 3 ? {...row,social_image_key:values[0],updated_at:values[1],social_caption:values[2]} : {...row, favicon_key:values[9],social_image_key:values[10],updated_at:values[8]};}};}};}};
-  const api = await moduleAt('app/api/settings/route.ts', name => name === '@/app/favicon-image' ? {centeredFavicon: async bytes => new Uint8Array(bytes)} : name === '@/app/branding' ? branding : name === '@/app/admin-session' ? {requireAdminApi: async () => denied ? new Response(null,{status:403}) : null} : {ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async()=>'',configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored)}),knowledgeEnv:()=>({KNOWLEDGE_FILES:{async put(key,stream,meta){objects.set(key,{body:await new Response(stream).arrayBuffer(),...meta});},async get(key){return objects.get(key);}}})});
+  const api = await moduleAt('app/api/settings/route.ts', name => name === '@/app/favicon-image' ? {centeredFavicon: async bytes => new Uint8Array(bytes)} : name === '@/app/branding' ? branding : name === '@/app/public-settings' ? publicSettingsModule : name === '@/app/admin-session' ? {requireAdminApi: async () => denied ? new Response(null,{status:403}) : null} : {ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async()=>'',knowledgeEnv:()=>({KNOWLEDGE_FILES:{async put(key,stream,meta){objects.set(key,{body:await new Response(stream).arrayBuffer(),...meta});},async get(key){return objects.get(key);}}})});
   function request(file) {
     const form = new FormData();
     for(const key of ['organizationName','mainHeadline','mainSubcopy','chatbotGreeting']) form.set(key,'Example');

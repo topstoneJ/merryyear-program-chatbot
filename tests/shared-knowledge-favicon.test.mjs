@@ -68,13 +68,13 @@ test('favicon contains wide, tall, and square images in the exact center without
     const original = await sharp({ create: { width, height, channels: 4, background: '#ff0000' } }).png().toBuffer();
     const bytes = await centeredFavicon(Uint8Array.from(original).buffer);
     const { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
-    assert.equal(info.width, 64); assert.equal(info.height, 64);
+    assert.equal(info.width, 32); assert.equal(info.height, 32);
     const points = [];
-    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) if (data[(y * 64 + x) * 4 + 3] > 128) points.push([x, y]);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) if (data[(y * 32 + x) * 4 + 3] > 128) points.push([x, y]);
     const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
     const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
-    assert(Math.abs((left + right) / 2 - 31.5) <= .5);
-    assert(Math.abs((top + bottom) / 2 - 31.5) <= .5);
+    assert(Math.abs((left + right) / 2 - 15.5) <= .5);
+    assert(Math.abs((top + bottom) / 2 - 15.5) <= .5);
     assert(Math.abs((right - left + 1) / (bottom - top + 1) - width / height) < .1);
   }
 });
@@ -93,7 +93,7 @@ test('favicon endpoint centers stored icons and logo fallbacks while leaving ori
     const response = await route.GET(new Request('https://test/api/settings?asset=favicon'));
     assert.equal(response.status, 200);
     const metadata = await sharp(new Uint8Array(await response.arrayBuffer())).metadata();
-    assert.equal(metadata.width, 64); assert.equal(metadata.height, 64);
+    assert.equal(metadata.width, 32); assert.equal(metadata.height, 32);
   }
   const logo = await route.GET(new Request('https://test/api/settings?logo=1'));
   assert.deepEqual(new Uint8Array(await logo.arrayBuffer()), new Uint8Array(original));

@@ -181,6 +181,8 @@
 .settings-card { background: #fff; border: 1px solid #e5dcd3; border-radius: 18px; display: grid; align-content: start; gap: 15px; padding: 26px 22px; box-shadow: 0 12px 32px #3c2a1708; }
 .settings-card h2 { margin: 0 0 2px; font-size: max(var(--admin-min-font, 0px), calc((17px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 800; }
 .settings-card textarea { min-height: 94px; }
+.settings-card-wide { grid-column: 1 / -1; }
+.chat-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .design-reset-button { justify-self: start; }
 .guide-panel { display: grid; gap: 20px; }
 .guide-connect-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 24px; padding: 30px 26px; color: #fff; background: var(--brand-preview, #f26a2e); border-radius: 20px; box-shadow: 0 14px 34px color-mix(in srgb, var(--brand-preview, #f26a2e) 20%, transparent); }
@@ -222,7 +224,7 @@
 .color-setting span b { font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
 .color-setting span small { color: #887f77; margin-top: 3px; font-size: max(var(--admin-min-font, 0px), calc((9px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
 .color-setting i { height: 34px; background: var(--brand-preview); border-radius: 9px; }
-.secondary-color-control { margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5ddd5; }
+.brand-colors-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
 .settings-notice { color: #286548; background: #eaf6ef; border: 1px solid #b8dec9; border-radius: 12px; margin: 16px 0 0; padding: 12px; font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 750; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .settings-actions .cancel-button { text-decoration: none; padding: 11px 16px; }
@@ -492,8 +494,7 @@ button, a, select { -webkit-tap-highlight-color: transparent; }
   display: grid;
   place-items: center;
 }
-.brand-logo-media img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; opacity: 0; transition: opacity .15s ease; }
-.brand-logo-media img.loaded { opacity: 1; }
+.brand-logo-media img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
 .brand-logo > img { display: block; width: 210px; height: 52px; object-fit: contain; object-position: left center; background: #fff; }
 .brand-logo b {
   white-space: nowrap;
@@ -1323,20 +1324,15 @@ h1 em {
 .brand-images-card { grid-column: 1 / -1; }
 .design-logo-card { grid-column: 1; grid-row: 1; }
 .design-favicon-card { grid-column: 2; grid-row: 1; }
-.design-color-card { grid-column: 1; grid-row: 2; }
+.design-color-card { grid-column: 1 / -1; grid-row: 2; }
 .brand-image-field { display: grid; gap: 12px; padding: 0; border: 0; }
 .brand-image-field .field { gap: 10px; }
-.brand-image-field input[type=file] { width: 100%; min-width: 0; font-size: 13px; }
 .brand-image-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; }
 .brand-image-file { min-width: 0; }
-.brand-image-preview { display: flex; align-items: center; gap: 16px; margin: 0; }
-.brand-image-preview img { width: 48px; height: 48px; object-fit: contain; border: 1px solid #e8e5e1; border-radius: 8px; background: #fff; }
-.brand-image-preview span { font-size: 13px; color: #706b64; overflow-wrap: anywhere; }
-.brand-image-wide .brand-image-preview { flex-direction: column; align-items: flex-start; }
-.brand-image-wide .brand-image-preview img { width: min(100%, 400px); height: auto; aspect-ratio: 1200 / 630; object-fit: contain; }
 
 @media (max-width: 760px) {
   .design-logo-card, .design-favicon-card, .design-color-card { grid-column: 1; grid-row: auto; }
+  .brand-colors-row, .chat-settings-row { grid-template-columns: 1fr; }
 }
 
 .default-social-action { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0; }

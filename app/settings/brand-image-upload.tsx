@@ -13,10 +13,9 @@ export default function BrandImageUpload({ title, hint, currentUrl, value, onCha
     return () => URL.revokeObjectURL(url);
   }, [value]);
   return <div className={`brand-image-field ${wide ? "brand-image-wide" : ""}`}>
-    <small className="field-help">{hint}</small>
     <div className="brand-image-actions">
       {onReset && <button type="button" className="cancel-button design-reset-button" disabled={disabled} onClick={onReset}>초기화</button>}
-      <label className="brand-image-file"><span className="sr-only">{title}</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={event => {
+      <label className="logo-upload brand-image-file"><img src={preview || currentUrl} alt={`${title} 미리보기`} /><span><b>{value?.name || `현재 ${title}`}</b><small>{hint}</small></span><strong>변경</strong><input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={event => {
         const file = event.target.files?.[0];
         if (!file) return;
         if (!BRAND_IMAGE_TYPES.includes(file.type) || file.size > BRAND_IMAGE_MAX_BYTES || !file.size) {
@@ -25,7 +24,6 @@ export default function BrandImageUpload({ title, hint, currentUrl, value, onCha
         setError(""); onChange(file); event.target.value = "";
       }} /></label>
     </div>
-    <div className="brand-image-preview"><img src={preview || currentUrl} alt={`${title} 미리보기`} /><span>{value?.name || "현재 이미지"}</span></div>
     {onDefault && <div className="default-social-action"><button type="button" className="cancel-button" disabled={disabled} onClick={onDefault}>{generating ? "생성·등록 중…" : "기본 이미지"}</button><small className="field-help">흰색 배경 중앙에 기관 로고를 배치한 이미지를 생성해 바로 등록합니다.</small></div>}
     {value && <button type="button" className="cancel-button" disabled={disabled} onClick={() => { onChange(null); setError(""); }}>선택 취소</button>}
     {error && <p className="answer-settings-error" role="alert">{error}</p>}
