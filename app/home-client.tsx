@@ -73,6 +73,8 @@ const EMPTY_BUSINESS: Business = {
 
 export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings } = {}) {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(previewSettings || { organizationName: "기관명 미설정", contact: "", logoUrl: "/default-organization-logo.svg", mainHeadline: "사업 안내,\n질문으로 쉽게 확인하세요", mainSubcopy: "관리자 화면에서 기관과 사업 정보를 설정해 주세요.", chatbotGreeting: "등록된 안내 자료를 바탕으로 답변해 드릴게요.", primaryColor: "#f26a2e", chatPlaceholder: "선택한 사업에 대해 질문해 주세요" });
+  const [settingsLoaded, setSettingsLoaded] = useState(Boolean(previewSettings));
+  const [logoReady, setLogoReady] = useState(false);
   const [businessId, setBusinessId] = useState<BusinessId>("");
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [question, setQuestion] = useState("");
@@ -85,7 +87,8 @@ export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings
   const [websiteLinks, setWebsiteLinks] = useState<Record<string, string>>({});
   const [shareCopied, setShareCopied] = useState(false);
 
-  useEffect(() => { if (previewSettings) return; fetch("/api/settings").then((response) => response.json()).then((payload: { settings?: SiteSettings }) => payload.settings && setSiteSettings(payload.settings)).catch(() => undefined); }, []);
+  useEffect(() => { if (previewSettings) return; fetch("/api/settings").then((response) => response.json()).then((payload: { settings?: SiteSettings }) => payload.settings && setSiteSettings(payload.settings)).catch(() => undefined).finally(() => setSettingsLoaded(true)); }, []);
+  useEffect(() => { setLogoReady(false); }, [siteSettings.logoUrl]);
   useEffect(() => {
     if (!previewSettings && siteSettings.faviconUrl) syncBrowserBranding({ organizationName: siteSettings.organizationName, faviconUrl: siteSettings.faviconUrl });
   }, [previewSettings, siteSettings.organizationName, siteSettings.faviconUrl]);
@@ -253,7 +256,7 @@ export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings
     <main className="public-shell" style={{ "--orange": siteSettings.primaryColor, "--gold": siteSettings.primaryColor, "--hero-gradient-color": siteSettings.secondaryColor || "#808080" } as CSSProperties}>
       <header className="topbar">
         <a className="brand brand-logo" href="#" aria-label={`${siteSettings.organizationName} 사업 안내 챗봇 홈`}>
-          <img src={siteSettings.logoUrl} alt={siteSettings.organizationName} width={210} height={53} />
+          <span className="brand-logo-media">{settingsLoaded && <img className={logoReady ? "loaded" : ""} src={siteSettings.logoUrl} alt={siteSettings.organizationName} onLoad={() => setLogoReady(true)} />}</span>
           <b>사업 안내 챗봇</b>
         </a>
         <a className="admin-link" href={previewSettings ? undefined : "/consultations"} aria-disabled={Boolean(previewSettings)}>

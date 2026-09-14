@@ -31,3 +31,27 @@ test('secondary color is saved and previewed, and only colors the home backgroun
  const html=renderToStaticMarkup(React.createElement(output.HomeClient));
  assert.ok(html.includes('--hero-gradient-color:#808080'));
 });
+
+test('logo loading keeps a fixed slot and design controls use the compact requested order', async()=>{
+ const [home,settings,uploads,css]=await Promise.all([
+  readFile(new URL('../app/home-client.tsx',import.meta.url),'utf8'),
+  readFile(new URL('../app/settings/page.tsx',import.meta.url),'utf8'),
+  readFile(new URL('../app/settings/brand-image-upload.tsx',import.meta.url),'utf8'),
+  readFile(new URL('../app/globals.css',import.meta.url),'utf8'),
+ ]);
+ assert.match(home,/settingsLoaded && <img className=\{logoReady/);
+ assert.match(css,/\.brand-logo-media \{[^}]*flex: 0 0 210px[^}]*width: 210px[^}]*height: 52px/);
+ assert.match(css,/\.brand-logo-media img \{[^}]*object-fit: contain[^}]*opacity: 0/);
+ const loadingHtml=renderToStaticMarkup(React.createElement(output.HomeClient));
+ assert.match(loadingHtml,/<span class="brand-logo-media"><\/span>/);
+ assert.doesNotMatch(loadingHtml,/default-organization-logo/);
+ assert.match(css,/\.design-logo-card \{ grid-column: 1; grid-row: 1; \}/);
+ assert.match(css,/\.design-favicon-card \{ grid-column: 2; grid-row: 1; \}/);
+ assert.match(css,/\.design-color-card \{ grid-column: 1; grid-row: 2; \}/);
+ assert.ok(settings.indexOf('design-logo-card') < settings.indexOf('design-color-card'));
+ assert.ok(settings.indexOf('design-color-card') < settings.indexOf('design-favicon-card'));
+ assert.doesNotMatch(settings,/채팅 말풍선과 버튼 색상은 바뀌지 않습니다/);
+ assert.match(settings,/design-control-row"><button[\s\S]{0,400}>초기화<\/button><button className="logo-upload"/);
+ assert.match(uploads,/brand-image-actions[\s\S]*초기화[\s\S]*brand-image-file/);
+ assert.match(css,/\.brand-image-field \{[^}]*padding: 0[^}]*border: 0/);
+});
