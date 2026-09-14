@@ -250,7 +250,7 @@ export function HomeClient({ previewSettings }: { previewSettings?: SiteSettings
   }
 
   return (
-    <main className="public-shell" style={{ "--orange": siteSettings.primaryColor, "--gold": siteSettings.primaryColor } as CSSProperties}>
+    <main className="public-shell" style={{ "--orange": siteSettings.primaryColor, "--gold": siteSettings.primaryColor, "--hero-gradient-color": siteSettings.secondaryColor || "#808080" } as CSSProperties}>
       <header className="topbar">
         <a className="brand brand-logo" href="#" aria-label={`${siteSettings.organizationName} 사업 안내 챗봇 홈`}>
           <img src={siteSettings.logoUrl} alt={siteSettings.organizationName} width={210} height={53} />

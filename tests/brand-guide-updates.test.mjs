@@ -101,7 +101,7 @@ test('deleting an API key overrides an environment fallback and survives a datab
 test('visual brand roles match the local design and API status is accurate',async()=>{
   const css=await readFile(new URL('../app/globals.css',import.meta.url),'utf8');
   assert.match(css,/--orange: #f26a2e/);
-  assert.match(css,/\.public-shell \{[\s\S]*?radial-gradient[\s\S]*?var\(--brand-surface-strong\)/);
+  assert.match(css,/\.public-shell \{[\s\S]*?radial-gradient[\s\S]*?var\(--hero-gradient-color, #808080\)/);
   assert.match(css,/\.headline-brand \{[^}]*var\(--brand-light\)[^}]*var\(--brand-deep\)/);
   assert.match(css,/\.answer\.review \{ background: var\(--brand-surface\); border-color: #e4dacd; \}/);
   assert.match(css,/\.chat \{[^}]*border: 1px solid #8b77603d/);
