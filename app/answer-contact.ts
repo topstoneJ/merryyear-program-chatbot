@@ -1,5 +1,27 @@
 import type { AnswerKnowledge } from "./answer-knowledge";
 
+export const CONTACT_EMAIL_PATTERN = /[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?)+/gi;
+const phoneDigits = (text: string) => text.replace(/[- .\s]/g, "");
+
+// Pair channels only within the same contact block; never borrow another
+// department's email to fill a missing channel.
+export function findBusinessEmail(knowledge: AnswerKnowledge, phone = ""): string | null {
+  const emails = new Set<string>();
+  for (const source of knowledge.sources) for (const part of source.parts) {
+    const blocks = part.text.split(/\n\s*\n|\n(?=#{1,6}\s)/);
+    for (const block of blocks) {
+      if (phone && !phoneDigits(block).includes(phoneDigits(phone))) continue;
+      if (!/(?:문의|담당|연락처|이메일|메일주소)/.test(part.title + "\n" + block)) continue;
+      if (/(?:후원|기부|대표|채용|개인정보)/.test(block)) continue;
+      for (const match of block.matchAll(CONTACT_EMAIL_PATTERN)) {
+        const email = match[0];
+        if (!knowledge.conflicts.some(conflict => [conflict.left, conflict.right].some(side => side.quote.toLowerCase().includes(email.toLowerCase())))) emails.add(email);
+      }
+    }
+  }
+  return emails.size === 1 ? [...emails][0] : null;
+}
+
 // Only registered, retained business text is eligible. Ambiguous numbers are
 // left for review; general donation and representative numbers are not substitutes.
 export function findBusinessContact(knowledge: AnswerKnowledge) {
@@ -27,5 +49,5 @@ export function findBusinessContact(knowledge: AnswerKnowledge) {
   }
   const ranked = [...candidates.values()].sort((a,b) => b.score - a.score);
   if (!ranked.length || (ranked[1] && ranked[0].score === ranked[1].score)) return null;
-  return { phone: ranked[0].phone, evidence: ranked[0].evidence };
+  return { phone: ranked[0].phone, email: findBusinessEmail(knowledge, ranked[0].phone), evidence: ranked[0].evidence };
 }

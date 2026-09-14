@@ -2,11 +2,11 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cha
 const fixed='신청 방법은 온라인이에요. 제출 기한은 자료가 상충하여 담당자 확인이 필요해요.';
 test('conflicting evidence uses the consult result while preserving supported facts',async()=>{
  const h=chatHarness({draft:{decision:'consult',resolution:'conflict',text:fixed,contactPhone:'02-1234-5678',contactEvidence:'사업 담당자 문의: 02-1234-5678'}});const r=await h.ask();
- assert.equal(r.payload.answer.text,'담당자 문의가 필요해요.\n\n'+fixed+'\n\n사업 담당자 문의: 02-1234-5678');assert.equal(h.records[0].decision,'consult');assert.equal(r.payload.answer.review,true);assert.equal(h.requests.length,1);
+ assert.equal(r.payload.answer.text,'담당자 문의가 필요해요.\n\n'+fixed+'\n\n사업 담당자 문의\n이메일: 등록 자료에서 확인되지 않음\n전화번호: 02-1234-5678');assert.equal(h.records[0].decision,'consult');assert.equal(r.payload.answer.review,true);assert.equal(h.requests.length,1);
 });
 test('unverified, representative and absent contacts are omitted',async()=>{
  for(const [contactPhone,contactEvidence] of [['02-9999-9999','기관 대표번호: 02-9999-9999'],['02-1111-1111','사업 담당자 문의: 02-1111-1111'],['','']]){
- const h=chatHarness({draft:{decision:'consult',resolution:'conflict',text:fixed,contactPhone,contactEvidence}});const answer=(await h.ask()).payload.answer.text;assert.match(answer,/자료가 상충하여 담당자 확인이 필요/);assert.match(answer,/사업 담당자 문의: 02-1234-5678/);assert.doesNotMatch(answer,/02-9999-9999|02-1111-1111/);}
+ const h=chatHarness({draft:{decision:'consult',resolution:'conflict',text:fixed,contactPhone,contactEvidence}});const answer=(await h.ask()).payload.answer.text;assert.match(answer,/자료가 상충하여 담당자 확인이 필요/);assert.match(answer,/이메일: 등록 자료에서 확인되지 않음\n전화번호: 02-1234-5678/);assert.doesNotMatch(answer,/02-9999-9999|02-1111-1111/);}
 });
 test('out-of-scope response remains exact regardless of enabled style options',async()=>{
  const h=chatHarness({settings:{alwaysContact:true,showSources:true},draft:{decision:'out_of_scope',source:'',page:0}}),r=await h.ask();assert.equal(r.payload.answer.text,'답변할 수 없는 질문입니다.');assert.equal(r.payload.answer.source,'');assert.equal(r.payload.answer.page,0);
