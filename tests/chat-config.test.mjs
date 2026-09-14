@@ -10,8 +10,8 @@ test("production and local defaults use the supported Gemini model", async () =>
     readFile(new URL(".env.example", root), "utf8"),
   ]);
 
-  assert.match(route, /process\.env\.GEMINI_MODEL \|\| "gemini-3\.7-flash"/);
-  assert.match(envExample, /^GEMINI_MODEL=gemini-3\.7-flash$/m);
+  assert.match(route, /process\.env\.GEMINI_MODEL \|\| "gemini-3\.8-flash"/);
+  assert.match(envExample, /^GEMINI_MODEL=gemini-3\.8-flash$/m);
   assert.doesNotMatch(`${route}\n${envExample}`, /gemini-3\.[56]-flash/);
 });
 
@@ -45,7 +45,7 @@ test("PDF upload uses Gemini structured JSON with markdown section bodies", asyn
     readFile(new URL("../db/knowledge.ts", import.meta.url), "utf8"),
   ]);
   assert.match(route, /analyzeSourceWithGemini/);
-  assert.match(route, /gemini-3\.7-flash/);
+  assert.match(route, /gemini-3\.8-flash/);
   assert.match(route, /markdown: \{ type: "string" \}/);
   assert.match(route, /format: "structured-markdown"/);
   assert.match(knowledge, /buildAnswerKnowledge/);

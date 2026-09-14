@@ -41,7 +41,7 @@ test('chat JSON path parses once and durably records success, HTTP errors and ma
     if(mode==='network')throw new Error('network');
     return {status:mode==='http'?429:200,ok:mode!=='http',clone(){throw new Error('must not clone');},async json(){reads++;if(mode==='malformed')throw new SyntaxError('malformed');return payload;}};
   });
-  const init={body:JSON.stringify({model:'gemini-3.7-flash',input:'private-question'}),headers:{'x-goog-api-key':'secret'}};
+  const init={body:JSON.stringify({model:'gemini-3.8-flash',input:'private-question'}),headers:{'x-goog-api-key':'secret'}};
   const result=await wrapper.trackedGeminiJson('chat',init,(...args)=>timings.push(args));
   assert.strictEqual(result.payload,payload);assert.equal(reads,1);assert.equal(records.length,1);
   assert.equal(records[0][5],20);assert.equal(records[0][6],7);
