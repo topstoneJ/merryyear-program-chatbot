@@ -55,7 +55,7 @@ function cacheSafeGeneralQuestion(question: string) {
   const compact = question.replace(/\s+/g, "");
   if (/\d|(?:저는|제가|제것|저희|우리|아이|아들|딸|부모|엄마|아빠|가족|가구|소득|월급|재산|주소|거주|생년|나이|학년|장애|질병|수술)/.test(compact)) return false;
   if (/(?:되나요|될까요|가능한가|가능할까|해당하나|받을수|신청할수)/.test(compact)) return false;
-  return /(?:사업소개|사업내용|지원대상|신청방법|신청절차|제출서류|필요서류|접수기간|접수방법|신청기간|지원내용|지원금|문의처|연락처|담당자)/.test(compact);
+  return /(?:사업소개|사업내용|지원대상|신청방법|신청절차|신청.*어떻게|어떻게.*신청|제출서류|필요서류|접수기간|접수방법|신청기간|지원내용|지원금|문의처|연락처|담당자)/.test(compact);
 }
 
 async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming): Promise<Answer> {

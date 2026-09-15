@@ -83,6 +83,12 @@ test('verified general answers are reused only for the exact cache-safe request'
   assert.equal(cached.requests.length, 1);
   assert.equal(cached.records.length, 2);
 
+  const naturalWording = chatHarness();
+  await naturalWording.ask({question:'신청은 어떻게 하나요?'});
+  const naturalWordingAgain = await naturalWording.ask({question:'신청은 어떻게 하나요?'});
+  assert.equal(naturalWordingAgain.headers.get('X-Chat-Cache'), 'hit');
+  assert.equal(naturalWording.requests.length, 1);
+
   const personal = chatHarness();
   await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
   const repeated = await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
