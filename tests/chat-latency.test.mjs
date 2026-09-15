@@ -89,6 +89,14 @@ test('verified general answers are reused only for the exact cache-safe request'
   assert.equal(naturalWordingAgain.headers.get('X-Chat-Cache'), 'hit');
   assert.equal(naturalWording.requests.length, 1);
 
+  for (const question of ['신청자격을 알려주세요', '자격 요건이 무엇인가요?', '신청 조건을 알려주세요']) {
+    const eligibilityGuide = chatHarness();
+    await eligibilityGuide.ask({question});
+    const eligibilityGuideAgain = await eligibilityGuide.ask({question});
+    assert.equal(eligibilityGuideAgain.headers.get('X-Chat-Cache'), 'hit');
+    assert.equal(eligibilityGuide.requests.length, 1);
+  }
+
   const personal = chatHarness();
   await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
   const repeated = await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});

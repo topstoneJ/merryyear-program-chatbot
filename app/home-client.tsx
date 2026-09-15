@@ -24,7 +24,6 @@ type ChatMessage = {
   question: string;
   answer?: Answer;
   thinking?: boolean;
-  cacheHit?: boolean;
 };
 
 type SurveyGroup = {
@@ -72,9 +71,9 @@ const EMPTY_BUSINESS: Business = {
   survey: [],
 };
 
-const CACHE_REVEAL_MS = 1200;
+const CACHE_REVEAL_MS = 1600;
 
-function CachedAnswerReveal({ answer }: { answer: Answer }) {
+function AnswerReveal({ answer }: { answer: Answer }) {
   const characters = useMemo(() => Array.from(answer.text), [answer.text]);
   const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const [visibleCharacters, setVisibleCharacters] = useState(reduceMotion ? characters.length : 0);
@@ -217,11 +216,10 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
       });
       const payload = await response.json() as { answer?: Answer; error?: string };
       if (!response.ok || !payload.answer) throw new Error(payload.error || "Answer request failed");
-      const cacheHit = response.headers.get("x-chat-cache") === "hit";
 
       setMessages((previous) =>
         previous.map((message) =>
-          message.id === id ? { ...message, thinking: false, answer: payload.answer, cacheHit } : message,
+          message.id === id ? { ...message, thinking: false, answer: payload.answer } : message,
         ),
       );
     } catch {
@@ -341,7 +339,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
                       </div>
                     ) : message.answer ? (
                       <article className={`answer${message.answer.review ? " review" : ""}`}>
-                        {message.cacheHit ? <CachedAnswerReveal answer={message.answer} /> : <AnswerText text={message.answer.text} />}
+                        <AnswerReveal answer={message.answer} />
                       </article>
                     ) : null}
                   </div>
