@@ -68,11 +68,12 @@ export async function askGemini(businessId: string, businessName: string, questi
   const cacheIntent = cacheIntentForGeneralQuestion(question);
   const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
+  const verifiedBusinessContact = findBusinessContact(knowledge);
   const modelInput = {
     business: { id: businessId, name: businessName },
     currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
     knowledge,
-    verifiedBusinessContact: findBusinessContact(knowledge),
+    verifiedBusinessContact,
     conversation,
   };
   const modelRequest = {
@@ -127,7 +128,11 @@ export async function askGemini(businessId: string, businessName: string, questi
       }
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
-      const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id)));
+      let answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question));
+      const verifiedContactAnswer = cacheIntent === "contact" && Boolean(verifiedBusinessContact?.phone && verifiedBusinessContact.email)
+        && answer.text.replace(/[- .\s]/g, "").includes(verifiedBusinessContact!.phone.replace(/[- .]/g, ""))
+        && answer.text.toLowerCase().includes(verifiedBusinessContact!.email!.toLowerCase());
+      if (verifiedContactAnswer) answer = { ...answer, decision: "fact", review: false, source: answer.source || "사업 필수 정보" };
       if (cacheableRequest && answer.decision === "fact" && !answer.review && answer.source) {
         await timing.measure("cache", () => writeChatAnswerCache(DB, cacheKey, businessId, answer)
           .catch(() => console.error("Chat answer cache write failed")));
