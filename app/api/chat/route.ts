@@ -51,11 +51,21 @@ function modelOutputText(payload: GeminiPayload) {
   return output.trim();
 }
 
-function cacheSafeGeneralQuestion(question: string) {
+function cacheIntentForGeneralQuestion(question: string) {
   const compact = question.replace(/\s+/g, "");
-  if (/\d|(?:저는|제가|제것|저희|우리|아이|아들|딸|부모|엄마|아빠|가족|가구|소득|월급|재산|주소|거주|생년|나이|학년|장애|질병|수술)/.test(compact)) return false;
-  if (/(?:되나요|될까요|가능한가|가능할까|해당하나|받을수|신청할수)/.test(compact)) return false;
-  return /(?:사업소개|사업내용|지원대상|신청자격|자격요건|신청조건|신청방법|신청절차|신청.*어떻게|어떻게.*신청|제출서류|필요서류|접수기간|접수방법|신청기간|지원내용|지원금|문의처|연락처|담당자)/.test(compact);
+  if (/\d|(?:저는|제가|제것|저희|우리|아이|아들|딸|부모|엄마|아빠|가족|가구|소득|월급|재산|주소|거주|생년|나이|학년|장애|질병|수술)/.test(compact)) return null;
+  if (/(?:되나요|될까요|가능한가|가능할까|해당하나|받을수|신청할수)/.test(compact)) return null;
+  const intents = [
+    ["overview", /(?:사업소개|사업내용)/],
+    ["eligibility", /(?:지원대상|신청자격|자격요건|신청조건)/],
+    ["application", /(?:신청방법|신청절차|신청.*어떻게|어떻게.*신청|접수방법)/],
+    ["documents", /(?:제출서류|필요서류)/],
+    ["period", /(?:접수기간|신청기간)/],
+    ["benefits", /(?:지원내용|지원금)/],
+    ["contact", /(?:문의처|연락처|담당자)/],
+  ] as const;
+  const matches = intents.filter(([, pattern]) => pattern.test(compact));
+  return matches.length === 1 ? matches[0][0] : null;
 }
 
 async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming): Promise<Answer> {
@@ -71,17 +81,19 @@ async function askGemini(businessId: string, businessName: string, question: str
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
   if (!apiKey) throw new Error("Gemini API key is not configured");
+  const conversation = JSON.parse(chatContextInput(history, question));
+  const modelInput = {
+    business: { id: businessId, name: businessName },
+    currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    knowledge,
+    verifiedBusinessContact: findBusinessContact(knowledge),
+    conversation,
+  };
   const modelRequest = {
     model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     store: false,
     system_instruction: buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE),
-    input: JSON.stringify({
-      business: { id: businessId, name: businessName },
-      currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      knowledge,
-      verifiedBusinessContact: findBusinessContact(knowledge),
-      conversation: JSON.parse(chatContextInput(history, question)),
-    }),
+    input: JSON.stringify(modelInput),
     response_format: {
       type: "text", mime_type: "application/json",
       schema: {
@@ -99,8 +111,12 @@ async function askGemini(businessId: string, businessName: string, question: str
       },
     },
   };
-  const cacheableRequest = history.length === 0 && cacheSafeGeneralQuestion(question);
-  const cacheKey = cacheableRequest ? await chatAnswerCacheKey(modelRequest) : "";
+  const cacheIntent = history.length === 0 ? cacheIntentForGeneralQuestion(question) : null;
+  const cacheableRequest = Boolean(cacheIntent);
+  const cacheKey = cacheIntent ? await chatAnswerCacheKey({
+    ...modelRequest,
+    input: JSON.stringify({ ...modelInput, conversation: { ...conversation, currentMessage: `FAQ:${cacheIntent}` } }),
+  }) : "";
   if (cacheableRequest) {
     const cached = await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));
     if (cached) { timing.markCache("hit"); return cached; }

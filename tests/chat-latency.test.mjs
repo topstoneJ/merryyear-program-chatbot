@@ -89,6 +89,20 @@ test('verified general answers are reused only for the exact cache-safe request'
   assert.equal(naturalWordingAgain.headers.get('X-Chat-Cache'), 'hit');
   assert.equal(naturalWording.requests.length, 1);
 
+  const equivalentWording = chatHarness();
+  const shortMethod = await equivalentWording.ask({question:'신청방법은?'});
+  const politeMethod = await equivalentWording.ask({question:'신청방법을 알려줘'});
+  assert.equal(shortMethod.headers.get('X-Chat-Cache'), 'miss');
+  assert.equal(politeMethod.headers.get('X-Chat-Cache'), 'hit');
+  assert.deepEqual(politeMethod.payload.answer, shortMethod.payload.answer);
+  assert.equal(equivalentWording.requests.length, 1);
+
+  const combinedIntent = chatHarness();
+  await combinedIntent.ask({question:'신청 방법과 신청 기간을 알려주세요'});
+  const combinedAgain = await combinedIntent.ask({question:'신청 방법과 신청 기간을 알려주세요'});
+  assert.equal(combinedAgain.headers.get('X-Chat-Cache'), 'bypass');
+  assert.equal(combinedIntent.requests.length, 2);
+
   for (const question of ['신청자격을 알려주세요', '자격 요건이 무엇인가요?', '신청 조건을 알려주세요']) {
     const eligibilityGuide = chatHarness();
     await eligibilityGuide.ask({question});
