@@ -12,7 +12,7 @@ import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-setting
 import { buildCoreSystemInstruction } from "@/app/answer-rules";
 import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, parseGeminiAnswer, type Answer } from "@/app/answer-response";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
-import { ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, recordConsultation } from "@/db/knowledge";
+import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, readChatAnswerCache, recordConsultation, writeChatAnswerCache } from "@/db/knowledge";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME, ADMIN_GUIDE_TEXT } from "@/app/admin-guide";
 
 type GeminiPayload = { steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>; error?: { message?: string } };
@@ -49,6 +49,13 @@ function modelOutputText(payload: GeminiPayload) {
     for (const content of step.content || []) if (content.type === "text") output += content.text || "";
   }
   return output.trim();
+}
+
+function cacheSafeGeneralQuestion(question: string) {
+  const compact = question.replace(/\s+/g, "");
+  if (/\d|(?:저는|제가|제것|저희|우리|아이|아들|딸|부모|엄마|아빠|가족|가구|소득|월급|재산|주소|거주|생년|나이|학년|장애|질병|수술)/.test(compact)) return false;
+  if (/(?:되나요|될까요|가능한가|가능할까|해당하나|받을수|신청할수)/.test(compact)) return false;
+  return /(?:사업소개|사업내용|지원대상|신청방법|신청절차|제출서류|필요서류|접수기간|접수방법|신청기간|지원내용|지원금|문의처|연락처|담당자)/.test(compact);
 }
 
 async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming): Promise<Answer> {
@@ -92,6 +99,13 @@ async function askGemini(businessId: string, businessName: string, question: str
       },
     },
   };
+  const cacheableRequest = history.length === 0 && cacheSafeGeneralQuestion(question);
+  const cacheKey = cacheableRequest ? await chatAnswerCacheKey(modelRequest) : "";
+  if (cacheableRequest) {
+    const cached = await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));
+    if (cached) { timing.markCache("hit"); return cached; }
+    timing.markCache("miss");
+  }
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -109,7 +123,12 @@ async function askGemini(businessId: string, businessName: string, question: str
       }
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
-      return await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id)));
+      const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id)));
+      if (cacheableRequest && answer.decision === "fact" && !answer.review && answer.source) {
+        await timing.measure("cache", () => writeChatAnswerCache(DB, cacheKey, businessId, answer)
+          .catch(() => console.error("Chat answer cache write failed")));
+      }
+      return answer;
     } catch (error) {
       lastError = error;
       if (attempt === 1 || (error as { retryable?: boolean }).retryable === false) throw error;
@@ -154,7 +173,7 @@ export async function POST(request: Request) {
   let stage = "request";
   const timing = createChatTiming();
   const reply = (payload: unknown, status = 200) => Response.json(payload, {
-    status, headers: { "Server-Timing": timing.finish(status), "Cache-Control": "no-store" },
+    status, headers: { "Server-Timing": timing.finish(status), "Cache-Control": "no-store", "X-Chat-Cache": timing.cacheStatus() },
   });
   try {
     const body = await request.json() as { businessId?: string; question?: string; history?: unknown };

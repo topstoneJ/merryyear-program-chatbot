@@ -43,11 +43,13 @@ async function initialize(DB: DatabaseBinding) {
     DB.prepare(`CREATE TABLE IF NOT EXISTS knowledge_conflict_checks (business_id TEXT PRIMARY KEY, snapshot_key TEXT NOT NULL, report TEXT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS business_homepage_sources (business_id TEXT PRIMARY KEY, source_id TEXT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS api_usage (id TEXT PRIMARY KEY, created_at BIGINT NOT NULL, model TEXT NOT NULL, purpose TEXT NOT NULL, status INTEGER NOT NULL, input_tokens BIGINT, output_tokens BIGINT, thought_tokens BIGINT, cached_tokens BIGINT, estimated_usd DOUBLE PRECISION)`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS chat_answer_cache (cache_key TEXT PRIMARY KEY, business_id TEXT NOT NULL, answer_json TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_business_idx ON knowledge_sources (business_id, updated_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_revision_source_idx ON knowledge_source_revisions (source_id, created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS consultation_business_date_idx ON consultations (business_id, created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS random_question_business_status_idx ON random_questions (business_id, status, created_at)`),
     DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS random_question_business_key_unique ON random_questions (business_id, question_key)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS api_usage_created_at_idx ON api_usage (created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS chat_answer_cache_expiry_idx ON chat_answer_cache (expires_at)`),
   ]);
 }
