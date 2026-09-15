@@ -1,11 +1,11 @@
 import { requireAdminApi } from "@/app/admin-session";
 import { createChatTiming } from "@/app/chat-timing";
-import { FAST_ANSWER_INTENTS, isFastAnswerIntent } from "@/app/fast-answer-intents";
+import { FAST_ANSWER_INTENTS } from "@/app/fast-answer-intents";
 import { askGemini } from "@/app/api/chat/route";
 import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, loadKnowledgeContext } from "@/db/knowledge";
 import { loadCategories } from "@/db/consultation-categories";
 
-type StoredFastAnswer = { business_id: string; intent: string; answer_json: string; status: string; context_version: string; updated_at: number };
+type StoredFastAnswer = { business_id: string; intent: string; label: string; question: string; answer_json: string; status: string; context_version: string; updated_at: number };
 
 async function contextVersion(businessId: string) {
   const DB = await ensureKnowledgeSchema();
@@ -21,6 +21,7 @@ async function contextVersion(businessId: string) {
 
 function parsedAnswer(value: string) { try { return JSON.parse(value); } catch { return null; } }
 function signalFor(items: Array<{ signal: string }>) {
+  if (!items.length) return "red";
   const green = items.filter(item => item.signal === "green").length;
   return green === items.length ? "green" : green > 0 || items.some(item => item.signal === "orange") ? "orange" : "red";
 }
@@ -31,7 +32,12 @@ export async function GET(request: Request) {
   const DB = await ensureKnowledgeSchema(), version = await contextVersion(businessId);
   const rows = (await DB.prepare("SELECT * FROM fast_answers WHERE business_id = ?").bind(businessId).all<StoredFastAnswer>()).results;
   const byIntent = new Map(rows.map(row => [row.intent, row]));
-  const items = FAST_ANSWER_INTENTS.map(intent => {
+  const builtInIds = new Set(FAST_ANSWER_INTENTS.map(intent => intent.id as string));
+  const definitions = [
+    ...FAST_ANSWER_INTENTS.filter(intent => byIntent.get(intent.id)?.status !== "deleted"),
+    ...rows.filter(row => !builtInIds.has(row.intent) && row.status !== "deleted").map(row => ({ id: row.intent, label: row.label, question: row.question })),
+  ];
+  const items = definitions.map(intent => {
     const row = byIntent.get(intent.id), current = row?.context_version === version;
     const signal = !row || !current ? "red" : row.status === "ready" ? "green" : row.status === "review" ? "orange" : "red";
     const answer = row ? parsedAnswer(row.answer_json) : null;
@@ -42,24 +48,42 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({})) as { businessId?: string; intent?: unknown; action?: string; text?: string };
+  const body = await request.json().catch(() => ({})) as { businessId?: string; intent?: unknown; action?: string; text?: string; label?: string };
   const businessId = typeof body.businessId === "string" ? body.businessId : "";
   const denied = await requireAdminApi({ businessId }); if (denied) return denied;
-  if (!isFastAnswerIntent(body.intent) || !["regenerate", "save"].includes(body.action || "")) return Response.json({ error: "올바른 빠른답변 요청이 아닙니다." }, { status: 400 });
+  const DB = await ensureKnowledgeSchema();
+  if (!["regenerate", "save", "add", "delete"].includes(body.action || "")) return Response.json({ error: "올바른 FAQ 요청이 아닙니다." }, { status: 400 });
+  if (body.action === "add") {
+    const label = typeof body.label === "string" ? body.label.trim().slice(0, 60) : "";
+    if (!label) return Response.json({ error: "항목명을 입력해 주세요." }, { status: 400 });
+    const id = `custom-${crypto.randomUUID()}`, question = `${label}에 대해 알려주세요.`;
+    await DB.prepare("INSERT INTO fast_answers (business_id, intent, label, question, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, '', 'error', '', ?)")
+      .bind(businessId, id, label, question, Date.now()).run();
+    return Response.json({ item: { id, label, question, signal: "red", status: "준비 필요", answer: "", source: "", updatedAt: null } });
+  }
+  const intentId = typeof body.intent === "string" ? body.intent : "";
+  const builtIn = FAST_ANSWER_INTENTS.find(item => item.id === intentId);
+  const stored = await DB.prepare("SELECT label, question FROM fast_answers WHERE business_id = ? AND intent = ? AND status <> 'deleted'").bind(businessId, intentId).first<{ label: string; question: string }>();
+  if (!builtIn && !stored) return Response.json({ error: "FAQ 항목을 찾을 수 없습니다." }, { status: 404 });
+  const intent = builtIn || { id: intentId, label: stored!.label, question: stored!.question };
+  if (body.action === "delete") {
+    await DB.prepare(`INSERT INTO fast_answers (business_id, intent, label, question, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, '', 'deleted', '', ?)
+      ON CONFLICT(business_id, intent) DO UPDATE SET status = 'deleted', updated_at = excluded.updated_at`).bind(businessId, intent.id, intent.label, intent.question, Date.now()).run();
+    return Response.json({ deleted: true });
+  }
   const text = typeof body.text === "string" ? body.text.trim() : "";
   if (body.action === "save" && (!text || text.length > 12000)) return Response.json({ error: "수정 답변을 확인해 주세요." }, { status: 400 });
-  const DB = await ensureKnowledgeSchema(), business = await getBusiness(businessId);
+  const business = await getBusiness(businessId);
   if (!business) return Response.json({ error: "사업을 찾을 수 없습니다." }, { status: 404 });
-  const intent = FAST_ANSWER_INTENTS.find(item => item.id === body.intent)!;
   const version = await contextVersion(businessId), previous = await DB.prepare("SELECT answer_json FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string }>();
   try {
     const knowledge = await loadKnowledgeContext(businessId), timing = createChatTiming();
     const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { forceRefresh: true, candidateText: body.action === "save" ? text : undefined });
     timing.finish(200);
     const status = answer.decision === "fact" && !answer.review && Boolean(answer.source) ? "ready" : "review";
-    await DB.prepare(`INSERT INTO fast_answers (business_id, intent, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(business_id, intent) DO UPDATE SET answer_json = excluded.answer_json, status = excluded.status, context_version = excluded.context_version, updated_at = excluded.updated_at`)
-      .bind(businessId, intent.id, JSON.stringify(answer), status, version, Date.now()).run();
+    await DB.prepare(`INSERT INTO fast_answers (business_id, intent, label, question, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(business_id, intent) DO UPDATE SET label = excluded.label, question = excluded.question, answer_json = excluded.answer_json, status = excluded.status, context_version = excluded.context_version, updated_at = excluded.updated_at`)
+      .bind(businessId, intent.id, intent.label, intent.question, JSON.stringify(answer), status, version, Date.now()).run();
     return Response.json({ item: { ...intent, signal: status === "ready" ? "green" : "orange", status: status === "ready" ? "사용 중" : "확인 필요", answer: answer.text, source: answer.source, updatedAt: Date.now() } });
   } catch {
     await DB.prepare(`INSERT INTO fast_answers (business_id, intent, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, 'error', ?, ?)

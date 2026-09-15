@@ -23,6 +23,7 @@ export const chatAnswerCache = sqliteTable("chat_answer_cache", {
 
 export const fastAnswers = sqliteTable("fast_answers", {
   businessId: text("business_id").notNull(), intent: text("intent").notNull(), answerJson: text("answer_json").notNull().default(""),
+  label: text("label").notNull().default(""), question: text("question").notNull().default(""),
   status: text("status").notNull().default("error"), contextVersion: text("context_version").notNull().default(""), updatedAt: integer("updated_at").notNull(),
 }, table => [uniqueIndex("fast_answers_business_intent_unique").on(table.businessId, table.intent)]);
 

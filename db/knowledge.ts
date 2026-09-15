@@ -159,6 +159,8 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
     DB.prepare(`CREATE TABLE IF NOT EXISTS fast_answers (
       business_id TEXT NOT NULL,
       intent TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      question TEXT NOT NULL DEFAULT '',
       answer_json TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'error',
       context_version TEXT NOT NULL DEFAULT '',
@@ -187,6 +189,10 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       updated_at INTEGER NOT NULL
     )`),
   ]);
+  const fastAnswerColumns = await DB.prepare("PRAGMA table_info(fast_answers)").all<{ name: string }>();
+  for (const [name, definition] of [["label", "TEXT NOT NULL DEFAULT ''"], ["question", "TEXT NOT NULL DEFAULT ''"]] as const) {
+    if (!fastAnswerColumns.results.some((column) => column.name === name)) await DB.prepare(`ALTER TABLE fast_answers ADD COLUMN ${name} ${definition}`).run();
+  }
   const businessColumns = await DB.prepare("PRAGMA table_info(businesses)").all<{ name: string }>();
   if (!businessColumns.results.some((column) => column.name === "is_public")) {
     await DB.prepare("ALTER TABLE businesses ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1").run();
