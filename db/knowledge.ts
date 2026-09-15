@@ -156,6 +156,15 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS fast_answers (
+      business_id TEXT NOT NULL,
+      intent TEXT NOT NULL,
+      answer_json TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'error',
+      context_version TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (business_id, intent)
+    )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS chat_answer_cache_expiry_idx ON chat_answer_cache (expires_at)"),
     DB.prepare(`INSERT OR IGNORE INTO site_settings
       (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
@@ -332,8 +341,8 @@ export async function readChatAnswerCache(DB: DatabaseBinding, cacheKey: string,
 
 export async function writeChatAnswerCache(DB: DatabaseBinding, cacheKey: string, businessId: string, answer: Answer, now = Date.now()) {
   await DB.prepare("DELETE FROM chat_answer_cache WHERE cache_key = ? OR expires_at <= ?").bind(cacheKey, now).run();
-  await DB.prepare(`INSERT OR IGNORE INTO chat_answer_cache (cache_key, business_id, answer_json, created_at, expires_at)
-    VALUES (?, ?, ?, ?, ?)`)
+  await DB.prepare(`INSERT INTO chat_answer_cache (cache_key, business_id, answer_json, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?) ON CONFLICT(cache_key) DO UPDATE SET answer_json = excluded.answer_json, created_at = excluded.created_at, expires_at = excluded.expires_at`)
     .bind(cacheKey, businessId, JSON.stringify(answer), now, now + CHAT_CACHE_TTL_MS).run();
 }
 
