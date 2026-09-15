@@ -24,6 +24,7 @@ type ChatMessage = {
   question: string;
   answer?: Answer;
   thinking?: boolean;
+  cacheHit?: boolean;
 };
 
 type SurveyGroup = {
@@ -70,6 +71,33 @@ const EMPTY_BUSINESS: Business = {
   prompts: [],
   survey: [],
 };
+
+const CACHE_REVEAL_MS = 1200;
+
+function CachedAnswerReveal({ answer }: { answer: Answer }) {
+  const characters = useMemo(() => Array.from(answer.text), [answer.text]);
+  const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [visibleCharacters, setVisibleCharacters] = useState(reduceMotion ? characters.length : 0);
+
+  useEffect(() => {
+    if (reduceMotion) { setVisibleCharacters(characters.length); return; }
+    const startedAt = performance.now();
+    let frame = 0;
+    const reveal = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / CACHE_REVEAL_MS);
+      setVisibleCharacters(Math.ceil(characters.length * progress));
+      if (progress < 1) frame = window.requestAnimationFrame(reveal);
+    };
+    frame = window.requestAnimationFrame(reveal);
+    return () => window.cancelAnimationFrame(frame);
+  }, [characters, reduceMotion]);
+
+  if (reduceMotion) return <AnswerText text={answer.text} />;
+  return <>
+    <div aria-hidden="true"><AnswerText text={characters.slice(0, visibleCharacters).join("")} /></div>
+    <span className="sr-only">{answer.text}</span>
+  </>;
+}
 
 export function HomeClient({ previewSettings, initialSettings }: { previewSettings?: SiteSettings; initialSettings?: SiteSettings } = {}) {
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(previewSettings || initialSettings || { organizationName: "기관명 미설정", contact: "", logoUrl: "/default-organization-logo.svg", mainHeadline: "사업 안내,\n질문으로 쉽게 확인하세요", mainSubcopy: "관리자 화면에서 기관과 사업 정보를 설정해 주세요.", chatbotGreeting: "등록된 안내 자료를 바탕으로 답변해 드릴게요.", primaryColor: "#f26a2e", chatPlaceholder: "선택한 사업에 대해 질문해 주세요" });
@@ -189,10 +217,11 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
       });
       const payload = await response.json() as { answer?: Answer; error?: string };
       if (!response.ok || !payload.answer) throw new Error(payload.error || "Answer request failed");
+      const cacheHit = response.headers.get("x-chat-cache") === "hit";
 
       setMessages((previous) =>
         previous.map((message) =>
-          message.id === id ? { ...message, thinking: false, answer: payload.answer } : message,
+          message.id === id ? { ...message, thinking: false, answer: payload.answer, cacheHit } : message,
         ),
       );
     } catch {
@@ -312,7 +341,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
                       </div>
                     ) : message.answer ? (
                       <article className={`answer${message.answer.review ? " review" : ""}`}>
-                        <AnswerText text={message.answer.text} />
+                        {message.cacheHit ? <CachedAnswerReveal answer={message.answer} /> : <AnswerText text={message.answer.text} />}
                       </article>
                     ) : null}
                   </div>
