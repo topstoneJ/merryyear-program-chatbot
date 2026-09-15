@@ -81,7 +81,8 @@ async function askGemini(businessId: string, businessName: string, question: str
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
   if (!apiKey) throw new Error("Gemini API key is not configured");
-  const conversation = JSON.parse(chatContextInput(history, question));
+  const cacheIntent = cacheIntentForGeneralQuestion(question);
+  const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
   const modelInput = {
     business: { id: businessId, name: businessName },
     currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -111,11 +112,10 @@ async function askGemini(businessId: string, businessName: string, question: str
       },
     },
   };
-  const cacheIntent = history.length === 0 ? cacheIntentForGeneralQuestion(question) : null;
   const cacheableRequest = Boolean(cacheIntent);
   const cacheKey = cacheIntent ? await chatAnswerCacheKey({
     ...modelRequest,
-    input: JSON.stringify({ ...modelInput, conversation: { ...conversation, currentMessage: `FAQ:${cacheIntent}` } }),
+    input: JSON.stringify({ ...modelInput, conversation: { previousConversation: [], currentMessage: `FAQ:${cacheIntent}` } }),
   }) : "";
   if (cacheableRequest) {
     const cached = await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));

@@ -34,9 +34,9 @@ export type BrandingRow = { logo_key?: string | null; favicon_key: string | null
 export function brandingUrls(row?: BrandingRow | null) {
   return {
     faviconUrl: row?.favicon_key
-      ? `/api/settings?asset=favicon&fit=contain-v1&v=${encodeURIComponent(row.favicon_key)}`
+      ? `/api/settings?asset=favicon&fit=trim-v2&v=${encodeURIComponent(row.favicon_key)}`
       : row?.logo_key
-        ? `/api/settings?asset=favicon&fit=contain-v1&v=${encodeURIComponent(row.logo_key)}`
+        ? `/api/settings?asset=favicon&fit=trim-v2&v=${encodeURIComponent(row.logo_key)}`
         : "/default-favicon.svg",
     socialImageUrl: row?.social_image_key ? `/api/settings?asset=social&v=${encodeURIComponent(row.social_image_key)}` : "/default-social-image.svg",
   };
