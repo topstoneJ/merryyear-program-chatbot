@@ -18,7 +18,7 @@ test('brand images reject unsupported, oversized and mismatched content', async 
 });
 test('saved image links change when replaced; no image preserves defaults', () => {
   assert.equal(branding.brandingUrls(null).socialImageUrl, '/default-social-image.svg');
-  assert.equal(branding.brandingUrls({logo_key:'saved-logo',favicon_key:null,updated_at:123}).faviconUrl, '/api/settings?asset=favicon&fit=contain-v1&v=saved-logo');
+  assert.equal(branding.brandingUrls({logo_key:'saved-logo',favicon_key:null,updated_at:123}).faviconUrl, '/api/settings?asset=favicon&fit=trim-v2&v=saved-logo');
   assert.notEqual(branding.brandingUrls({favicon_key:'first'}).faviconUrl, branding.brandingUrls({favicon_key:'second'}).faviconUrl);
 });
 test('saved institution branding updates the browser tab title and icon', async () => {

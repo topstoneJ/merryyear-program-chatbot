@@ -20,7 +20,7 @@ test('model requests, validated answers and saved consultations match deployed b
     {name:'private',options:{public:0}},
     {name:'format',options:{settings:{showSources:true,alwaysContact:true,length:'detailed'}}},
     {name:'correction',options:{},body:{question:'아니요, 300만원이에요.',history:[{question:'월소득 200만원',answer:'200만원이 맞나요?'}]}},
-    {name:'long history',options:{},body:{history:Array.from({length:80},()=>({question:'조건 확인',answer:'확인된 내용입니다.'.repeat(20)}))}},
+    {name:'long history',options:{},body:{question:'제 상황도 이어서 확인해 주세요',history:Array.from({length:80},()=>({question:'조건 확인',answer:'확인된 내용입니다.'.repeat(20)}))}},
     {name:'large knowledge',options:{knowledge:{sources:[{id:'doc',businessId:'test',title:'전체 원문',type:'text',updatedAt:1,url:null,parts:[{id:'0',title:'지원 및 제외',text:'조건과 예외를 모두 확인하세요.'.repeat(8000),pages:[]}]}],conflicts:[],withheldParts:1}}},
     {name:'admin',options:{admin:{id:'admin'},adminGuideContext:{businesses:[]}},body:{businessId:'__admin-guide'}},
   ];
@@ -102,6 +102,15 @@ test('verified general answers are reused only for the exact cache-safe request'
   const combinedAgain = await combinedIntent.ask({question:'신청 방법과 신청 기간을 알려주세요'});
   assert.equal(combinedAgain.headers.get('X-Chat-Cache'), 'bypass');
   assert.equal(combinedIntent.requests.length, 2);
+
+  const ongoingGeneralFaq = chatHarness();
+  const withHistory = {question:'신청 자격을 알려주세요',history:[{question:'안녕하세요',answer:'안녕하세요.'}]};
+  const ongoingFirst = await ongoingGeneralFaq.ask(withHistory);
+  const ongoingSecond = await ongoingGeneralFaq.ask(withHistory);
+  assert.equal(ongoingFirst.headers.get('X-Chat-Cache'), 'miss');
+  assert.equal(ongoingSecond.headers.get('X-Chat-Cache'), 'hit');
+  assert.equal(ongoingGeneralFaq.requests.length, 1);
+  assert.deepEqual(JSON.parse(ongoingGeneralFaq.requests[0].input).conversation.previousConversation, []);
 
   for (const question of ['신청자격을 알려주세요', '자격 요건이 무엇인가요?', '신청 조건을 알려주세요']) {
     const eligibilityGuide = chatHarness();

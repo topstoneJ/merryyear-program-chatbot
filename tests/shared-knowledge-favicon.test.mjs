@@ -79,6 +79,19 @@ test('favicon contains wide, tall, and square images in the exact center without
   }
 });
 
+test('favicon removes transparent upload padding before fitting the visible logo', async () => {
+  const { centeredFavicon } = sourceLoader({ sharp: { default: sharp } })('app/favicon-image.ts');
+  const padded = await sharp({ create: { width: 40, height: 40, channels: 4, background: '#00000000' } })
+    .composite([{ input: await sharp({ create: { width: 20, height: 16, channels: 4, background: '#ff0000ff' } }).png().toBuffer(), left: 10, top: 12 }])
+    .png().toBuffer();
+  const { data } = await sharp(await centeredFavicon(Uint8Array.from(padded).buffer)).raw().toBuffer({ resolveWithObject: true });
+  const points = [];
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) if (data[(y * 32 + x) * 4 + 3] > 128) points.push([x, y]);
+  const xs = points.map(point => point[0]), ys = points.map(point => point[1]);
+  assert.equal(Math.max(...xs) - Math.min(...xs) + 1, 32);
+  assert(Math.abs((Math.min(...ys) + Math.max(...ys)) / 2 - 15.5) <= .5);
+});
+
 test('favicon endpoint centers stored icons and logo fallbacks while leaving original logo bytes intact', async () => {
   const original = await sharp({ create: { width: 120, height: 40, channels: 4, background: '#ff0000' } }).png().toBuffer();
   let row = { logo_key: 'logo', favicon_key: null };

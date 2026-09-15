@@ -71,10 +71,11 @@ const EMPTY_BUSINESS: Business = {
   survey: [],
 };
 
-const CACHE_REVEAL_MS = 1600;
+const ANSWER_REVEAL_CHARACTERS_PER_SECOND = 60;
 
 function AnswerReveal({ answer }: { answer: Answer }) {
   const characters = useMemo(() => Array.from(answer.text), [answer.text]);
+  const revealDurationMs = characters.length / ANSWER_REVEAL_CHARACTERS_PER_SECOND * 1000;
   const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const [visibleCharacters, setVisibleCharacters] = useState(reduceMotion ? characters.length : 0);
 
@@ -83,13 +84,13 @@ function AnswerReveal({ answer }: { answer: Answer }) {
     const startedAt = performance.now();
     let frame = 0;
     const reveal = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / CACHE_REVEAL_MS);
+      const progress = Math.min(1, (now - startedAt) / revealDurationMs);
       setVisibleCharacters(Math.ceil(characters.length * progress));
       if (progress < 1) frame = window.requestAnimationFrame(reveal);
     };
     frame = window.requestAnimationFrame(reveal);
     return () => window.cancelAnimationFrame(frame);
-  }, [characters, reduceMotion]);
+  }, [characters, reduceMotion, revealDurationMs]);
 
   if (reduceMotion) return <AnswerText text={answer.text} />;
   return <>
