@@ -21,7 +21,8 @@ test("business management exposes persistent traffic-light fast answer controls"
     readFile(new URL("../app/api/fast-answers/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/azure-schema.ts", import.meta.url), "utf8"),
   ]);
-  for (const text of ["FAQ 완료", "FAQ 확인", "FAQ 필요", "전체 재생성", "항목명", "자주 묻는 질문의 답변을 미리 준비해 답변 속도를 높여요."]) assert.match(page, new RegExp(text));
+  for (const text of ["FAQ 충분", "FAQ 확인 필요", "전체 재생성", "항목명", "자주 묻는 질문의 답변을 미리 준비해 유사한 질문의 처리 속도를 높여요."]) assert.match(page, new RegExp(text));
+  assert.doesNotMatch(page, /<em>\{item\.status\}<\/em>/);
   assert.match(page, /aria-label=\{`\$\{item\.label\} 편집`\}/);
   assert.match(page, /aria-label=\{`\$\{item\.label\} 재생성`\}/);
   assert.match(page, /aria-label=\{`\$\{item\.label\} 삭제`\}/);
