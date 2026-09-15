@@ -182,7 +182,7 @@ test("knowledge management shows active data volume status and rules", async () 
   assert.match(page, /source\.enabled && source\.status !== "error"/);
   assert.match(page, /characters <= 50_000/);
   assert.match(page, /characters <= 100_000/);
-  assert.match(page, /10만 자를 넘으면 답변 지연과 오류 가능성/);
+  assert.match(page, /활성화된 자료의 글자 수가 10만자를 넘으면 답변이 느려지고 오류율이 높아질 수 있어요/);
   assert.doesNotMatch(page, /source-limit-count/);
   assert.match(page, /data-volume-indicator/);
   assert.match(page, /data-volume-modal/);

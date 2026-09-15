@@ -65,7 +65,21 @@ export async function askGemini(businessId: string, businessName: string, questi
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
   if (!apiKey) throw new Error("Gemini API key is not configured");
-  const cacheIntent = cacheIntentForGeneralQuestion(question);
+  let cacheIntent: string | null = cacheIntentForGeneralQuestion(question);
+  if (cacheIntent) {
+    try {
+      const removedFaq = await DB.prepare("SELECT status FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, cacheIntent).first<{ status: string }>();
+      if (removedFaq?.status === "deleted") cacheIntent = null;
+    } catch { /* Legacy/test adapters without FAQ storage keep built-in FAQ matching. */ }
+  }
+  if (!cacheIntent) {
+    let customFaqs: { results: Array<{ intent: string; question: string }> } = { results: [] };
+    try { customFaqs = await DB.prepare("SELECT intent, question FROM fast_answers WHERE business_id = ? AND status <> 'deleted' AND question <> ''").bind(businessId).all<{ intent: string; question: string }>(); }
+    catch { /* Legacy/test adapters without FAQ storage simply bypass custom FAQ matching. */ }
+    const normalizedQuestion = question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
+    const customFaq = customFaqs.results.find(item => item.question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase() === normalizedQuestion);
+    if (customFaq) cacheIntent = `custom:${customFaq.intent}`;
+  }
   const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
   const verifiedBusinessContact = findBusinessContact(knowledge);
