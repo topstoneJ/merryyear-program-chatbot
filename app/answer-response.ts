@@ -14,7 +14,7 @@ export const NO_KNOWLEDGE_ANSWER: Answer = {
   source: "", page: 0, confidence: 65, review: true, decision: "fact",
 };
 
-export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, settings: AnswerSettings, categoryIds: string[]): Answer {
+export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, settings: AnswerSettings, categoryIds: string[], question = ""): Answer {
   const parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim());
   const keys = ["categoryId", "decision", "evidenceKind", "resolution", "text", "source", "page", "review", "contactPhone", "contactEvidence"];
   if (!parsed || Array.isArray(parsed) || typeof parsed !== "object" || Object.keys(parsed).length !== keys.length
@@ -48,8 +48,9 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   // reserved for unresolved policy/operations, conflicts, or an explicit consult
   // decision instead of being appended to every incomplete comparison.
   const modelRequestsReferral = /(?:담당자|담당\s*부서).{0,60}(?:문의|확인)/s.test(parsed.text);
+  const directContactRequest = /(?:담당자|담당\s*부서|문의처|연락처|전화번호|이메일)/.test(question.replace(/\s+/g, ""));
   const needsReferral = ["missing_policy", "conflict", "action_required"].includes(parsed.resolution)
-    || parsed.decision === "consult" || modelRequestsReferral
+    || parsed.decision === "consult" || modelRequestsReferral || directContactRequest
     || /0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/.test(separated.body)
     || Boolean(separated.body.match(CONTACT_EMAIL_PATTERN));
   if (!verifiedContact && fallbackContact && (needsReferral || (parsed.decision === "fact" && !source && parsed.evidenceKind !== "system") || settings.alwaysContact)) {
@@ -76,7 +77,9 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   }
   const withoutPrefix = prefix ? body.replace(/^(?:불가능(?:합니다|해요)|가능(?:합니다|해요)|담당자 문의가 필요(?:합니다|해요)|추가 정보가 필요(?:합니다|해요))[.!]?\s*/, "") : body;
   const referralAlreadyPresent = verifiedContact && email && phoneDigitsIn(body, phone) && body.toLowerCase().includes(email.toLowerCase());
-  const review = parsed.review || parsed.resolution === "partial" || needsReferral || !pageVerified;
+  const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email);
+  const review = (parsed.review && !verifiedDirectContact) || parsed.resolution === "partial"
+    || (needsReferral && !verifiedDirectContact) || !pageVerified;
   const shouldAppendReferral = needsReferral || settings.alwaysContact;
   const citations = separated.citations || (settings.showSources && source ? `출처: ${source.title}${page ? ` (${page}쪽)` : ""}` : "");
   return { text: [prefix ? [prefix, withoutPrefix].filter(Boolean).join("\n\n") : body, shouldAppendReferral ? (referralAlreadyPresent ? "" : referral) : "", citations].filter(Boolean).join("\n\n"),
