@@ -1,15 +1,18 @@
-type Stage = "business" | "knowledge" | "configuration" | "generation" | "validation" | "consultation" | "model" | "usage";
+type Stage = "business" | "knowledge" | "configuration" | "generation" | "validation" | "consultation" | "model" | "usage" | "cache";
 
 // Fixed metric names and numeric durations only: never log prompts or responses.
 export function createChatTiming() {
   const started = performance.now();
   const durations: Partial<Record<Stage, number>> = {};
+  let cacheStatus: "bypass" | "miss" | "hit" = "bypass";
   let finished = false;
   const add = (stage: Stage, duration: number) => {
     durations[stage] = (durations[stage] || 0) + duration;
   };
   return {
     add,
+    markCache(status: "bypass" | "miss" | "hit") { cacheStatus = status; },
+    cacheStatus() { return cacheStatus; },
     async measure<T>(stage: Stage, operation: () => Promise<T>): Promise<T> {
       const start = performance.now();
       try { return await operation(); }

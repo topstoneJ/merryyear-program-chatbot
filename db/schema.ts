@@ -13,6 +13,14 @@ export const apiUsage = sqliteTable("api_usage", {
   estimatedUsd: real("estimated_usd"),
 }, table => [index("api_usage_created_at_idx").on(table.createdAt)]);
 
+export const chatAnswerCache = sqliteTable("chat_answer_cache", {
+  cacheKey: text("cache_key").primaryKey(),
+  businessId: text("business_id").notNull(),
+  answerJson: text("answer_json").notNull(),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, table => [index("chat_answer_cache_expiry_idx").on(table.expiresAt)]);
+
 export const knowledgeConflictChecks = sqliteTable("knowledge_conflict_checks", {
   businessId: text("business_id").primaryKey(),
   snapshotKey: text("snapshot_key").notNull(),

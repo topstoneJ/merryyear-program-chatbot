@@ -71,3 +71,40 @@ test('request-scoped API settings avoid another query and preserve key deletion 
   assert.equal(await knowledge.getConfiguredGeminiApiKey({gemini_api_key_encrypted:null}),'environment-fallback');
   assert.equal(await knowledge.getConfiguredGeminiApiKey(null),'environment-fallback');
 });
+
+test('verified general answers are reused only for the exact cache-safe request', async () => {
+  const cached = chatHarness();
+  const first = await cached.ask();
+  assert.equal(first.headers.get('X-Chat-Cache'), 'miss');
+  assert.equal(cached.requests.length, 1);
+  const second = await cached.ask();
+  assert.equal(second.headers.get('X-Chat-Cache'), 'hit');
+  assert.deepEqual(second.payload, first.payload);
+  assert.equal(cached.requests.length, 1);
+  assert.equal(cached.records.length, 2);
+
+  const personal = chatHarness();
+  await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
+  const repeated = await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
+  assert.equal(repeated.headers.get('X-Chat-Cache'), 'bypass');
+  assert.equal(personal.requests.length, 2);
+
+  const ambiguous = chatHarness();
+  await ambiguous.ask({question:'이건 무슨 뜻인가요?'});
+  const ambiguousAgain = await ambiguous.ask({question:'이건 무슨 뜻인가요?'});
+  assert.equal(ambiguousAgain.headers.get('X-Chat-Cache'), 'bypass');
+  assert.equal(ambiguous.requests.length, 2);
+
+  const needsReview = chatHarness({draft:{review:true}});
+  await needsReview.ask();
+  const reviewedAgain = await needsReview.ask();
+  assert.equal(reviewedAgain.headers.get('X-Chat-Cache'), 'miss');
+  assert.equal(needsReview.requests.length, 2);
+
+  for (const cacheFailure of [{cacheReadError:new Error('read')},{cacheWriteError:new Error('write')}]) {
+    const resilient = chatHarness(cacheFailure);
+    const response = await resilient.ask();
+    assert.equal(response.status, 200);
+    assert.equal(resilient.requests.length, 1);
+  }
+});

@@ -1,5 +1,5 @@
 import { buildAnswerKnowledge } from "@/app/answer-knowledge";
-import { isAnswerDecision, type AnswerDecision } from "@/app/answer-response";
+import { isAnswerDecision, type Answer, type AnswerDecision } from "@/app/answer-response";
 import { categoryRevision } from "./semantic-category";
 import { decisionFromAnswer, categoryFromQuestion } from "./consultation-decision";
 import { loadCategories, resolveCategory } from "./consultation-categories";
@@ -149,6 +149,14 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       gemini_api_key_encrypted TEXT,
       updated_at INTEGER NOT NULL
     )`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS chat_answer_cache (
+      cache_key TEXT PRIMARY KEY NOT NULL,
+      business_id TEXT NOT NULL,
+      answer_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    )`),
+    DB.prepare("CREATE INDEX IF NOT EXISTS chat_answer_cache_expiry_idx ON chat_answer_cache (expires_at)"),
     DB.prepare(`INSERT OR IGNORE INTO site_settings
       (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
       VALUES ('default', '기관명 미설정', '', '사업 안내,\n질문으로 쉽게 확인하세요', '관리자 화면에서 기관과 사업 정보를 설정해 주세요.', '등록된 안내 자료를 바탕으로 답변해 드릴게요.', '#f26a2e', 0)`),
@@ -295,6 +303,38 @@ export async function listBusinesses(includeHidden = true) {
 export async function getBusiness(businessId: string) {
   const DB = await ensureKnowledgeSchema();
   return DB.prepare("SELECT * FROM businesses WHERE id = ?").bind(businessId).first<BusinessRow>();
+}
+
+const CHAT_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function chatAnswerCacheKey(modelRequest: unknown) {
+  // Bump this contract version whenever validation semantics change so answers
+  // accepted by older server rules cannot bypass newer validation.
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(["chat-answer-v1", modelRequest])));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function parsedCachedAnswer(value: string): Answer | null {
+  try {
+    const answer = JSON.parse(value) as Partial<Answer>;
+    if (answer.decision !== "fact" || answer.review !== false || typeof answer.text !== "string" || !answer.text
+      || typeof answer.source !== "string" || !answer.source || !Number.isInteger(answer.page)
+      || typeof answer.confidence !== "number" || typeof answer.categoryId !== "string") return null;
+    return answer as Answer;
+  } catch { return null; }
+}
+
+export async function readChatAnswerCache(DB: DatabaseBinding, cacheKey: string, now = Date.now()) {
+  const row = await DB.prepare("SELECT answer_json FROM chat_answer_cache WHERE cache_key = ? AND expires_at > ?")
+    .bind(cacheKey, now).first<{ answer_json: string }>();
+  return row ? parsedCachedAnswer(row.answer_json) : null;
+}
+
+export async function writeChatAnswerCache(DB: DatabaseBinding, cacheKey: string, businessId: string, answer: Answer, now = Date.now()) {
+  await DB.prepare("DELETE FROM chat_answer_cache WHERE cache_key = ? OR expires_at <= ?").bind(cacheKey, now).run();
+  await DB.prepare(`INSERT OR IGNORE INTO chat_answer_cache (cache_key, business_id, answer_json, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?)`)
+    .bind(cacheKey, businessId, JSON.stringify(answer), now, now + CHAT_CACHE_TTL_MS).run();
 }
 
 export async function recordConsultation(input: {
