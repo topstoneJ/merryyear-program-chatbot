@@ -21,6 +21,11 @@ export const chatAnswerCache = sqliteTable("chat_answer_cache", {
   expiresAt: integer("expires_at").notNull(),
 }, table => [index("chat_answer_cache_expiry_idx").on(table.expiresAt)]);
 
+export const fastAnswers = sqliteTable("fast_answers", {
+  businessId: text("business_id").notNull(), intent: text("intent").notNull(), answerJson: text("answer_json").notNull().default(""),
+  status: text("status").notNull().default("error"), contextVersion: text("context_version").notNull().default(""), updatedAt: integer("updated_at").notNull(),
+}, table => [uniqueIndex("fast_answers_business_intent_unique").on(table.businessId, table.intent)]);
+
 export const knowledgeConflictChecks = sqliteTable("knowledge_conflict_checks", {
   businessId: text("business_id").primaryKey(),
   snapshotKey: text("snapshot_key").notNull(),

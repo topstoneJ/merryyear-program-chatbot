@@ -12,6 +12,7 @@ import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-setting
 import { buildCoreSystemInstruction } from "@/app/answer-rules";
 import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, parseGeminiAnswer, type Answer } from "@/app/answer-response";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
+import { cacheIntentForGeneralQuestion } from "@/app/fast-answer-intents";
 import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, readChatAnswerCache, recordConsultation, writeChatAnswerCache } from "@/db/knowledge";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME, ADMIN_GUIDE_TEXT } from "@/app/admin-guide";
 
@@ -51,24 +52,7 @@ function modelOutputText(payload: GeminiPayload) {
   return output.trim();
 }
 
-function cacheIntentForGeneralQuestion(question: string) {
-  const compact = question.replace(/\s+/g, "");
-  if (/\d|(?:저는|제가|제것|저희|우리|아이|아들|딸|부모|엄마|아빠|가족|가구|소득|월급|재산|주소|거주|생년|나이|학년|장애|질병|수술)/.test(compact)) return null;
-  if (/(?:되나요|될까요|가능한가|가능할까|해당하나|받을수|신청할수)/.test(compact)) return null;
-  const intents = [
-    ["overview", /(?:사업소개|사업내용)/],
-    ["eligibility", /(?:지원대상|신청자격|자격요건|신청조건)/],
-    ["application", /(?:신청방법|신청절차|신청.*어떻게|어떻게.*신청|접수방법)/],
-    ["documents", /(?:제출서류|필요서류)/],
-    ["period", /(?:접수기간|신청기간)/],
-    ["benefits", /(?:지원내용|지원금)/],
-    ["contact", /(?:문의처|연락처|담당자)/],
-  ] as const;
-  const matches = intents.filter(([, pattern]) => pattern.test(compact));
-  return matches.length === 1 ? matches[0][0] : null;
-}
-
-async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming): Promise<Answer> {
+export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void } = {}): Promise<Answer> {
   const DB = await ensureKnowledgeSchema();
   const { settingsRow, allCategories, apiKey } = await timing.measure("configuration", async () => {
     const [settingsRow, allCategories] = await Promise.all([
@@ -83,6 +67,7 @@ async function askGemini(businessId: string, businessName: string, question: str
   if (!apiKey) throw new Error("Gemini API key is not configured");
   const cacheIntent = cacheIntentForGeneralQuestion(question);
   const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
+  const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
   const modelInput = {
     business: { id: businessId, name: businessName },
     currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -93,8 +78,10 @@ async function askGemini(businessId: string, businessName: string, question: str
   const modelRequest = {
     model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     store: false,
-    system_instruction: buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE),
-    input: JSON.stringify(modelInput),
+    system_instruction: options.candidateText
+      ? `${baseSystemInstruction}\n\n[관리자 편집 답변 검증]\n관리자가 제안한 답변은 표현 참고용입니다. 등록 자료로 확인되는 내용만 유지하고, 근거가 없거나 상충하는 내용은 제거하거나 확인 필요로 처리하세요.`
+      : baseSystemInstruction,
+    input: JSON.stringify(options.candidateText ? { ...modelInput, administratorDraft: options.candidateText } : modelInput),
     response_format: {
       type: "text", mime_type: "application/json",
       schema: {
@@ -114,11 +101,12 @@ async function askGemini(businessId: string, businessName: string, question: str
   };
   const cacheableRequest = Boolean(cacheIntent);
   const cacheKey = cacheIntent ? await chatAnswerCacheKey({
-    ...modelRequest,
+    ...modelRequest, system_instruction: baseSystemInstruction,
     input: JSON.stringify({ ...modelInput, conversation: { previousConversation: [], currentMessage: `FAQ:${cacheIntent}` } }),
   }) : "";
+  if (cacheKey) options.onCacheKey?.(cacheKey);
   if (cacheableRequest) {
-    const cached = await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));
+    const cached = options.forceRefresh ? null : await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));
     if (cached) { timing.markCache("hit"); return cached; }
     timing.markCache("miss");
   }

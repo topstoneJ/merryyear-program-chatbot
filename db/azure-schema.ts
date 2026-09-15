@@ -44,6 +44,7 @@ async function initialize(DB: DatabaseBinding) {
     DB.prepare(`CREATE TABLE IF NOT EXISTS business_homepage_sources (business_id TEXT PRIMARY KEY, source_id TEXT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS api_usage (id TEXT PRIMARY KEY, created_at BIGINT NOT NULL, model TEXT NOT NULL, purpose TEXT NOT NULL, status INTEGER NOT NULL, input_tokens BIGINT, output_tokens BIGINT, thought_tokens BIGINT, cached_tokens BIGINT, estimated_usd DOUBLE PRECISION)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS chat_answer_cache (cache_key TEXT PRIMARY KEY, business_id TEXT NOT NULL, answer_json TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL)`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS fast_answers (business_id TEXT NOT NULL, intent TEXT NOT NULL, answer_json TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'error', context_version TEXT NOT NULL DEFAULT '', updated_at BIGINT NOT NULL, PRIMARY KEY (business_id, intent))`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_business_idx ON knowledge_sources (business_id, updated_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_revision_source_idx ON knowledge_source_revisions (source_id, created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS consultation_business_date_idx ON consultations (business_id, created_at)`),
