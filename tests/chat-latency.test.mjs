@@ -28,7 +28,13 @@ test('model requests, validated answers and saved consultations match deployed b
     const old = chatHarness({...scenario.options,routeSource:before});
     const current = chatHarness(scenario.options);
     const a = await old.ask(scenario.body), b = await current.ask(scenario.body);
-    assert.deepEqual(current.requests, old.requests, `${scenario.name}: full model payload`);
+    const withoutGenerationConfig = requests => requests.map(request => {
+      const copy = structuredClone(request);
+      delete copy.generation_config;
+      return copy;
+    });
+    assert.deepEqual(withoutGenerationConfig(current.requests), old.requests, `${scenario.name}: model payload except latency setting`);
+    assert.ok(current.requests.every(request => request.generation_config?.thinking_level === 'low'), `${scenario.name}: low thinking`);
     assert.deepEqual(b.payload, a.payload, `${scenario.name}: validated answer`);
     assert.equal(b.status,a.status,`${scenario.name}: status`);
     assert.deepEqual(current.records,old.records,`${scenario.name}: saved consultation`);
