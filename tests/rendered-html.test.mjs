@@ -107,8 +107,8 @@ test("consultation summaries filter the detail list by result and category", asy
   assert.match(page, /decisionFilter/);
   assert.match(page, /categoryFilter/);
   assert.match(page, /filteredConsultations/);
-  assert.match(page, /현재 화면에 표시된 상담내역/);
-  assert.match(page, /filteredConsultations\.map\(\(item\) => item\.id\)/);
+  assert.match(page, /삭제할 상담내역의 범위를 선택해 주세요/);
+  assert.match(page, /target\.map\(\(item\) => item\.id\)/);
   assert.match(page, /상담내역 삭제 권한이 없습니다/);
   assert.match(page, /aria-pressed=\{decisionFilter === key\}/);
   assert.match(page, /aria-pressed=\{categoryFilter === item\.category\}/);
@@ -119,6 +119,8 @@ test("consultation summaries filter the detail list by result and category", asy
   assert.match(page, /downloadCsv\("page"\)/);
   assert.match(page, /downloadCsv\("all"\)/);
   assert.match(page, /scope === "page" \? pagedConsultations : filteredConsultations/);
+  assert.match(page, /bulkDeleteScope === "page" \? pagedConsultations : filteredConsultations/);
+  assert.match(page, /최근 1,000건/);
 });
 
 test("business names clamp in management and the desktop home stays inside the viewport", async () => {

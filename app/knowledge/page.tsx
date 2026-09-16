@@ -18,6 +18,11 @@ type BusinessDialog = { mode: "add" | "rename"; name: string; noticeUrl: string;
 type RandomQuestion = { id: string; question: string; options: string[] };
 type FastAnswerItem = { id: string; label: string; question: string; signal: "green" | "orange" | "red"; status: string; answer: string; source: string; updatedAt: number | null };
 type FastAnswerState = { signal: "green" | "orange" | "red"; items: FastAnswerItem[] };
+function faqSignal(items: FastAnswerItem[]): FastAnswerState["signal"] {
+  if (!items.length) return "red";
+  const green = items.filter(item => item.signal === "green").length;
+  return green === items.length ? "green" : green === 0 ? "red" : "orange";
+}
 type KnowledgeSection = {
   id: string;
   title: string;
@@ -304,7 +309,7 @@ export default function KnowledgePage() {
       const response = await fetch("/api/fast-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, intent: item.id, action, text }) });
       const payload = await response.json() as { item?: FastAnswerItem; error?: string };
       if (!response.ok || !payload.item) throw new Error(payload.error || "FAQ 답변을 만들지 못했습니다.");
-      setFastAnswers(previous => { const items = previous.items.map(current => current.id === item.id ? payload.item! : current); const green = items.filter(current => current.signal === "green").length; return { items, signal: green === items.length ? "green" : green > 0 || items.some(current => current.signal === "orange") ? "orange" : "red" }; });
+      setFastAnswers(previous => { const items = previous.items.map(current => current.id === item.id ? payload.item! : current); return { items, signal: faqSignal(items) }; });
       setFastAnswerEditing(null); setFastAnswerDraft("");
     } catch (error) { setFastAnswerError((error as Error).message); }
     finally { setFastAnswerBusy(null); }
@@ -324,7 +329,7 @@ export default function KnowledgePage() {
       const response = await fetch("/api/fast-answers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, action: "add", label }) });
       const payload = await response.json() as { item?: FastAnswerItem; error?: string };
       if (!response.ok || !payload.item) throw new Error(payload.error || "FAQ 항목을 추가하지 못했습니다.");
-      setFastAnswers(previous => ({ signal: previous.signal === "green" ? "orange" : previous.signal, items: [...previous.items, payload.item!] }));
+      setFastAnswers(previous => { const items = [...previous.items, payload.item!]; return { signal: faqSignal(items), items }; });
       setFaqAddOpen(false); setFaqNewLabel("");
     } catch (error) { setFastAnswerError((error as Error).message); }
     finally { setFastAnswerBusy(null); }
@@ -342,7 +347,8 @@ export default function KnowledgePage() {
     finally { setFastAnswerBusy(null); }
   }
 
-  const fastAnswerLabel = fastAnswers.signal === "green" ? "FAQ 충분" : "FAQ 확인 필요";
+  const faqPercent = fastAnswers.items.length ? Math.round((fastAnswers.items.filter(item => item.signal === "green").length / fastAnswers.items.length) * 100) : 0;
+  const fastAnswerLabel = `FAQ ${faqPercent}%`;
 
   useEffect(() => {
     fetch("/api/settings").then(response => response.json()).then(payload => payload.settings?.primaryColor && setBrandColor(payload.settings.primaryColor));

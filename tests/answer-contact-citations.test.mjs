@@ -10,10 +10,18 @@ test('citations remain last after the server adds both email and phone, regardle
     const r = await h.ask(); const text = r.payload.answer.text;
     assert.equal(r.status, 200);
     assert.match(text, /이메일: support@example.org\n전화번호: 02-1234-5678/);
+    assert.doesNotMatch(text, /사업 담당자 문의/);
     assert(text.endsWith('출처: 사업 안내문'));
     assert.equal(text.match(/출처:/g).length, 1);
     assert.equal(h.records[0].answer, text);
   }
+});
+
+test('contact hours explicitly describe phone consultation rather than all inquiries', async () => {
+  const h = chatHarness({ knowledge: knowledge('사업 담당자 문의\n전화번호: 02-1234-5678\n이메일: support@example.org\n전화 상담 가능 시간: 평일 오전 10시부터 12시, 오후 14시부터 17시'), draft: { ...referralDraft, text: '문의는 평일 오전 10시부터 12시, 오후 14시부터 17시까지 가능해요.\n\n출처: 사업 안내문' } });
+  const text = (await h.ask({ question: '담당자 연락처를 알려주세요' })).payload.answer.text;
+  assert.match(text, /전화 상담은 평일 오전 10시부터 12시, 오후 14시부터 17시까지 가능해요/);
+  assert.doesNotMatch(text, /문의는 평일/);
 });
 
 test('source display option adds a verified citation if the model omitted it', async () => {

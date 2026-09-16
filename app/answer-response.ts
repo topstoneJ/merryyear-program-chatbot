@@ -61,14 +61,17 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const unsupported = parsed.decision === "fact" && !source && parsed.evidenceKind !== "system";
   if (parsed.evidenceKind === "document" && !source && !needsReferral && !unsupported && parsed.decision !== "need_info") throw new Error("Unknown answer source");
   const email = findBusinessEmail(knowledge, verifiedContact ? phone : "");
-  const referral = "사업 담당자 문의\n이메일: " + (email || "등록 자료에서 확인되지 않음")
+  const referral = "이메일: " + (email || "등록 자료에서 확인되지 않음")
     + "\n전화번호: " + (verifiedContact ? phone : "등록 자료에서 확인되지 않음");
   if (unsupported) return { ...NO_KNOWLEDGE_ANSWER, decision: "consult", categoryId: parsed.categoryId,
     text: (settings.tone === "friendly" ? "현재 자료에서 해당 기준을 확인하기 어려워요." : "현재 자료에서 해당 기준을 확인하기 어렵습니다.") + "\n\n" + referral };
   const prefixes = decisionPrefixes(settings);
   const prefix = parsed.decision === "fact" ? "" : prefixes[parsed.decision as keyof typeof prefixes];
   let body = separated.body.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "") ? value : "[연락처 확인 필요]")
-    .replace(CONTACT_EMAIL_PATTERN, (value: string) => email && value.toLowerCase() === email.toLowerCase() ? value : "[이메일 확인 필요]");
+    .replace(CONTACT_EMAIL_PATTERN, (value: string) => email && value.toLowerCase() === email.toLowerCase() ? value : "[이메일 확인 필요]")
+    .replace(/(?:사업\s*)?담당자\s*문의\s*(?:\n|$)/g, "")
+    .replace(/문의는\s*((?:평일|주말|매일)[^\n.!?]*(?:가능해요|가능합니다))/g, "전화 상담은 $1")
+    .replace(/문의\s*가능\s*시간은/g, "전화 상담 가능 시간은");
   if (verifiedContact) {
     body = body
       .replace(/(?:현재\s*)?자료(?:에서|에는)?\s*(?:확인된\s*)?담당자\s*연락처(?:를\s*확인할\s*수|가)?\s*(?:없습니다|없어요|어렵습니다|어려워요)[.!]?/g, "")

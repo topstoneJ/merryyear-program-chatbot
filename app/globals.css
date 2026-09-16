@@ -981,7 +981,7 @@ h1 em {
 .fast-answer-item { border: 1px solid #e5ddd5; border-left-width: 4px; border-radius: 12px; padding: 14px 15px; background: #fff; }
 .fast-answer-item.green { border-left-color: #45a56a; }.fast-answer-item.orange { border-left-color: #ed8a2f; }.fast-answer-item.red { border-left-color: #d94b45; }
 .fast-answer-item header { display: grid; grid-template-columns: 13px auto 1fr; align-items: center; gap: 10px; }
-.fast-answer-item header b { font-size: 12px; }
+.fast-answer-item header b { font-size: 13px; }
 .fast-answer-item header small { color: #8a8179; justify-self: end; text-align: right; }
 .fast-answer-item > p { white-space: pre-line; color: #4d4741; margin: 12px 0 5px 23px; font-size: 13px; line-height: 1.65; }.fast-answer-item > p.empty { color: #9a9189; }
 .fast-answer-item textarea { width: calc(100% - 23px); min-height: 130px; resize: vertical; margin: 12px 0 6px 23px; padding: 11px 12px; border: 1px solid #dcd2c8; border-radius: 9px; font: inherit; font-size: 13px; line-height: 1.65; }
