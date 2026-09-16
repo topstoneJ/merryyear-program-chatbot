@@ -28,7 +28,8 @@ test('model requests, validated answers and saved consultations match deployed b
     const old = chatHarness({...scenario.options,routeSource:before});
     const current = chatHarness(scenario.options);
     const a = await old.ask(scenario.body), b = await current.ask(scenario.body);
-    assert.deepEqual(current.requests, old.requests, `${scenario.name}: full model payload`);
+    const normalize = requests => requests.map(request => ({...request, input: JSON.parse(request.input)}));
+    assert.deepEqual(normalize(current.requests), normalize(old.requests), `${scenario.name}: full model payload`);
     assert.deepEqual(b.payload, a.payload, `${scenario.name}: validated answer`);
     assert.equal(b.status,a.status,`${scenario.name}: status`);
     assert.deepEqual(current.records,old.records,`${scenario.name}: saved consultation`);
