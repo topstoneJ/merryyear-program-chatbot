@@ -51,6 +51,7 @@ export function chatHarness(options = {}) {
       const response = await fetchModel(purpose, init);
       return { response, payload: await response.json() };
     } },
+    '@/app/fast-answer-store': { readReadyFastAnswer: async () => options.readyFastAnswer || null },
   }, options.routeSource ? { 'app/api/chat/route.ts': options.routeSource } : {});
   const api = load('app/api/chat/route.ts');
   return {requests, records, settings, knowledge, answerCache, async ask(body = {}) {

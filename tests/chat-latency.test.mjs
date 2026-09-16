@@ -72,76 +72,33 @@ test('request-scoped API settings avoid another query and preserve key deletion 
   assert.equal(await knowledge.getConfiguredGeminiApiKey(null),'environment-fallback');
 });
 
-test('verified general answers are reused only for the exact cache-safe request', async () => {
-  const cached = chatHarness();
-  const first = await cached.ask();
-  assert.equal(first.headers.get('X-Chat-Cache'), 'miss');
-  assert.equal(cached.requests.length, 1);
-  const second = await cached.ask();
-  assert.equal(second.headers.get('X-Chat-Cache'), 'hit');
-  assert.deepEqual(second.payload, first.payload);
-  assert.equal(cached.requests.length, 1);
-  assert.equal(cached.records.length, 2);
+test('only a current green FAQ bypasses generation; everything else keeps full context', async () => {
+  const preparedAnswer = { text:'기관을 통해 신청해요.', source:'공개 안내문', page:0, confidence:95, review:false, decision:'fact', categoryId:'content' };
+  const prepared = chatHarness({readyFastAnswer:preparedAnswer});
+  const first = await prepared.ask({question:'신청방법은?'});
+  const second = await prepared.ask({question:'신청방법을 알려줘'});
+  assert.equal(first.headers.get('X-Chat-Cache'),'hit');
+  assert.equal(second.headers.get('X-Chat-Cache'),'hit');
+  assert.deepEqual(first.payload.answer,preparedAnswer);
+  assert.deepEqual(second.payload.answer,preparedAnswer);
+  assert.equal(prepared.requests.length,0);
+  assert.equal(prepared.records.length,2);
 
-  const naturalWording = chatHarness();
-  await naturalWording.ask({question:'신청은 어떻게 하나요?'});
-  const naturalWordingAgain = await naturalWording.ask({question:'신청은 어떻게 하나요?'});
-  assert.equal(naturalWordingAgain.headers.get('X-Chat-Cache'), 'hit');
-  assert.equal(naturalWording.requests.length, 1);
+  const notPrepared = chatHarness();
+  await notPrepared.ask({question:'신청방법은?'});
+  await notPrepared.ask({question:'신청방법은?'});
+  assert.equal(notPrepared.requests.length,2);
 
-  const equivalentWording = chatHarness();
-  const shortMethod = await equivalentWording.ask({question:'신청방법은?'});
-  const politeMethod = await equivalentWording.ask({question:'신청방법을 알려줘'});
-  assert.equal(shortMethod.headers.get('X-Chat-Cache'), 'miss');
-  assert.equal(politeMethod.headers.get('X-Chat-Cache'), 'hit');
-  assert.deepEqual(politeMethod.payload.answer, shortMethod.payload.answer);
-  assert.equal(equivalentWording.requests.length, 1);
-
-  const combinedIntent = chatHarness();
-  await combinedIntent.ask({question:'신청 방법과 신청 기간을 알려주세요'});
-  const combinedAgain = await combinedIntent.ask({question:'신청 방법과 신청 기간을 알려주세요'});
-  assert.equal(combinedAgain.headers.get('X-Chat-Cache'), 'bypass');
-  assert.equal(combinedIntent.requests.length, 2);
-
-  const ongoingGeneralFaq = chatHarness();
-  const withHistory = {question:'신청 자격을 알려주세요',history:[{question:'안녕하세요',answer:'안녕하세요.'}]};
-  const ongoingFirst = await ongoingGeneralFaq.ask(withHistory);
-  const ongoingSecond = await ongoingGeneralFaq.ask(withHistory);
-  assert.equal(ongoingFirst.headers.get('X-Chat-Cache'), 'miss');
-  assert.equal(ongoingSecond.headers.get('X-Chat-Cache'), 'hit');
-  assert.equal(ongoingGeneralFaq.requests.length, 1);
-  assert.deepEqual(JSON.parse(ongoingGeneralFaq.requests[0].input).conversation.previousConversation, []);
-
-  for (const question of ['신청자격을 알려주세요', '자격 요건이 무엇인가요?', '신청 조건을 알려주세요']) {
-    const eligibilityGuide = chatHarness();
-    await eligibilityGuide.ask({question});
-    const eligibilityGuideAgain = await eligibilityGuide.ask({question});
-    assert.equal(eligibilityGuideAgain.headers.get('X-Chat-Cache'), 'hit');
-    assert.equal(eligibilityGuide.requests.length, 1);
-  }
-
-  const personal = chatHarness();
-  await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
-  const repeated = await personal.ask({question:'제가 30살인데 신청할 수 있나요?'});
-  assert.equal(repeated.headers.get('X-Chat-Cache'), 'bypass');
-  assert.equal(personal.requests.length, 2);
-
-  const ambiguous = chatHarness();
-  await ambiguous.ask({question:'이건 무슨 뜻인가요?'});
-  const ambiguousAgain = await ambiguous.ask({question:'이건 무슨 뜻인가요?'});
-  assert.equal(ambiguousAgain.headers.get('X-Chat-Cache'), 'bypass');
-  assert.equal(ambiguous.requests.length, 2);
-
-  const needsReview = chatHarness({draft:{review:true}});
-  await needsReview.ask();
-  const reviewedAgain = await needsReview.ask();
-  assert.equal(reviewedAgain.headers.get('X-Chat-Cache'), 'miss');
-  assert.equal(needsReview.requests.length, 2);
-
-  for (const cacheFailure of [{cacheReadError:new Error('read')},{cacheWriteError:new Error('write')}]) {
-    const resilient = chatHarness(cacheFailure);
-    const response = await resilient.ask();
-    assert.equal(response.status, 200);
-    assert.equal(resilient.requests.length, 1);
+  for (const question of [
+    '신청 방법과 신청 기간을 알려주세요',
+    '제가 30살인데 신청할 수 있나요?',
+    '담당자에게 자주 전화하면 선정에 유리할까요?',
+  ]) {
+    const contextual = chatHarness({readyFastAnswer:preparedAnswer});
+    const body={question,history:[{question:'이전 질문',answer:'이전 답변'}]};
+    const response=await contextual.ask(body);
+    assert.equal(response.headers.get('X-Chat-Cache'),'bypass',question);
+    assert.equal(contextual.requests.length,1,question);
+    assert.equal(JSON.parse(contextual.requests[0].input).conversation.previousConversation.length,1,question);
   }
 });

@@ -13,6 +13,7 @@ import { buildCoreSystemInstruction } from "@/app/answer-rules";
 import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, parseGeminiAnswer, type Answer } from "@/app/answer-response";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
 import { cacheIntentForGeneralQuestion } from "@/app/fast-answer-intents";
+import { readReadyFastAnswer } from "@/app/fast-answer-store";
 import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, readChatAnswerCache, recordConsultation, writeChatAnswerCache } from "@/db/knowledge";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME, ADMIN_GUIDE_TEXT } from "@/app/admin-guide";
 
@@ -64,14 +65,7 @@ export async function askGemini(businessId: string, businessName: string, questi
   });
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
-  if (!apiKey) throw new Error("Gemini API key is not configured");
   let cacheIntent: string | null = cacheIntentForGeneralQuestion(question);
-  if (cacheIntent) {
-    try {
-      const removedFaq = await DB.prepare("SELECT status FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, cacheIntent).first<{ status: string }>();
-      if (removedFaq?.status === "deleted") cacheIntent = null;
-    } catch { /* Legacy/test adapters without FAQ storage keep built-in FAQ matching. */ }
-  }
   if (!cacheIntent) {
     let customFaqs: { results: Array<{ intent: string; question: string }> } = { results: [] };
     try { customFaqs = await DB.prepare("SELECT intent, question FROM fast_answers WHERE business_id = ? AND status <> 'deleted' AND question <> ''").bind(businessId).all<{ intent: string; question: string }>(); }
@@ -80,6 +74,14 @@ export async function askGemini(businessId: string, businessName: string, questi
     const customFaq = customFaqs.results.find(item => item.question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase() === normalizedQuestion);
     if (customFaq) cacheIntent = `custom:${customFaq.intent}`;
   }
+  const matchedFastAnswerIntent = cacheIntent;
+  if (cacheIntent && !options.forceRefresh && !options.candidateText) {
+    const storedIntent = cacheIntent.startsWith("custom:") ? cacheIntent.slice(7) : cacheIntent;
+    const stored = await timing.measure("cache", () => readReadyFastAnswer(DB, businessId, storedIntent).catch(() => null));
+    if (stored) { timing.markCache("hit"); return stored; }
+    cacheIntent = null;
+  }
+  if (!apiKey) throw new Error("Gemini API key is not configured");
   const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
   const verifiedBusinessContact = findBusinessContact(knowledge);
@@ -143,7 +145,7 @@ export async function askGemini(businessId: string, businessName: string, questi
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
       let answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question));
-      const verifiedContactAnswer = cacheIntent === "contact" && Boolean(verifiedBusinessContact?.phone && verifiedBusinessContact.email)
+      const verifiedContactAnswer = matchedFastAnswerIntent === "contact" && Boolean(verifiedBusinessContact?.phone && verifiedBusinessContact.email)
         && answer.text.replace(/[- .\s]/g, "").includes(verifiedBusinessContact!.phone.replace(/[- .]/g, ""))
         && answer.text.toLowerCase().includes(verifiedBusinessContact!.email!.toLowerCase());
       if (verifiedContactAnswer) answer = { ...answer, decision: "fact", review: false, source: answer.source || "사업 필수 정보" };

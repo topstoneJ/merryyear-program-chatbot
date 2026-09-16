@@ -2,22 +2,10 @@ import { requireAdminApi } from "@/app/admin-session";
 import { createChatTiming } from "@/app/chat-timing";
 import { FAST_ANSWER_INTENTS } from "@/app/fast-answer-intents";
 import { askGemini } from "@/app/api/chat/route";
-import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, loadKnowledgeContext } from "@/db/knowledge";
-import { loadCategories } from "@/db/consultation-categories";
+import { ensureKnowledgeSchema, getBusiness, loadKnowledgeContext } from "@/db/knowledge";
+import { fastAnswerContextVersion } from "@/app/fast-answer-store";
 
 type StoredFastAnswer = { business_id: string; intent: string; label: string; question: string; answer_json: string; status: string; context_version: string; updated_at: number };
-
-async function contextVersion(businessId: string) {
-  const DB = await ensureKnowledgeSchema();
-  const [business, sources, settings, categories] = await Promise.all([
-    DB.prepare("SELECT id, name, notice_url, contact_department, contact_email, contact_phone, contact_hours, updated_at FROM businesses WHERE id = ?").bind(businessId).first(),
-    DB.prepare("SELECT id, business_id, title, content, status, enabled, shared_all_businesses, updated_at FROM knowledge_sources WHERE business_id = ? OR shared_all_businesses = 1 ORDER BY id").bind(businessId).all(),
-    DB.prepare("SELECT answer_settings_json, updated_at FROM site_settings WHERE id = 'default'").first(),
-    loadCategories(DB),
-  ]);
-  return chatAnswerCacheKey(["fast-answer-context-v2", business, sources.results, settings, categories,
-    process.env.GEMINI_MODEL || "gemini-3.8-flash", new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)]);
-}
 
 function parsedAnswer(value: string) { try { return JSON.parse(value); } catch { return null; } }
 function signalFor(items: Array<{ signal: string }>) {
@@ -29,7 +17,7 @@ function signalFor(items: Array<{ signal: string }>) {
 export async function GET(request: Request) {
   const businessId = new URL(request.url).searchParams.get("businessId") || "";
   const denied = await requireAdminApi({ businessId }); if (denied) return denied;
-  const DB = await ensureKnowledgeSchema(), version = await contextVersion(businessId);
+  const DB = await ensureKnowledgeSchema(), version = await fastAnswerContextVersion(businessId, DB);
   const rows = (await DB.prepare("SELECT * FROM fast_answers WHERE business_id = ?").bind(businessId).all<StoredFastAnswer>()).results;
   const byIntent = new Map(rows.map(row => [row.intent, row]));
   const builtInIds = new Set(FAST_ANSWER_INTENTS.map(intent => intent.id as string));
@@ -75,7 +63,7 @@ export async function POST(request: Request) {
   if (body.action === "save" && (!text || text.length > 12000)) return Response.json({ error: "수정 답변을 확인해 주세요." }, { status: 400 });
   const business = await getBusiness(businessId);
   if (!business) return Response.json({ error: "사업을 찾을 수 없습니다." }, { status: 404 });
-  const version = await contextVersion(businessId), previous = await DB.prepare("SELECT answer_json FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string }>();
+  const version = await fastAnswerContextVersion(businessId, DB), previous = await DB.prepare("SELECT answer_json FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string }>();
   try {
     const knowledge = await loadKnowledgeContext(businessId), timing = createChatTiming();
     const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { forceRefresh: true, candidateText: body.action === "save" ? text : undefined });
