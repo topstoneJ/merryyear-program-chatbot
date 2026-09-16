@@ -71,7 +71,7 @@ const EMPTY_BUSINESS: Business = {
   survey: [],
 };
 
-const ANSWER_REVEAL_CHARACTERS_PER_SECOND = 90;
+const ANSWER_REVEAL_CHARACTERS_PER_SECOND = 30;
 
 function AnswerReveal({ answer }: { answer: Answer }) {
   const characters = useMemo(() => Array.from(answer.text), [answer.text]);
