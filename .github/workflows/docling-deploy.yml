@@ -1,0 +1,65 @@
+name: Deploy Docling to Azure Container Apps
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: azure-docling-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}
+      AZURE_DOCLING_APP_NAME: ${{ vars.AZURE_DOCLING_APP_NAME }}
+      IMAGE_NAME: program-guide-docling
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate deployment variables
+        shell: bash
+        run: |
+          test -n "$AZURE_RESOURCE_GROUP"
+          test -n "$AZURE_CONTAINER_REGISTRY"
+          test -n "$AZURE_DOCLING_APP_NAME"
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build image in Azure Container Registry
+        shell: bash
+        run: |
+          az acr build \
+            --registry "$AZURE_CONTAINER_REGISTRY" \
+            --image "$IMAGE_NAME:${GITHUB_SHA}" \
+            services/docling
+
+      - name: Deploy image to Azure Container Apps
+        shell: bash
+        run: |
+          login_server=$(az acr show \
+            --name "$AZURE_CONTAINER_REGISTRY" \
+            --query loginServer \
+            --output tsv)
+          az containerapp update \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_DOCLING_APP_NAME" \
+            --image "$login_server/$IMAGE_NAME:${GITHUB_SHA}"
+
+      - name: Verify active revision
+        shell: bash
+        run: |
+          az containerapp show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_DOCLING_APP_NAME" \
+            --query "{state:properties.runningStatus,revision:properties.latestReadyRevisionName}" \
+            --output table

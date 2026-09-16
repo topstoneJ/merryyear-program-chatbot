@@ -12,6 +12,7 @@
 - 출처 문서와 페이지 검증, 자료 충돌 감지, 자료 부족 안내
 - 상담 기록 조회·분류·보완 답변·내보내기
 - PDF 기반 지식 자료 등록과 공개 범위 관리
+- Azure 내부 Docling 컨테이너를 통한 OCR·표·레이아웃 보존 PDF 분석(미설정 시 PDF.js 사용)
 - 답변 규칙, 모델, API, 브랜드 이미지와 화면 문구 설정
 - 관리자 계정별 상담·자료·설정 화면 접근 권한
 - Azure PostgreSQL과 Azure Blob Storage 연동
@@ -64,6 +65,7 @@ pnpm build
 | 관리자 보안 | `ADMIN_SESSION_SECRET`, `API_KEY_ENCRYPTION_SECRET` |
 | 데이터베이스 | `DATABASE_URL`, `DATABASE_POOL_SIZE` |
 | Azure Storage | `AZURE_STORAGE_ACCOUNT_NAME`, `AZURE_STORAGE_CONTAINER_NAME`, `AZURE_STORAGE_CONNECTION_STRING` |
+| PDF 분석 | `DOCLING_SERVICE_URL`, `DOCLING_SHARED_SECRET`, `DOCLING_TIMEOUT_MS` |
 | 서비스 주소 | `SITE_URL` |
 
 Azure에서는 Storage 연결 문자열보다 관리 ID를 우선 사용합니다. 어떤 비밀값도 README, 마이그레이션, GitHub Actions 워크플로에 직접 기록하지 않습니다.

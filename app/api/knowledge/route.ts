@@ -5,6 +5,7 @@ import { requireAdminApi } from "@/app/admin-session";
 import { COUNT_SOURCE_KIND_SQL } from "@/db/source-limits";
 import { SOURCE_LIMITS, sourceLimitMessage, type LimitedSourceKind } from "@/app/knowledge/source-limits";
 import { KnowledgeIntegrityError, validateAnalysisInput, validateKnowledgeContent } from "@/app/knowledge/knowledge-integrity";
+import { convertPdfForAnalysis, DocumentConversionError } from "@/app/document-converter";
 
 const TYPES = new Set(["website", "pdf", "text"]);
 
@@ -190,8 +191,13 @@ export async function POST(request: Request) {
       if (!fileBytes.length || fileBytes.length > 20 * 1024 * 1024) return Response.json({ error: "PDF는 20MB 이하만 등록할 수 있습니다." }, { status: 400 });
       if (new TextDecoder("ascii").decode(fileBytes.subarray(0, 5)) !== "%PDF-") return Response.json({ error: "올바른 PDF 파일을 선택해 주세요." }, { status: 400 });
       fileName = cleanText(String(isJson ? value("fileName") : (file as File).name), 180);
-      const extractedText = cleanAnalysisInput(String(value("extractedText") || ""), "PDF");
       stage = "analyze-pdf";
+      const converted = await convertPdfForAnalysis({
+        bytes: fileBytes,
+        fileName,
+        browserExtractedText: String(value("extractedText") || ""),
+      });
+      const extractedText = cleanAnalysisInput(converted.text, "PDF");
       content = await analyzeSourceWithGemini(title, fileName, extractedText, "PDF");
       const { KNOWLEDGE_FILES } = knowledgeEnv();
       if (!KNOWLEDGE_FILES) throw new Error("Knowledge file storage is unavailable");
@@ -218,14 +224,14 @@ export async function POST(request: Request) {
     const result = await DB.prepare("SELECT * FROM knowledge_sources WHERE id = ?").bind(id).first<KnowledgeSourceRow>();
     return Response.json({ source: result ? publicSource(result) : null });
   } catch (error) {
-    const message = error instanceof KnowledgeIntegrityError ? error.message : error instanceof Error && ["AI 분석을 위한 API 키가 설정되지 않았습니다.", "PDF에서 분석할 텍스트를 충분히 추출하지 못했습니다. 이미지 PDF라면 OCR이 필요합니다."].includes(error.message)
+    const message = error instanceof KnowledgeIntegrityError || error instanceof DocumentConversionError ? error.message : error instanceof Error && ["AI 분석을 위한 API 키가 설정되지 않았습니다.", "PDF에서 분석할 텍스트를 충분히 추출하지 못했습니다. 이미지 PDF라면 OCR이 필요합니다."].includes(error.message)
       ? error.message : "지식을 등록하지 못했습니다.";
     console.error("Knowledge create failed", {
       requestId: crypto.randomUUID(), stage,
       kind: error instanceof Error ? error.name : "UnknownError",
       reason: error instanceof Error ? error.message.slice(0, 300) : "Unknown failure",
     });
-    return Response.json({ error: message }, { status: error instanceof KnowledgeIntegrityError ? 400 : 500 });
+    return Response.json({ error: message }, { status: error instanceof KnowledgeIntegrityError || error instanceof DocumentConversionError ? 400 : 500 });
   }
 }
 
