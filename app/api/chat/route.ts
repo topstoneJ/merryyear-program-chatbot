@@ -53,9 +53,9 @@ function modelOutputText(payload: GeminiPayload) {
   return output.trim();
 }
 
-export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void } = {}): Promise<Answer> {
+async function loadChatConfiguration(timing: ChatTiming) {
   const DB = await ensureKnowledgeSchema();
-  const { settingsRow, allCategories, apiKey } = await timing.measure("configuration", async () => {
+  return timing.measure("configuration", async () => {
     const [settingsRow, allCategories] = await Promise.all([
       DB.prepare("SELECT answer_settings_json, gemini_api_key_encrypted FROM site_settings WHERE id = 'default'")
         .first<{ answer_settings_json: string; gemini_api_key_encrypted: string | null }>(),
@@ -63,6 +63,11 @@ export async function askGemini(businessId: string, businessName: string, questi
     ]);
     return { settingsRow, allCategories, apiKey: await getConfiguredGeminiApiKey(settingsRow) };
   });
+}
+
+export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
+  const DB = await ensureKnowledgeSchema();
+  const { settingsRow, allCategories, apiKey } = options.configuration ?? await loadChatConfiguration(timing);
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
   let cacheIntent: string | null = cacheIntentForGeneralQuestion(question);
@@ -87,9 +92,9 @@ export async function askGemini(businessId: string, businessName: string, questi
   const verifiedBusinessContact = findBusinessContact(knowledge);
   const modelInput = {
     business: { id: businessId, name: businessName },
-    currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
     knowledge,
     verifiedBusinessContact,
+    currentDateKST: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
     conversation,
   };
   const modelRequest = {
@@ -228,9 +233,12 @@ export async function POST(request: Request) {
     const business = await timing.measure("business", () => getBusiness(businessId));
     if (!business || (!business.is_public && !(await getAdminSession())?.is_super_admin)) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
     stage = "knowledge";
-    const knowledge = await timing.measure("knowledge", () => loadKnowledgeContext(businessId));
+    const [knowledge, configuration] = await Promise.all([
+      timing.measure("knowledge", () => loadKnowledgeContext(businessId)),
+      loadChatConfiguration(timing),
+    ]);
     stage = "generation";
-    const generatedAnswer = await timing.measure("generation", () => askGemini(businessId, business.name, question, knowledge, history, timing));
+    const generatedAnswer = await timing.measure("generation", () => askGemini(businessId, business.name, question, knowledge, history, timing, { configuration }));
     const answer = { ...generatedAnswer,
       text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
       source: maskResidentRegistrationNumber(generatedAnswer.source),
