@@ -28,7 +28,7 @@ test('staff referrals recover a missing model contact from registered text',asyn
  const r=await h.ask();assert.match(r.payload.answer.text,/02-1234-5678/);assert.equal(JSON.parse(h.requests[0].input).verifiedBusinessContact.phone,'02-1234-5678');
 });
 
-test('direct contact questions always include the verified email and phone and become cache-ready',async()=>{
+test('direct contact questions always include the verified email and phone without auto-caching',async()=>{
  const knowledge={sources:[{id:'business-details-test',businessId:'test',title:'사업 필수 정보',type:'text',updatedAt:1,url:null,parts:[{id:'0',title:'사업 필수 정보',text:'담당 부서: 임팩트사업1팀\n이메일: impact@merryyear.org\n연락처: 02-2665-0046',pages:[]}]}],conflicts:[],withheldParts:0};
  const h=chatHarness({knowledge,draft:{decision:'consult',resolution:'action_required',evidenceKind:'document',source:'business-details-test',review:true,text:'안내된 담당 부서로 문의해 주세요.',contactPhone:'',contactEvidence:''}});
  const first=await h.ask({question:'담당자 연락처를 알려주세요.'});
@@ -36,10 +36,10 @@ test('direct contact questions always include the verified email and phone and b
  assert.match(first.payload.answer.text,/02-2665-0046/);
  assert.equal(first.payload.answer.decision,'fact');
  assert.equal(first.payload.answer.review,false);
- assert.equal(first.headers.get('X-Chat-Cache'),'miss');
+ assert.equal(first.headers.get('X-Chat-Cache'),'bypass');
  const second=await h.ask({question:'문의처를 알려줘'});
- assert.equal(second.headers.get('X-Chat-Cache'),'hit');
- assert.equal(h.requests.length,1);
+ assert.equal(second.headers.get('X-Chat-Cache'),'bypass');
+ assert.equal(h.requests.length,2);
 });
 
 test('staff contact recognition allows a line break between the department and phone',async()=>{
