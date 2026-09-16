@@ -15,7 +15,7 @@ async function contextVersion(businessId: string) {
     DB.prepare("SELECT answer_settings_json, updated_at FROM site_settings WHERE id = 'default'").first(),
     loadCategories(DB),
   ]);
-  return chatAnswerCacheKey(["fast-answer-context-v1", business, sources.results, settings, categories,
+  return chatAnswerCacheKey(["fast-answer-context-v2", business, sources.results, settings, categories,
     process.env.GEMINI_MODEL || "gemini-3.8-flash", new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)]);
 }
 
