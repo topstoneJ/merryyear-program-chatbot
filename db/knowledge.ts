@@ -400,7 +400,7 @@ export async function loadKnowledgeContext(businessId: string) {
     business.contact_department && `담당 부서: ${business.contact_department}`,
     business.contact_email && `이메일: ${business.contact_email}`,
     business.contact_phone && `연락처: ${business.contact_phone}`,
-    business.contact_hours && `전화 가능 시간: ${business.contact_hours}`,
+    business.contact_hours && `전화 상담 가능 시간: ${business.contact_hours}`,
   ].filter(Boolean).join("\n");
   const rows = details ? [{
     id: `business-details-${businessId}`, business_id: businessId, type: "text" as const, title: "사업 필수 정보",

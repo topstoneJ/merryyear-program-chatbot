@@ -23,7 +23,7 @@ function parsedAnswer(value: string) { try { return JSON.parse(value); } catch {
 function signalFor(items: Array<{ signal: string }>) {
   if (!items.length) return "red";
   const green = items.filter(item => item.signal === "green").length;
-  return green === items.length ? "green" : green > 0 || items.some(item => item.signal === "orange") ? "orange" : "red";
+  return green === items.length ? "green" : green === 0 ? "red" : "orange";
 }
 
 export async function GET(request: Request) {
