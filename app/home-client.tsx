@@ -302,7 +302,6 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
 
       <div className="workspace">
         <section className="intro">
-          <div className="intro-kicker-row"><button className={`share-business${shareCopied ? " copied" : ""}`} type="button" disabled={!businessId} onClick={copyShareLink} aria-label="현재 사업 챗봇 링크 복사" title="현재 사업 링크 복사">{shareCopied ? "✓ 복사됨" : "🔗"}</button></div>
           <h1 className="configurable-headline">{siteSettings.mainHeadline.split("{기관명}").map((part, index) => <Fragment key={index}>{index > 0 && <span className="headline-brand">{siteSettings.organizationName}</span>}{part}</Fragment>)}</h1>
 
           {siteSettings.mainSubcopy && <p className="main-subcopy">{siteSettings.mainSubcopy}</p>}
@@ -314,7 +313,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           </div>
 
           {!isAdminGuide && <div className="homepage-slot">{websiteLinks[businessId] ? <a className="homepage-link" href={websiteLinks[businessId]} target="_blank" rel="noreferrer">홈페이지 안내 보러가기</a> : <span className="homepage-link disabled" aria-disabled="true">홈페이지 안내 보러가기</span>}</div>}
-          <div className="privacy-home-link-row"><button type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침</button></div>
+          <div className="home-utility-actions"><button className="privacy-home-button" type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침</button><button className={`share-business${shareCopied ? " copied" : ""}`} type="button" disabled={!businessId} onClick={copyShareLink} aria-label="현재 사업 챗봇 링크 복사" title="현재 사업 링크 복사">{shareCopied ? "✓ 복사됨" : "🔗"}</button></div>
         </section>
 
         <section className="chat" aria-label="사업 공고문 상담 채팅">
