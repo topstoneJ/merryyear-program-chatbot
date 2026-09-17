@@ -122,6 +122,21 @@ test('two failed validations never publish or save the invalid answer', async ()
   assert.equal(h.requests.length,2); assert.equal(h.records.length,0); assert.equal(h.answerCache.size,0);
 });
 
+test('fast answer generation retries review output and returns only a ready FAQ', async () => {
+  const review = draft({ review:true });
+  const h = chatHarness({knowledge,responses:[modelResponse(review),modelResponse(draft())]});
+  const answer = await h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true });
+  assert.equal(answer.review,false); assert.equal(answer.decision,'fact'); assert.equal(answer.source,'신청 공고');
+  assert.equal(h.requests.length,2); assert.match(h.requests[1].system_instruction,/faq_requires_ready_answer/);
+  assert.match(h.requests[1].system_instruction,/신청 주소·이메일·전화번호가 출처 원문에 있으면 담당자 문의가 아니라 확인된 신청 정보/);
+});
+
+test('fast answer generation never returns a review result as a successful regeneration', async () => {
+  const h = chatHarness({knowledge,draft:draft({ review:true })});
+  await assert.rejects(() => h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true }), /faq_requires_ready_answer/);
+  assert.equal(h.requests.length,2);
+});
+
 test('valid normal answers need one model call; history prevents a FAQ shortcut', async () => {
   const h = chatHarness({readyFastAnswer:{text:'cached',decision:'fact'}});
   const result=await h.ask({question:'신청 자격을 알려주세요.',history:[{question:'저는 20세예요',answer:'다른 조건을 확인해요.'}]});

@@ -54,7 +54,11 @@ export function chatHarness(options = {}) {
     '@/app/fast-answer-store': { readReadyFastAnswer: async () => options.readyFastAnswer || null },
   }, options.routeSource ? { 'app/api/chat/route.ts': options.routeSource } : {});
   const api = load('app/api/chat/route.ts');
-  return {requests, records, settings, knowledge, answerCache, async ask(body = {}) {
+  return {requests, records, settings, knowledge, answerCache,
+  async generate(question = '신청 방법은?', options = {}) {
+    const timing = { measure: async (_name, work) => work(), add: () => {}, markCache: () => {} };
+    return api.askGemini('test', '테스트 사업', question, knowledge, [], timing, options);
+  }, async ask(body = {}) {
     const response = await api.POST(new Request('https://test/api/chat', {method:'POST',body:JSON.stringify({businessId:'test',question:'신청 방법은?',...body})}));
     return {status:response.status, payload:await response.json(), headers:response.headers};
   }};

@@ -96,6 +96,9 @@ export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKno
 }
 
 export function contractRepairInstruction(error: unknown) {
+  if (error instanceof AnswerContractError && error.code === "faq_requires_ready_answer") {
+    return "[서버 검증 실패: faq_requires_ready_answer] FAQ에는 검토용 답변을 반환하지 마세요. 등록 자료에서 직접 확인되는 내용만 남기고 complete/fact/review=false와 실제 핵심 출처 id를 사용하세요. 신청 주소·이메일·전화번호가 출처 원문에 있으면 담당자 문의가 아니라 확인된 신청 정보로 작성하세요.";
+  }
   if (error instanceof AnswerContractError) return `[서버 검증 실패: ${error.code}] 응답 계약을 다시 적용하세요. 판정값만 바꾸지 말고 질문과 원문 근거부터 재검토하여 본문도 일치시킨 완전한 JSON을 반환하세요.`;
   if (error instanceof SyntaxError || error instanceof Error && /^(Invalid (?:AI|Gemini) response contract|Unknown answer source|Eligibility decision without a source)$/.test(error.message))
     return "[서버 형식 검증 실패] 요청된 JSON 스키마, 실제 출처 id와 근거 종류를 확인하여 완전한 JSON 객체를 반환하세요.";
