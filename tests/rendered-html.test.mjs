@@ -32,6 +32,7 @@ test("data management supports dynamic businesses and editable knowledge", async
   assert.match(page, /<BrandLink \/>/);
   assert.match(page, /<AdminNav current="knowledge"/);
   assert.match(consultations, /<AdminNav current="consultations"/);
+  assert.match(consultations, /전화상담 건당 평균 3분 기준/);
   assert.doesNotMatch(consultations, /주말 전체 · 평일/);
   assert.doesNotMatch(page, /className="consultation-link"/);
   assert.match(consultations, /<BrandLink \/>/);
@@ -174,6 +175,7 @@ test("knowledge management defaults to the first business and PDF input", async 
   assert.match(page, /const \[businessId, setBusinessId\] = useState\(""\)/);
   assert.match(page, /useState<AddMode>\("pdf"\)/);
   assert.match(page, /else if \(payload\.businesses\?\.length\) setBusinessId\(payload\.businesses\[0\]\.id\)/);
+  assert.match(page, /PDF 파일을 선택하세요 · 최대 20MB · 최대 80페이지/);
 });
 
 test("knowledge management shows active data volume status and rules", async () => {
