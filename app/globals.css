@@ -182,6 +182,16 @@
 .settings-card h2 { margin: 0 0 2px; font-size: max(var(--admin-min-font, 0px), calc((17px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 800; }
 .settings-card textarea { min-height: 94px; }
 .settings-card-wide { grid-column: 1 / -1; }
+.privacy-settings-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.privacy-settings-card p { margin: 7px 0 0; color: #746b64; font-size: 14px; line-height: 1.65; }
+.privacy-settings-card > button { justify-self: end; }
+.privacy-editor-modal { width: min(820px, calc(100vw - 32px)); max-height: 92dvh; overflow-y: auto; text-align: left; }
+.privacy-editor-modal > h2 { font-weight: 800; }
+.privacy-editor-modal > p { margin: 0 0 14px; }
+.privacy-editor-modal textarea { width: 100%; min-height: 440px; resize: vertical; box-sizing: border-box; border: 1px solid #d9cfc6; border-radius: 13px; padding: 16px; color: #3f3934; background: #fff; font-size: 15px; line-height: 1.7; }
+.privacy-editor-modal textarea:focus { border-color: var(--orange); outline: 3px solid color-mix(in srgb, var(--orange) 12%, transparent); }
+.privacy-editor-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: #81786f; font-size: 12px; }
+.privacy-editor-error { margin: 10px 0 0 !important; color: #c4382e !important; font-weight: 750; }
 .chat-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .design-reset-button { justify-self: start; }
 .guide-panel { display: grid; gap: 20px; }
@@ -457,6 +467,7 @@ body {
 
 .public-shell {
   min-height: 100vh;
+  position: relative;
   background:
     radial-gradient(circle at 30% 43%, color-mix(in srgb, var(--hero-gradient-color, #808080) 15%, white) 0, color-mix(in srgb, var(--hero-gradient-color, #808080) 8%, transparent) 22%, transparent 42%),
     linear-gradient(135deg, color-mix(in srgb, var(--hero-gradient-color, #808080) 5%, white), white);
@@ -817,6 +828,9 @@ h1 em {
 .send:disabled { opacity: .4; cursor: not-allowed; }
 .clear { color: #999; cursor: pointer; background: transparent; border: 0; font-size: max(var(--admin-min-font, 0px), calc((22px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); position: absolute; top: 22px; right: 70px; }
 .notice { flex: none; text-align: center; color: #8a8279; margin: 12px 0 0; font-size: max(var(--admin-min-font, 0px), calc((10px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.privacy-home-link-row { display: flex; justify-content: flex-end; margin-top: -8px; }
+.privacy-home-link-row button { color: #96918c; cursor: pointer; background: #ffffff80; border: 1px solid #e6e2de; border-radius: 10px; padding: 8px 12px; font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: none; }
+.privacy-home-link-row button:hover, .privacy-home-link-row button:focus-visible { color: #746e68; border-color: #d6d1cc; outline: none; }
 
 .modal-backdrop {
   backdrop-filter: blur(5px);
@@ -838,6 +852,10 @@ h1 em {
   box-shadow: 0 26px 80px #00000038;
 }
 .admin-modal { text-align: left; width: min(580px, 100%); max-height: 90vh; overflow-y: auto; }
+.privacy-policy-modal { width: min(760px, 100%); max-height: min(88dvh, 900px); text-align: left; display: flex; flex-direction: column; padding: 38px 34px 26px; }
+.privacy-policy-modal h2 { flex: none; margin: 0 0 20px; }
+.privacy-policy-content { overflow-y: auto; padding: 2px 12px 2px 0; color: #4f4943; white-space: pre-wrap; font-size: 16px; line-height: 1.85; word-break: keep-all; }
+.privacy-policy-modal .modal-actions { flex: none; padding-top: 4px; }
 .modal-close { color: #766e65; cursor: pointer; background: transparent; border: 0; font-size: max(var(--admin-min-font, 0px), calc((28px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); position: absolute; top: 12px; right: 16px; }
 .upload-icon { width: 58px; height: 58px; color: var(--orange); background: #fff0df; border-radius: 18px; place-items: center; margin: 0; font-size: max(var(--admin-min-font, 0px), calc((28px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); display: grid; }
 .modal h2 { text-align: left; margin: 18px 0 9px; font-size: max(var(--admin-min-font, 0px), calc((23px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
@@ -1163,14 +1181,16 @@ h1 em {
 }
 
 @media (max-width: 600px) {
-  .topbar { height: 64px; padding: 0 18px 0 12px; }
-  .brand-logo { gap: 8px; }
-  .brand-logo-media { flex-basis: 128px; width: 128px; height: 32px; }
-  .brand-logo > img { width: 128px; height: 32px; }
-  .brand-logo b { display: block; padding-left: 8px; font-size: max(var(--admin-min-font, 0px), calc((13px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
-  .admin-link { padding: 8px 11px; font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
-  .workspace { gap: 4px; padding: 18px 14px 28px; }
-  .intro { padding: 8px 4px; transform: translateY(-20px); }
+  .public-shell { width: 100%; max-width: 100%; overflow-x: clip; }
+  .topbar { width: 100%; max-width: 100%; min-width: 0; height: 64px; gap: 8px; padding: 0 12px; }
+  .brand-logo { min-width: 0; flex: 1 1 auto; gap: 6px; }
+  .brand-logo-media { flex: 0 1 110px; width: min(110px, 34vw); height: 30px; }
+  .brand-logo > img { width: min(110px, 34vw); height: 30px; }
+  .brand-logo b { flex: none; display: block; padding-left: 6px; font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+  .admin-link { flex: none; padding: 8px 9px; font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+  .workspace { width: 100%; max-width: 100%; min-width: 0; gap: 12px; padding: 18px 14px 28px; }
+  .intro, .chat { width: 100%; max-width: 100%; min-width: 0; }
+  .intro { padding: 24px 4px 8px; transform: none; }
   .eyebrow { font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
   h1 { letter-spacing: -1.8px; margin: 20px 0 14px; font-size: max(var(--admin-min-font, 0px), calc((31px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
   .lead { font-size: max(var(--admin-min-font, 0px), calc((15px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
@@ -1454,6 +1474,16 @@ h1 em {
 .admin-pagination button:disabled { cursor: default; opacity: .35; }
 .admin-pagination span { min-width: 22px; color: #8a8178; text-align: center; font-size: max(var(--admin-min-font, 0px), calc((10px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 400; }
 @media (max-width: 600px) { .source-list-toolbar .page-size-select { margin-left: 0; } .page-size-select { flex: 1; } .page-size-select select { width: 100%; } }
+
+@media (max-width: 600px) {
+  .privacy-home-link-row button { padding: 7px 10px; font-size: 11px; }
+  .privacy-policy-modal { max-height: 92dvh; padding: 34px 20px 20px; }
+  .privacy-policy-content { padding-right: 5px; font-size: 15px; line-height: 1.75; }
+  .privacy-settings-card { grid-template-columns: 1fr; }
+  .privacy-settings-card > button { justify-self: start; }
+  .privacy-editor-modal { padding: 34px 18px 22px; }
+  .privacy-editor-modal textarea { min-height: 52dvh; }
+}
 
 .answer-rule-group + .answer-rule-group { margin-top: 24px; }
 .answer-rule-group h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; }

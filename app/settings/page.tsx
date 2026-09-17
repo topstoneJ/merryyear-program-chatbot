@@ -8,7 +8,7 @@ import { type AnswerSettings } from "@/app/answer-settings";
 import BrandImageUpload from "./brand-image-upload";
 import { createDefaultSocialImage } from "./default-social-image";
 import { syncBrowserBranding } from "../browser-branding";
-type Settings = { organizationName: string; contact: string; logoUrl: string; faviconUrl: string; socialImageUrl: string; socialCaption: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; primaryColor: string; secondaryColor: string; apiKey?: string; apiKeyConfigured?: boolean };
+type Settings = { organizationName: string; contact: string; logoUrl: string; faviconUrl: string; socialImageUrl: string; socialCaption: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; privacyPolicy: string; primaryColor: string; secondaryColor: string; apiKey?: string; apiKeyConfigured?: boolean };
 
 async function whiteImage(name: string, width: number, height: number) {
   const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
@@ -45,6 +45,10 @@ export default function SettingsPage() {
     finally { setAnswerSaving(false); }
   }
   const [previewId, setPreviewId] = useState("");
+  const [privacyEditorOpen, setPrivacyEditorOpen] = useState(false);
+  const [privacyDraft, setPrivacyDraft] = useState("");
+  const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacyNotice, setPrivacyNotice] = useState("");
   const previewLogo = useRef("");
   function closePreview() {
     if (previewId) sessionStorage.removeItem(`settings-preview:${previewId}`);
@@ -55,9 +59,9 @@ export default function SettingsPage() {
     if (!settings) return;
     const id = crypto.randomUUID();
     if (logo) previewLogo.current = URL.createObjectURL(logo);
-    const { organizationName, contact, logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor, secondaryColor } = settings;
+    const { organizationName, contact, logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, privacyPolicy, primaryColor, secondaryColor } = settings;
     try {
-      sessionStorage.setItem(`settings-preview:${id}`, JSON.stringify({ organizationName, contact, logoUrl: previewLogo.current || logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, primaryColor, secondaryColor }));
+      sessionStorage.setItem(`settings-preview:${id}`, JSON.stringify({ organizationName, contact, logoUrl: previewLogo.current || logoUrl, mainHeadline, mainSubcopy, chatbotGreeting, chatPlaceholder, privacyPolicy, primaryColor, secondaryColor }));
       setPreviewId(id);
     } catch { if (previewLogo.current) URL.revokeObjectURL(previewLogo.current); previewLogo.current = ""; setNotice("미리보기를 열지 못했습니다. 브라우저 저장 공간을 확인해 주세요."); }
   }
@@ -89,6 +93,26 @@ export default function SettingsPage() {
     } catch (error) { setNotice(error instanceof Error ? error.message : "기본 이미지를 등록하지 못했습니다. 다시 시도해 주세요."); }
     finally { setGeneratingDefault(false); }
   }
+  function openPrivacyEditor() {
+    if (!settings) return;
+    setPrivacyDraft(settings.privacyPolicy || "");
+    setPrivacyNotice("");
+    setPrivacyEditorOpen(true);
+  }
+  async function savePrivacyPolicy() {
+    if (!settings || privacySaving) return;
+    setPrivacySaving(true); setPrivacyNotice("");
+    try {
+      const form = new FormData(); form.set("action", "privacy-policy-only"); form.set("privacyPolicy", privacyDraft);
+      const response = await fetch("/api/settings", { method: "PATCH", body: form });
+      const payload = await response.json();
+      if (!response.ok || !payload.settings) throw new Error(payload.error || "개인정보처리방침을 저장하지 못했습니다.");
+      setSettings({ ...payload.settings, apiKey: "" });
+      setPrivacyEditorOpen(false);
+      setPrivacyNotice("개인정보처리방침을 저장했습니다.");
+    } catch (error) { setPrivacyNotice(error instanceof Error ? error.message : "개인정보처리방침을 저장하지 못했습니다."); }
+    finally { setPrivacySaving(false); }
+  }
   async function save(event: FormEvent) {
     event.preventDefault(); if (!settings || saving || generatingDefault) return; setSaving(true); setNotice("");
     try {
@@ -115,6 +139,8 @@ export default function SettingsPage() {
         <section className="settings-card"><h2>기관 정보</h2><label className="field"><span>기관명</span><input value={settings.organizationName} onChange={e => setSettings({ ...settings, organizationName: e.target.value })} /></label><label className="field"><span>연락처</span><input value={settings.contact} onChange={e => setSettings({ ...settings, contact: e.target.value })} placeholder="전화번호 또는 이메일" /></label></section>
         <section className="settings-card"><h2>메인 화면</h2><label className="field"><span>메인 페이지 문구</span><textarea value={settings.mainHeadline} onChange={e => setSettings({ ...settings, mainHeadline: e.target.value })} /><small className="field-help">&#123;기관명&#125;을 입력하면 기관 정보와 자동 연동되며 브랜드 컬러로 강조됩니다.</small></label><label className="field"><span>메인 보조 문구</span><textarea value={settings.mainSubcopy} onChange={e => setSettings({ ...settings, mainSubcopy: e.target.value })} /></label></section>
         <section className="settings-card settings-card-wide"><h2>채팅화면</h2><div className="chat-settings-row"><label className="field"><span>챗봇 기본 안내문</span><textarea value={settings.chatbotGreeting} onChange={e => setSettings({ ...settings, chatbotGreeting: e.target.value })} /></label><label className="field"><span>채팅창 내 기본 문구</span><input value={settings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요"} maxLength={150} onChange={e => setSettings({ ...settings, chatPlaceholder: e.target.value })} /><small className="field-help">질문을 입력하기 전에 채팅 입력창에 표시되는 문구입니다.</small></label></div></section>
+        <section className="settings-card settings-card-wide privacy-settings-card"><div><h2>개인정보처리방침</h2><p>메인 화면 하단 버튼을 누르면 표시되는 내용을 관리합니다. <b>{'{기관명}'}</b>과 <b>{'{연락처}'}</b>는 기관 정보에 맞춰 자동 표시됩니다.</p></div><button className="cancel-button" type="button" onClick={openPrivacyEditor}>내용 편집</button></section>
+        {privacyNotice && <p className="settings-notice settings-card-wide" role="status">{privacyNotice}</p>}
       </div> : tab === "design" ? <div className="settings-grid">
         <section className="settings-card design-logo-card"><h2>기관 로고</h2><div className="field"><input ref={fileRef} className="sr-only" type="file" accept="image/*" onChange={e => setLogo(e.target.files?.[0] || null)} /><div className="design-control-row"><button className="cancel-button design-reset-button" type="button" disabled={saving} onClick={() => void whiteImage("white-logo.png", 420, 106).then(setLogo)}>초기화</button><button className="logo-upload" type="button" onClick={() => fileRef.current?.click()}><img src={logoDisplayUrl || settings.logoUrl} alt="로고 미리보기" /><span><b>{logo?.name || "현재 기관 로고"}</b><small>PNG·JPG·WEBP, 최대 3MB</small></span><strong>변경</strong></button></div></div></section>
         <section className="settings-card design-color-card"><h2>브랜드 컬러</h2><div className="brand-colors-row"><div className="design-control-row"><button className="cancel-button design-reset-button" type="button" disabled={saving} onClick={() => setSettings({ ...settings, primaryColor: "#ffffff" })}>초기화</button><label className="color-setting"><input type="color" aria-label="메인 컬러" value={settings.primaryColor} onChange={e => setSettings({ ...settings, primaryColor: e.target.value })} /><span><b>메인 컬러</b><small>{settings.primaryColor}</small></span><i /></label></div>
@@ -137,5 +163,6 @@ export default function SettingsPage() {
       {(tab === "general" || tab === "design") && notice && <p className="settings-notice">{notice}</p>}{(tab === "general" || tab === "design") && <div className="settings-actions"><button type="button" className="cancel-button" onClick={openPreview}>메인 미리보기</button><button type="submit" className="knowledge-submit" disabled={saving}>{saving ? "저장하고 있어요…" : "설정 저장"}</button></div>}
     </form>
     {previewId && <div className="settings-preview-screen" role="dialog" aria-modal="true" aria-label="메인 미리보기"><div className="settings-preview-toolbar"><span>저장 전 미리보기 · 실제 설정은 변경되지 않습니다. 채팅 전송은 지원하지 않습니다.</span><button type="button" className="cancel-button" onClick={closePreview}>설정으로 돌아가기</button></div><iframe title="수정 내용이 반영된 메인 미리보기" src={`/settings/preview?draft=${encodeURIComponent(previewId)}`} /></div>}
+    {privacyEditorOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !privacySaving && setPrivacyEditorOpen(false)}><section className="modal privacy-editor-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-editor-title"><button type="button" className="modal-close" aria-label="닫기" disabled={privacySaving} onClick={() => setPrivacyEditorOpen(false)}>×</button><h2 id="privacy-editor-title">개인정보처리방침</h2><p>일반 텍스트로 입력해 주세요. 줄바꿈은 메인 팝업에도 그대로 적용됩니다.</p><textarea value={privacyDraft} maxLength={20_000} onChange={event => { setPrivacyDraft(event.target.value); setPrivacyNotice(""); }} aria-label="개인정보처리방침 내용" /><div className="privacy-editor-meta"><span>{privacyDraft.length.toLocaleString("ko-KR")}/20,000자</span><span>{'{기관명}'}, {'{연락처}'} 사용 가능</span></div>{privacyNotice && <p className="privacy-editor-error" role="alert">{privacyNotice}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={privacySaving} onClick={() => setPrivacyEditorOpen(false)}>취소</button><button type="button" className="knowledge-submit" disabled={privacySaving || privacyDraft.trim().length < 20} onClick={() => void savePrivacyPolicy()}>{privacySaving ? "저장하고 있어요…" : "내용 저장"}</button></div></section></div>}
   </main>;
 }
