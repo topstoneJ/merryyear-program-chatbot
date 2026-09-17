@@ -183,6 +183,13 @@
       "when": 1789344000000,
       "tag": "0025_shared_knowledge",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1789612200000,
+      "tag": "0026_privacy_policy",
+      "breakpoints": true
     }
   ]
 }

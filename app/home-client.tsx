@@ -5,11 +5,12 @@ import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME } from "./admin-guid
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS } from "./chat-context";
 import { maskIdentityNumbers } from "./resident-number";
 import { syncBrowserBranding } from "./browser-branding";
+import { resolvePrivacyPolicy } from "./privacy-policy";
 
 import { CSSProperties, FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 type BusinessId = string;
-export type SiteSettings = { updatedAt?: number; organizationName: string; contact: string; logoUrl: string; faviconUrl?: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; primaryColor: string; secondaryColor?: string };
+export type SiteSettings = { updatedAt?: number; organizationName: string; contact: string; logoUrl: string; faviconUrl?: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; privacyPolicy?: string; primaryColor: string; secondaryColor?: string };
 
 type Answer = {
   text: string;
@@ -113,6 +114,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   const [uploadedNames, setUploadedNames] = useState<Record<string, string>>({});
   const [websiteLinks, setWebsiteLinks] = useState<Record<string, string>>({});
   const [shareCopied, setShareCopied] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   useEffect(() => { if (previewSettings || initialSettings) return; fetch("/api/settings").then((response) => response.json()).then((payload: { settings?: SiteSettings }) => payload.settings && setSiteSettings(payload.settings)).catch(() => undefined).finally(() => setSettingsLoaded(true)); }, [previewSettings, initialSettings]);
   useEffect(() => {
@@ -127,6 +129,14 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   const completedMessages = messages.filter(message => !message.thinking && message.answer);
   const conversationCharacters = completedMessages.reduce((total, message) => total + message.question.length + message.answer!.text.length, 0);
   const conversationLimitReached = completedMessages.length >= MAX_CHAT_TURNS || conversationCharacters >= MAX_CHAT_CHARACTERS;
+  const privacyPolicyText = useMemo(() => resolvePrivacyPolicy(siteSettings.privacyPolicy, siteSettings.organizationName, siteSettings.contact), [siteSettings.privacyPolicy, siteSettings.organizationName, siteSettings.contact]);
+
+  useEffect(() => {
+    if (!privacyOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setPrivacyOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [privacyOpen]);
 
   useEffect(() => {
     fetch("/api/businesses", { cache: "no-store" })
@@ -304,6 +314,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           </div>
 
           {!isAdminGuide && <div className="homepage-slot">{websiteLinks[businessId] ? <a className="homepage-link" href={websiteLinks[businessId]} target="_blank" rel="noreferrer">홈페이지 안내 보러가기</a> : <span className="homepage-link disabled" aria-disabled="true">홈페이지 안내 보러가기</span>}</div>}
+          <div className="privacy-home-link-row"><button type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침</button></div>
         </section>
 
         <section className="chat" aria-label="사업 공고문 상담 채팅">
@@ -360,6 +371,17 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           <p className="notice">{isAdminGuide ? "운영 가이드와 현재 계정의 조회 권한 안에 있는 상태만 답변합니다." : "해당 사업과 관련 없는 내용은 답변하지 않습니다."}</p>
         </section>
       </div>
+
+      {privacyOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setPrivacyOpen(false)}>
+          <section className="modal privacy-policy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-policy-title">
+            <button className="modal-close" type="button" autoFocus aria-label="닫기" onClick={() => setPrivacyOpen(false)}>×</button>
+            <h2 id="privacy-policy-title">개인정보처리방침</h2>
+            <div className="privacy-policy-content">{privacyPolicyText}</div>
+            <div className="modal-actions"><button className="cancel-button" type="button" onClick={() => setPrivacyOpen(false)}>닫기</button></div>
+          </section>
+        </div>
+      )}
 
       {adminOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeAdmin()}>
