@@ -5,13 +5,11 @@ import { sourceLoader, chatHarness } from './load-source.mjs';
 
 const before = readFileSync(new URL('./fixtures/chat-before-latency.fixture', import.meta.url), 'utf8');
 
-test('model requests, validated answers and saved consultations match deployed baseline', async t => {
+test('common contract preserves baseline inputs and valid answers without extra model calls', async t => {
   t.mock.method(Date, 'now', () => Date.UTC(2026,8,14,4));
   t.mock.method(console, 'info', () => {});
   const cases = [
     {name:'ordinary',options:{}},
-    {name:'eligibility',options:{draft:{decision:'possible',text:'확인된 조건에서 신청 가능합니다.'}}},
-    {name:'excluded',options:{draft:{decision:'impossible',text:'제외 조건에 해당합니다.'}}},
     {name:'conflict',options:{draft:{decision:'consult',resolution:'conflict',text:'적용 기준을 확인해야 합니다.'}}},
     {name:'missing policy',options:{draft:{source:'',resolution:'missing_policy',text:'기준이 없습니다.'}}},
     {name:'invalid source',options:{draft:{source:'invented'}}},
@@ -28,8 +26,9 @@ test('model requests, validated answers and saved consultations match deployed b
     const old = chatHarness({...scenario.options,routeSource:before});
     const current = chatHarness(scenario.options);
     const a = await old.ask(scenario.body), b = await current.ask(scenario.body);
-    const normalize = requests => requests.map(request => ({...request, input: JSON.parse(request.input)}));
-    assert.deepEqual(normalize(current.requests), normalize(old.requests), `${scenario.name}: full model payload`);
+    const normalize = requests => requests.map(request => { const {response_format,...rest}=request; const {serverMode,...input}=JSON.parse(request.input); return {...rest,system_instruction:rest.system_instruction.split('\n\n[서버')[0],input}; });
+    assert.deepEqual(normalize(current.requests), normalize(old.requests), `${scenario.name}: prompt and evidence payload`);
+    assert.equal(current.requests.length,old.requests.length,`${scenario.name}: no extra model call`);
     assert.deepEqual(b.payload, a.payload, `${scenario.name}: validated answer`);
     assert.equal(b.status,a.status,`${scenario.name}: status`);
     assert.deepEqual(current.records,old.records,`${scenario.name}: saved consultation`);

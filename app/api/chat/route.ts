@@ -1,4 +1,5 @@
 import { findBusinessContact } from "@/app/answer-contact";
+import { answerSchema, contractRepairInstruction, AnswerContractError } from "@/app/answer-contract";
 import { getAdminSession, type AdminAccount } from "@/app/admin-session";
 import { loadAdminGuideContext } from "@/app/admin-guide-context";
 import { offlineGuideAnswer } from "@/app/admin-guide-offline";
@@ -11,7 +12,7 @@ import { loadCategories, type QuestionCategory } from "@/db/consultation-categor
 import { CATEGORY_GUIDANCE } from "@/db/semantic-category";
 import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-settings";
 import { buildCoreSystemInstruction } from "@/app/answer-rules";
-import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, parseGeminiAnswer, type Answer } from "@/app/answer-response";
+import { parseGeminiAnswer, type Answer } from "@/app/answer-response";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
 import { cacheIntentForGeneralQuestion } from "@/app/fast-answer-intents";
 import { readReadyFastAnswer } from "@/app/fast-answer-store";
@@ -66,7 +67,7 @@ async function loadChatConfiguration(timing: ChatTiming) {
   });
 }
 
-export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
+export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { faq?: boolean; forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
   const DB = await ensureKnowledgeSchema();
   const { settingsRow, allCategories, apiKey } = options.configuration ?? await loadChatConfiguration(timing);
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
@@ -80,7 +81,8 @@ export async function askGemini(businessId: string, businessName: string, questi
     const customFaq = customFaqs.results.find(item => item.question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase() === normalizedQuestion);
     if (customFaq) cacheIntent = `custom:${customFaq.intent}`;
   }
-  const matchedFastAnswerIntent = cacheIntent;
+  if (history.length && !options.faq) cacheIntent = null;
+  const faqMode = Boolean(options.faq || cacheIntent);
   if (cacheIntent && !options.forceRefresh && !options.candidateText) {
     const storedIntent = cacheIntent.startsWith("custom:") ? cacheIntent.slice(7) : cacheIntent;
     const stored = await timing.measure("cache", () => readReadyFastAnswer(DB, businessId, storedIntent).catch(() => null));
@@ -92,6 +94,7 @@ export async function askGemini(businessId: string, businessName: string, questi
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
   const verifiedBusinessContact = findBusinessContact(knowledge);
   const modelInput = {
+    serverMode: faqMode ? "faq" : "conversation",
     business: { id: businessId, name: businessName },
     knowledge,
     verifiedBusinessContact,
@@ -107,19 +110,7 @@ export async function askGemini(businessId: string, businessName: string, questi
     input: JSON.stringify(options.candidateText ? { ...modelInput, administratorDraft: options.candidateText } : modelInput),
     response_format: {
       type: "text", mime_type: "application/json",
-      schema: {
-        type: "object",
-        properties: {
-          categoryId: { type: "string", enum: categories.map(category => category.id) },
-          decision: { type: "string", enum: ANSWER_DECISIONS },
-          evidenceKind: { type: "string", enum: EVIDENCE_KINDS }, resolution: { type: "string", enum: RESOLUTIONS },
-          text: { type: "string" },
-          source: { type: "string", enum: ["", ...knowledge.sources.map(source => source.id)] },
-          page: { type: "integer", enum: [...new Set([0, ...knowledge.sources.flatMap(source => source.parts.flatMap(part => part.pages))])] },
-          review: { type: "boolean" }, contactPhone: { type: "string" }, contactEvidence: { type: "string" },
-        },
-        required: ["categoryId", "decision", "evidenceKind", "resolution", "text", "source", "page", "review", "contactPhone", "contactEvidence"],
-      },
+      schema: answerSchema(categories.map(category => category.id), knowledge),
     },
   };
   const cacheableRequest = Boolean(cacheIntent);
@@ -139,7 +130,7 @@ export async function askGemini(businessId: string, businessName: string, questi
       const { response, payload } = await trackedGeminiJson<GeminiPayload>("chat", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey, "Api-Revision": "2026-05-20" },
-        body: JSON.stringify(modelRequest),
+        body: JSON.stringify({ ...modelRequest, system_instruction: modelRequest.system_instruction + (attempt ? "\n\n" + contractRepairInstruction(lastError) : "") }),
       }, timing.add);
       if (!response.ok) {
         const retryable = response.status === 408 || response.status === 409 || response.status === 425 || response.status === 429 || response.status >= 500;
@@ -150,11 +141,7 @@ export async function askGemini(businessId: string, businessName: string, questi
       }
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
-      let answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question));
-      const verifiedContactAnswer = matchedFastAnswerIntent === "contact" && Boolean(verifiedBusinessContact?.phone && verifiedBusinessContact.email)
-        && answer.text.replace(/[- .\s]/g, "").includes(verifiedBusinessContact!.phone.replace(/[- .]/g, ""))
-        && answer.text.toLowerCase().includes(verifiedBusinessContact!.email!.toLowerCase());
-      if (verifiedContactAnswer) answer = { ...answer, decision: "fact", review: false, source: answer.source || "사업 필수 정보" };
+      const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question, { faq: faqMode, history }));
       if (cacheableRequest && answer.decision === "fact" && !answer.review && answer.source) {
         await timing.measure("cache", () => writeChatAnswerCache(DB, cacheKey, businessId, answer)
           .catch(() => console.error("Chat answer cache write failed")));
@@ -252,7 +239,7 @@ export async function POST(request: Request) {
     // Log only allowlisted failure reasons, never questions, model output or API keys.
     const knownReasons = ["Invalid Gemini response contract", "Unknown answer source", "Unverified answer page", "Eligibility decision without a source", "Unexpected contact evidence", "Gemini returned an empty response", "Gemini API key is not configured", "Knowledge context exceeds safe comparison limit"];
     const message = error instanceof Error ? error.message : "";
-    const reason = knownReasons.includes(message) ? message : error instanceof SyntaxError ? "Invalid JSON" : "Upstream or infrastructure failure";
+    const reason = error instanceof AnswerContractError ? "Invalid answer semantics" : message === "AI API key is not configured" ? message : knownReasons.includes(message) ? message : error instanceof SyntaxError ? "Invalid JSON" : "Upstream or infrastructure failure";
     console.error("Chat answer failed", { stage, reason });
     return reply({ error: "답변을 만드는 중 문제가 생겼습니다. 잠시 후 다시 질문해 주세요." }, 502);
   }

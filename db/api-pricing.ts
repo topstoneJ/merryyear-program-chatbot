@@ -12,12 +12,26 @@ export function modelRates(model: string, at = Date.now()) {
   if (model === "gpt-5.4") return { input: 2.5, output: 15, cached: 0.25 };
   if (model === "gpt-5.4-mini") return { input: 0.75, output: 4.5, cached: 0.075 };
   if (model === "gpt-5.4-nano") return { input: 0.2, output: 1.25, cached: 0.02 };
+  // Anthropic standard global Messages pricing, verified 2026-09-17.
+  if (model === "claude-sonnet-4-6") return { input: 3, output: 15, cached: 0.3 };
   return null;
 }
 function tokenCount(value: unknown): number | null { return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null; }
 export function readApiUsage(payload: unknown, model: string, at: number) {
   const data = payload as { usage?: Record<string, unknown>; interaction?: { usage?: Record<string, unknown> } } | null;
   const usage = data?.usage || data?.interaction?.usage;
+  if (model.startsWith("claude-")) {
+    const base = tokenCount(usage?.input_tokens), output = tokenCount(usage?.output_tokens);
+    const cached = usage && base !== null ? tokenCount(usage.cache_read_input_tokens) ?? 0 : null;
+    const writes = tokenCount(usage?.cache_creation_input_tokens) ?? 0;
+    const creation = usage?.cache_creation as Record<string, unknown> | undefined;
+    const hourWrites = Math.min(writes, tokenCount(creation?.ephemeral_1h_input_tokens) ?? 0);
+    const input = base === null ? null : base + (cached || 0) + writes;
+    const rates = modelRates(model, at);
+    const estimatedUsd = rates && base !== null && output !== null
+      ? (base * rates.input + (cached || 0) * rates.cached + ((writes - hourWrites) * 1.25 + hourWrites * 2) * rates.input + output * rates.output) / 1_000_000 : null;
+    return { input, output, thought: usage ? 0 : null, cached, estimatedUsd };
+  }
   const input = tokenCount(usage?.total_input_tokens) ?? tokenCount(usage?.input_tokens) ?? tokenCount(usage?.prompt_tokens);
   const rawOutput = tokenCount(usage?.total_output_tokens) ?? tokenCount(usage?.output_tokens) ?? tokenCount(usage?.completion_tokens);
   const outputDetails = usage?.output_tokens_details as Record<string, unknown> | undefined;

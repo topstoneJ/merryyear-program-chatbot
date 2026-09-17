@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const version = await fastAnswerContextVersion(businessId, DB), previous = await DB.prepare("SELECT answer_json FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string }>();
   try {
     const knowledge = await loadKnowledgeContext(businessId), timing = createChatTiming();
-    const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { forceRefresh: true, candidateText: body.action === "save" ? text : undefined });
+    const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { faq: true, forceRefresh: true, candidateText: body.action === "save" ? text : undefined });
     timing.finish(200);
     const status = answer.decision === "fact" && !answer.review && Boolean(answer.source) ? "ready" : "review";
     await DB.prepare(`INSERT INTO fast_answers (business_id, intent, label, question, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)

@@ -12,7 +12,10 @@ test("privacy policy placeholders use the configured institution details", async
   const resolved = output.resolvePrivacyPolicy("{기관명} 문의: {연락처}", "테스트재단", "02-123-4567");
   assert.equal(resolved, "테스트재단 문의: 02-123-4567");
   assert.match(output.DEFAULT_PRIVACY_POLICY, /국외 이전/);
-  assert.match(output.DEFAULT_PRIVACY_POLICY, /최대 55일/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /OpenAI GPT API/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /store: false/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /최대 30일/);
+  assert.doesNotMatch(output.DEFAULT_PRIVACY_POLICY, /Gemini/);
 });
 
 test("main and settings screens expose readable and editable privacy dialogs", async () => {
