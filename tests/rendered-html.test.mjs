@@ -173,11 +173,27 @@ test("home defaults to the first business and copies a business-specific share l
   assert.match(page, /searchParams\.set\("business", businessId\)/);
   assert.match(page, /navigator\.clipboard\.writeText/);
   assert.match(page, /현재 사업 챗봇 링크 복사/);
+  assert.match(page, /<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" \/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" \/><\/svg>/);
   assert.match(page, /홈페이지 안내 보러가기[\s\S]*home-utility-actions[\s\S]*share-business/);
   assert.match(css, /\.document-select-wrap::before \{[^}]*content: "▼";[^}]*left: 16px;/);
   assert.match(css, /\.document-select-wrap select \{[^}]*padding: 14px 16px 14px 40px;/);
+  assert.match(css, /\.homepage-link \{[^}]*padding-left: 40px;/s);
+  assert.match(css, /\.homepage-link::before \{[^}]*content: "●";[^}]*left: 16px;/);
+  assert.match(css, /\.share-business svg \{[^}]*width: 16px;[^}]*height: 16px;[^}]*stroke: currentColor;/);
   assert.match(css, /\.configurable-headline \{[^}]*text-align: left/);
   assert.match(css, /\.main-subcopy \{[^}]*text-align: left/);
+});
+
+test("consultation detail modal keeps its title prominent and category controls secondary", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("app/consultations/page.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
+  assert.match(page, /<h2>상담 세부내역<\/h2>/);
+  assert.match(page, /<label htmlFor="consultation-category">질문 유형<\/label>/);
+  assert.match(page, /"변경 저장"/);
+  assert.match(css, /\.consultation-modal > h2 \{ font-weight: 800; \}/);
+  assert.match(css, /\.consultation-category-edit select, \.consultation-category-edit button \{[^}]*calc\(\(12px \+ var\(--admin-body-size-increase, 0px\)\)/);
 });
 
 test("knowledge management defaults to the first business and PDF input", async () => {

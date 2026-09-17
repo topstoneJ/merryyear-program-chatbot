@@ -542,6 +542,7 @@ button, a, select { -webkit-tap-highlight-color: transparent; }
 
 .intro { padding: 20px 0; transform: translateY(-52px); }
 .share-business { min-width: 38px; min-height: 34px; border: 1px solid #e6e2de; border-radius: 10px; color: #96918c; background: #ffffff80; cursor: pointer; padding: 7px 10px; font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 650; box-shadow: none; }
+.share-business svg { display: block; width: 16px; height: 16px; margin: auto; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .share-business:hover, .share-business:focus-visible { color: #746e68; border-color: #d6d1cc; outline: 2px solid color-mix(in srgb, var(--orange) 34%, transparent); outline-offset: 2px; }
 .share-business.copied { color: #fff; background: var(--orange); border-color: var(--orange); font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 800; }
 .eyebrow {
@@ -626,7 +627,8 @@ h1 em {
   width: 100%;
   color: #786d63;
   align-items: center;
-  gap: 5px;
+  position: relative;
+  padding-left: 40px;
   margin: 14px 0;
   padding: 13px 16px;
   background: #fffc;
@@ -637,6 +639,7 @@ h1 em {
   text-decoration: none;
   display: flex;
 }
+.homepage-link::before { content: "●"; position: absolute; left: 16px; color: currentColor; font-size: 7px; line-height: 1; }
 .homepage-link:hover { color: var(--orange); text-decoration: underline; text-underline-offset: 3px; }
 .homepage-link.disabled { cursor: default; }
 .homepage-link.disabled:hover { color: #786d63; text-decoration: none; }
@@ -1292,6 +1295,8 @@ h1 em {
 .consultation-category-edit > label { display: block; font-size: max(var(--admin-min-font, 0px), calc((13px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 700; margin-bottom: 9px; }
 .consultation-category-edit small { display: block; color: #82776b; margin-top: 8px; }
 .consultation-category-edit p { font-size: max(var(--admin-min-font, 0px), calc((13px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.consultation-modal > h2 { font-weight: 800; }
+.consultation-category-edit select, .consultation-category-edit button { font-size: max(var(--admin-min-font, 0px), calc((12px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.35; }
 
 /* One-pixel body type increase only on the three administrator surfaces.
    Explicit sizes use the same delta; inherited text receives it just once. */

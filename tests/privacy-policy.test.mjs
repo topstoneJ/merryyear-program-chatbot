@@ -21,7 +21,8 @@ test("main and settings screens expose readable and editable privacy dialogs", a
     readFile(new URL("app/settings/page.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
   ]);
-  assert.match(home, /<div className="home-utility-actions"><button className="privacy-home-button"/);
+  assert.match(home, /<div className="home-utility-actions"><button className=\{`share-business/);
+  assert.ok(home.indexOf("share-business") < home.indexOf("privacy-home-button"));
   assert.ok(home.indexOf("home-utility-actions") > home.indexOf("homepage-slot"));
   assert.match(home, /aria-labelledby="privacy-policy-title"/);
   assert.match(settings, /id="privacy-editor-title">개인정보처리방침<\/h2>/);
