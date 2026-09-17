@@ -27,9 +27,9 @@ export async function GET(request: Request) {
   ];
   const items = definitions.map(intent => {
     const row = byIntent.get(intent.id), current = row?.context_version === version;
-    const signal = !row || !current ? "red" : row.status === "ready" ? "green" : row.status === "review" ? "orange" : "red";
+    const signal = !row || !current ? "red" : row.status === "ready" ? "green" : "red";
     const answer = row ? parsedAnswer(row.answer_json) : null;
-    return { ...intent, signal, status: !row ? "준비 필요" : !current ? "자료 변경됨" : signal === "green" ? "사용 중" : signal === "orange" ? "확인 필요" : "생성 실패",
+    return { ...intent, signal, status: !row ? "준비 필요" : !current ? "자료 변경됨" : signal === "green" ? "사용 중" : row.status === "review" ? "재생성 필요" : "생성 실패",
       answer: answer?.text || "", source: answer?.source || "", updatedAt: row?.updated_at || null };
   });
   return Response.json({ signal: signalFor(items), items }, { headers: { "Cache-Control": "no-store" } });
@@ -63,17 +63,19 @@ export async function POST(request: Request) {
   if (body.action === "save" && (!text || text.length > 12000)) return Response.json({ error: "수정 답변을 확인해 주세요." }, { status: 400 });
   const business = await getBusiness(businessId);
   if (!business) return Response.json({ error: "사업을 찾을 수 없습니다." }, { status: 404 });
-  const version = await fastAnswerContextVersion(businessId, DB), previous = await DB.prepare("SELECT answer_json FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string }>();
+  const version = await fastAnswerContextVersion(businessId, DB), previous = await DB.prepare("SELECT answer_json, status, context_version FROM fast_answers WHERE business_id = ? AND intent = ?").bind(businessId, intent.id).first<{ answer_json: string; status: string; context_version: string }>();
   try {
     const knowledge = await loadKnowledgeContext(businessId), timing = createChatTiming();
-    const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { faq: true, forceRefresh: true, candidateText: body.action === "save" ? text : undefined });
+    const answer = await askGemini(businessId, business.name, intent.question, knowledge, [], timing, { faq: true, forceRefresh: true, requireReady: true, candidateText: body.action === "save" ? text : undefined });
     timing.finish(200);
-    const status = answer.decision === "fact" && !answer.review && Boolean(answer.source) ? "ready" : "review";
     await DB.prepare(`INSERT INTO fast_answers (business_id, intent, label, question, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(business_id, intent) DO UPDATE SET label = excluded.label, question = excluded.question, answer_json = excluded.answer_json, status = excluded.status, context_version = excluded.context_version, updated_at = excluded.updated_at`)
-      .bind(businessId, intent.id, intent.label, intent.question, JSON.stringify(answer), status, version, Date.now()).run();
-    return Response.json({ item: { ...intent, signal: status === "ready" ? "green" : "orange", status: status === "ready" ? "사용 중" : "확인 필요", answer: answer.text, source: answer.source, updatedAt: Date.now() } });
+      .bind(businessId, intent.id, intent.label, intent.question, JSON.stringify(answer), "ready", version, Date.now()).run();
+    return Response.json({ item: { ...intent, signal: "green", status: "사용 중", answer: answer.text, source: answer.source, updatedAt: Date.now() } });
   } catch {
+    if (previous?.status === "ready" && previous.answer_json && previous.context_version === version) {
+      return Response.json({ error: "기존 답변은 유지했지만 새 답변이 검증을 통과하지 못했습니다. 다시 시도해 주세요." }, { status: 502 });
+    }
     await DB.prepare(`INSERT INTO fast_answers (business_id, intent, answer_json, status, context_version, updated_at) VALUES (?, ?, ?, 'error', ?, ?)
       ON CONFLICT(business_id, intent) DO UPDATE SET status = 'error', context_version = excluded.context_version, updated_at = excluded.updated_at`)
       .bind(businessId, intent.id, previous?.answer_json || "", version, Date.now()).run();
