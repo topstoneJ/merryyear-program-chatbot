@@ -267,7 +267,7 @@ function base64ToBytes(value: string) {
 }
 
 async function apiKeyEncryptionKey() {
-  const secret = process.env.API_KEY_ENCRYPTION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+  const secret = process.env.API_KEY_ENCRYPTION_SECRET || process.env.ADMIN_SESSION_SECRET || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!secret) throw new Error("API key encryption is unavailable");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
   return crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["encrypt", "decrypt"]);
@@ -282,7 +282,7 @@ export async function encryptConfiguredGeminiApiKey(value: string) {
 // Persist an explicit opt-out so an environment fallback cannot silently
 // reactivate a key after an administrator deletes it or restarts the server.
 export const GEMINI_API_KEY_DISABLED = "!disabled";
-export function configuredGeminiApiKeyStatus(stored: string | null | undefined, fallback = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY) {
+export function configuredGeminiApiKeyStatus(stored: string | null | undefined, fallback = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY) {
   const disabled = stored === GEMINI_API_KEY_DISABLED;
   return {
     apiKeyConfigured: !disabled && Boolean(stored || fallback),
@@ -292,7 +292,7 @@ export function configuredGeminiApiKeyStatus(stored: string | null | undefined, 
 }
 
 export async function getConfiguredGeminiApiKey(settingsRow?: { gemini_api_key_encrypted: string | null } | null) {
-  const fallback = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+  const fallback = process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY;
   const row = settingsRow === undefined
     ? await (await ensureKnowledgeSchema()).prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>()
     : settingsRow;

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {chatHarness} from './load-source.mjs';
 
 test('system capability guidance survives without any business documents',async()=>{
- const h=chatHarness({knowledge:{sources:[],conflicts:[],withheldParts:0},draft:{source:'',evidenceKind:'system',text:'챗봇은 신청 접수를 대신할 수 없어요.'}});
- const r=await h.ask();assert.equal(r.status,200);assert.equal(r.payload.answer.text,'챗봇은 신청 접수를 대신할 수 없어요.');assert.equal(r.payload.answer.review,false);
+ const h=chatHarness({knowledge:{sources:[],conflicts:[],withheldParts:0},draft:{questionTarget:'system',source:'',evidenceKind:'system',text:'챗봇은 신청 접수를 대신할 수 없어요.'}});
+ const r=await h.ask({question:'챗봇이 대신 접수해 줄 수 있나요?'});assert.equal(r.status,200);assert.equal(r.payload.answer.text,'챗봇은 신청 접수를 대신할 수 없어요.');assert.equal(r.payload.answer.review,false);
 });
 test('informational partial answers preserve supported content without forced referral',async()=>{
  const h=chatHarness({settings:{alwaysContact:false},draft:{resolution:'partial',text:'신청은 온라인이에요. 대체서류 인정 여부는 확인이 필요해요.',contactPhone:'02-1234-5678',contactEvidence:'사업 담당자 문의: 02-1234-5678'}});
@@ -30,7 +30,7 @@ test('staff referrals recover a missing model contact from registered text',asyn
 
 test('direct contact questions always include the verified email and phone without auto-caching',async()=>{
  const knowledge={sources:[{id:'business-details-test',businessId:'test',title:'사업 필수 정보',type:'text',updatedAt:1,url:null,parts:[{id:'0',title:'사업 필수 정보',text:'담당 부서: 임팩트사업1팀\n이메일: impact@merryyear.org\n연락처: 02-2665-0046',pages:[]}]}],conflicts:[],withheldParts:0};
- const h=chatHarness({knowledge,draft:{decision:'consult',resolution:'action_required',evidenceKind:'document',source:'business-details-test',review:true,text:'안내된 담당 부서로 문의해 주세요.',contactPhone:'',contactEvidence:''}});
+ const h=chatHarness({knowledge,draft:{decision:'fact',resolution:'complete',evidenceKind:'document',source:'business-details-test',review:false,text:'안내된 담당 부서로 문의해 주세요.',contactPhone:'',contactEvidence:''}});
  const first=await h.ask({question:'담당자 연락처를 알려주세요.'});
  assert.match(first.payload.answer.text,/impact@merryyear\.org/);
  assert.match(first.payload.answer.text,/02-2665-0046/);

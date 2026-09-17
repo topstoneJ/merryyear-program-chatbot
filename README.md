@@ -18,7 +18,7 @@
 - Azure PostgreSQL과 Azure Blob Storage 연동
 - GitHub Actions를 통한 Azure App Service 자동 배포와 상태 확인
 
-답변 판정과 근거 처리의 상세 규칙은 [docs/answer-rules-v4.md](docs/answer-rules-v4.md)를 참고하세요.
+답변 판정과 근거 처리의 기존 정책은 [docs/answer-rules-v4.md](docs/answer-rules-v4.md), 현재 API 공통 계약과 검증·운영 방법은 [docs/answer-contract-v5.md](docs/answer-contract-v5.md)를 참고하세요.
 
 ## 로컬 실행
 
@@ -59,7 +59,7 @@ pnpm build
 
 | 구분 | 변수 |
 | --- | --- |
-| AI 모델 | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| AI 모델 | `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
 | 자료 내보내기 | `DRIVE_EXPORT_KEY` |
 | 관리자 부트스트랩 | `ADMIN_ID`, `ADMIN_PASSWORD`, `ADMIN_BOOTSTRAP_REVISION` |
 | 관리자 보안 | `ADMIN_SESSION_SECRET`, `API_KEY_ENCRYPTION_SECRET` |
