@@ -18,3 +18,7 @@ test("the mobile title block uses less top space", () => {
   assert.match(css, /h1 \{[^}]*29px[^}]*line-height: 1\.35/);
   assert.doesNotMatch(css, /\.intro \{[^}]*translateY\(-20px\)/);
 });
+
+test("the stacked tablet home balances the space above and below the intro", () => {
+  assert.match(css, /@media \(max-width: 1120px\)[\s\S]*?\.intro \{ padding-bottom: 0; transform: translateY\(-14px\); \}/);
+});

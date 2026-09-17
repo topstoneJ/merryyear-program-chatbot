@@ -29,6 +29,7 @@ async function harness(options = {}) {
   const route = await moduleFrom("../app/api/knowledge/conflicts/route.ts", {
     "@/app/admin-session": { requireAdminApi: async () => options.denied ? Response.json({}, { status: 403 }) : null },
     "@/db/knowledge": { ensureKnowledgeSchema: async () => DB, getConfiguredGeminiApiKey: async () => "test-only" },
+    "@/db/ai-provider": { configuredAiModel: () => "gemini-3.8-flash" },
     "@/db/conflict-check": core,
   }, async (_url, init) => {
     calls++;

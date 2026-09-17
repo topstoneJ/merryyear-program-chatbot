@@ -88,7 +88,7 @@ test('deleting an API key overrides an environment fallback and survives a datab
     await knowledge().ensureKnowledgeSchema();
     assert.equal(await knowledge().getConfiguredGeminiApiKey(),'environment-fallback');
     const knowledgeModule=knowledge();
-    const route=sourceLoader({'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/knowledge':knowledgeModule,'@/db/api-pricing':{}})('app/api/api-management/route.ts');
+    const route=sourceLoader({'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/knowledge':knowledgeModule,'@/db/api-pricing':{},'@/db/ai-provider':{}})('app/api/api-management/route.ts');
     const response=await route.DELETE();assert.equal(response.status,200);assert.equal((await response.json()).apiKeyConfigured,false);
     assert.equal(await knowledge().getConfiguredGeminiApiKey(),undefined);
     assert.equal((await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id='default'").first()).gemini_api_key_encrypted,knowledgeModule.GEMINI_API_KEY_DISABLED);

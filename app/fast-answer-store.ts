@@ -13,7 +13,8 @@ export async function fastAnswerContextVersion(businessId: string, DB: DatabaseB
     loadCategories(DB),
   ]);
   return chatAnswerCacheKey(["fast-answer-context-v2", business, sources.results, settings, categories,
-    process.env.GEMINI_MODEL || "gemini-3.8-flash", new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)]);
+    process.env.GEMINI_MODEL || "gemini-3.8-flash", process.env.OPENAI_MODEL || "gpt-5.4-mini",
+    new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)]);
 }
 
 export async function readReadyFastAnswer(DB: DatabaseBinding, businessId: string, intent: string): Promise<Answer | null> {
