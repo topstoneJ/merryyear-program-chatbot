@@ -1,4 +1,5 @@
 import { trackedGeminiFetch } from "@/db/api-usage";
+import { configuredAiModel } from "@/db/ai-provider";
 import { fetchWebsite, publicWebsiteUrl } from "@/app/safe-website";
 import { ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, knowledgeEnv, type KnowledgeSourceRow } from "@/db/knowledge";
 import { requireAdminApi } from "@/app/admin-session";
@@ -63,7 +64,7 @@ const NOTICE_SECTION_TEMPLATES = [
 
 async function analyzeSourceWithGemini(title: string, sourceLabel: string, extractedText: string, sourceKind: "PDF" | "웹사이트") {
   const apiKey = await getConfiguredGeminiApiKey();
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const model = configuredAiModel(apiKey);
   if (!apiKey) throw new Error("AI 분석을 위한 API 키가 설정되지 않았습니다.");
   if (extractedText.length < 20) throw new Error("PDF에서 분석할 텍스트를 충분히 추출하지 못했습니다. 이미지 PDF라면 OCR이 필요합니다.");
   const isNotice = /공고|모집|지원사업|신청 안내|모집요강|공모/.test(`${title} ${sourceLabel}`);

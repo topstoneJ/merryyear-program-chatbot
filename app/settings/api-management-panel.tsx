@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-type Usage = { date: string; dateKey: string; currentDate: string; model: string; apiKeyConfigured: boolean; storedApiKeyConfigured: boolean; environmentApiKeyConfigured: boolean; trackingStartedAt: number | null; pricingUrl: string | null; provider: string | null;
+type Usage = { date: string; dateKey: string; currentDate: string; model: string; apiProvider: "google" | "openai" | null; apiKeyConfigured: boolean; storedApiKeyConfigured: boolean; environmentApiKeyConfigured: boolean; trackingStartedAt: number | null; pricingUrl: string | null; provider: string | null;
   models: { model: string; provider: string | null; pricingUrl: string | null; requests: number; estimatedUsd: number; unpriced: number }[];
   rates: { input: number; output: number; cached: number } | null;
   totals: { requests: number; failed: number; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens: number; estimatedUsd: number; unpriced: number };
@@ -37,7 +37,7 @@ export default function ApiManagementPanel() {
     try {
       const response = await fetch("/api/api-management", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: apiKey.trim() }) });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-      setApiKey(""); setUsage(previous => previous ? { ...previous, apiKeyConfigured: true, storedApiKeyConfigured: true } : previous);
+      setApiKey(""); await load(from, to);
       setNotice("API 키가 저장되었습니다.");
     } catch (error) { setError(error instanceof Error ? error.message : "API 키를 저장하지 못했습니다."); }
     finally { setSaving(false); }
@@ -55,7 +55,7 @@ export default function ApiManagementPanel() {
     finally { setSaving(false); }
   }
   return <div className="api-management-panel">
-    <section className="settings-card"><h2>API 연결</h2><p className="field-help"><b>{loading ? "API 연결 상태 확인 중" : usage?.apiKeyConfigured ? "API 연결됨" : "API 없음"}</b>{usage?.apiKeyConfigured ? ` · 사용 모델 ${usage.model}` : ""}</p>
+    <section className="settings-card"><h2>API 연결</h2><p className="field-help"><b>{loading ? "API 연결 상태 확인 중" : usage?.apiKeyConfigured ? `${usage.provider || "AI"} API 연결됨` : "API 없음"}</b>{usage?.apiKeyConfigured ? ` · 사용 모델 ${usage.model}` : ""}</p>
       {usage?.apiKeyConfigured && <p className="field-help">{usage.rates ? `현재 등록 단가: 100만 토큰당 입력 $${usage.rates.input}, 출력·생각 $${usage.rates.output}, 캐시 입력 $${usage.rates.cached}. ` : "현재 모델의 단가가 등록되지 않아 요금을 계산할 수 없습니다. "}{usage.pricingUrl ? <a href={usage.pricingUrl} target="_blank" rel="noreferrer">{usage.provider} 공식 요금표</a> : "공식 요금표가 등록되지 않은 모델입니다."}</p>}
       <label className="field"><span>API 키</span><input type="password" autoComplete="new-password" value={apiKey} disabled={saving || !usage} maxLength={300} onChange={e => setApiKey(e.target.value)} placeholder={usage?.apiKeyConfigured ? "설정됨 · 변경할 때만 새 키 입력" : "API 키 입력"} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void saveKey(); } }} /></label>
       <div className="api-key-actions"><button type="button" className="knowledge-submit" disabled={saving || !apiKey.trim() || !usage} onClick={() => void saveKey()}>{saving ? "처리 중…" : "API 키 저장"}</button><button type="button" className="danger-button" disabled={saving || !usage?.storedApiKeyConfigured} onClick={() => setConfirmDelete(true)}>API 키 삭제</button></div>
