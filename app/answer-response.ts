@@ -35,7 +35,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
 
   if (parsed.decision === "out_of_scope") {
     validateAnswerSemantics(parsed, knowledge, question, context);
-    return { text: "답변할 수 없는 질문입니다.", source: "", page: 0, confidence: 95, review: false, decision: parsed.decision, categoryId: parsed.categoryId };
+    return { text: "답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요.", source: "", page: 0, confidence: 95, review: false, decision: parsed.decision, categoryId: parsed.categoryId };
   }
   const fallbackContact = findBusinessContact(knowledge);
   const separated = separateCitations(parsed.text);
@@ -105,9 +105,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const referralAlreadyPresent = verifiedContact && email && phoneDigitsIn(body, phone) && body.toLowerCase().includes(email.toLowerCase());
   const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email)
     && parsed.decision === "fact" && parsed.resolution === "complete";
-  // In FAQ mode the model's review flag is advisory. The server derives the
-  // reusable state from the resolution and independently verified evidence.
-  const review = (!context.faq && parsed.review) || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
+  const review = parsed.review || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
     || hasUnverifiedBodyContact || (needsReferral && !verifiedDirectContact) || !pageVerified;
   const shouldAppendReferral = needsReferral || settings.alwaysContact;
   const sourceUrl = source?.url && /^https?:\/\//i.test(source.url) ? source.url : "";

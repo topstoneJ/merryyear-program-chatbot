@@ -115,6 +115,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   const [websiteLinks, setWebsiteLinks] = useState<Record<string, string>>({});
   const [shareCopied, setShareCopied] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
 
   useEffect(() => { if (previewSettings || initialSettings) return; fetch("/api/settings").then((response) => response.json()).then((payload: { settings?: SiteSettings }) => payload.settings && setSiteSettings(payload.settings)).catch(() => undefined).finally(() => setSettingsLoaded(true)); }, [previewSettings, initialSettings]);
   useEffect(() => {
@@ -123,6 +124,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   const fileRef = useRef<HTMLInputElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
+  const sessionId = useRef("");
 
   const business = businesses.find((item) => item.id === businessId) || businesses[0] || EMPTY_BUSINESS;
   const isAdminGuide = businessId === ADMIN_GUIDE_BUSINESS_ID;
@@ -197,6 +199,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
     setMessages([]);
     setQuestion("");
     setSelectedSurvey([]);
+    sessionId.current = "";
   }
 
   async function copyShareLink() {
@@ -211,7 +214,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   }
 
   async function ask(nextQuestion: string) {
-    if (!businessId || previewSettings || conversationLimitReached || messages.some(message => message.thinking)) return;
+    if (!businessId || previewSettings || conversationLimitReached || dailyLimitReached || messages.some(message => message.thinking)) return;
     const trimmed = maskIdentityNumbers(nextQuestion.trim());
     if (!trimmed || nextQuestion.length > 150) return;
 
@@ -220,12 +223,18 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
     setMessages((previous) => [...previous, { id, question: trimmed, thinking: true }]);
 
     try {
+      sessionId.current ||= crypto.randomUUID();
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, question: trimmed, history: completedMessages.map(message => ({ question: message.question, answer: message.answer!.text })) }),
+        body: JSON.stringify({ businessId, question: trimmed, sessionId: sessionId.current, history: completedMessages.map(message => ({ question: message.question, answer: message.answer!.text })) }),
       });
-      const payload = await response.json() as { answer?: Answer; error?: string };
+      const payload = await response.json() as { answer?: Answer; error?: string; code?: string };
+      if (response.status === 429 && payload.code === "daily_question_limit") {
+        setDailyLimitReached(true);
+        setMessages(previous => previous.filter(message => message.id !== id));
+        return;
+      }
       if (!response.ok || !payload.answer) throw new Error(payload.error || "Answer request failed");
 
       setMessages((previous) =>
@@ -330,7 +339,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
               <div className="starter">
                 <div className="prompts">
                   {business.prompts.map((prompt) => (
-                    <button type="button" key={prompt.question} onClick={() => ask(prompt.question)}>
+                    <button type="button" key={prompt.question} disabled={dailyLimitReached} onClick={() => ask(prompt.question)}>
                       {prompt.question}
                     </button>
                   ))}
@@ -359,13 +368,14 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
             </div>
           </div>
 
-          {conversationLimitReached && <p className="conversation-limit" role="alert">{CHAT_LIMIT_MESSAGE}</p>}
+          {dailyLimitReached && <p className="conversation-limit" role="alert">오늘은 너무 많이 질문하셨어요. 내일 다시 해주세요.</p>}
+          {!dailyLimitReached && conversationLimitReached && <p className="conversation-limit" role="alert">{CHAT_LIMIT_MESSAGE}</p>}
           {!conversationLimitReached && question.length > 150 && <p className="question-limit" role="alert">정확한 답변을 위해 150자 이내로 질문해주세요({question.length}/150)</p>}
-          <form className={`composer${question.length > 150 ? " over-limit" : ""}${conversationLimitReached ? " conversation-locked" : ""}`} onSubmit={submitQuestion}>
+          <form className={`composer${question.length > 150 ? " over-limit" : ""}${conversationLimitReached || dailyLimitReached ? " conversation-locked" : ""}`} onSubmit={submitQuestion}>
             <label className="sr-only" htmlFor="question">공고문 질문</label>
-            <input id="question" disabled={!businessId || conversationLimitReached} placeholder={previewSettings || businessId ? (isAdminGuide ? "챗봇 운영 방법을 질문해 주세요" : siteSettings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요") : "관리자 화면에서 사업을 먼저 등록해 주세요"} value={question} onChange={(event) => setQuestion(maskIdentityNumbers(event.target.value))} />
+            <input id="question" disabled={!businessId || conversationLimitReached || dailyLimitReached} placeholder={previewSettings || businessId ? (isAdminGuide ? "챗봇 운영 방법을 질문해 주세요" : siteSettings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요") : "관리자 화면에서 사업을 먼저 등록해 주세요"} value={question} onChange={(event) => setQuestion(maskIdentityNumbers(event.target.value))} />
             {question && <button className="clear" type="button" aria-label="질문 지우기" onClick={() => setQuestion("")}>×</button>}
-            <button className="send" disabled={!businessId || conversationLimitReached || !question.trim() || question.length > 150 || messages.some(message => message.thinking)} aria-label="질문 보내기">➤</button>
+            <button className="send" disabled={!businessId || conversationLimitReached || dailyLimitReached || !question.trim() || question.length > 150 || messages.some(message => message.thinking)} aria-label="질문 보내기">➤</button>
           </form>
           <p className="notice">{isAdminGuide ? "운영 가이드와 현재 계정의 조회 권한 안에 있는 상태만 답변합니다." : "해당 사업과 관련 없는 내용은 답변하지 않습니다."}</p>
         </section>

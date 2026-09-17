@@ -42,6 +42,8 @@ export type BusinessRow = {
 export type ConsultationRow = {
   id: string;
   business_id: string;
+  session_id: string;
+  turn_index: number;
   question: string;
   answer: string;
   summary: string;
@@ -111,6 +113,8 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
     DB.prepare(`CREATE TABLE IF NOT EXISTS consultations (
       id TEXT PRIMARY KEY NOT NULL,
       business_id TEXT NOT NULL,
+      session_id TEXT NOT NULL DEFAULT '',
+      turn_index INTEGER NOT NULL DEFAULT 0,
       question TEXT NOT NULL,
       answer TEXT NOT NULL,
       summary TEXT NOT NULL,
@@ -122,6 +126,14 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       created_at INTEGER NOT NULL
     )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS consultation_business_date_idx ON consultations (business_id, created_at)"),
+    DB.prepare("CREATE INDEX IF NOT EXISTS consultation_session_turn_idx ON consultations (session_id, turn_index)"),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS daily_question_limits (
+      day_key TEXT NOT NULL,
+      ip_hash TEXT NOT NULL,
+      question_count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (day_key, ip_hash)
+    )`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS random_questions (
       id TEXT PRIMARY KEY NOT NULL,
       business_id TEXT NOT NULL,
@@ -156,17 +168,6 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL
     )`),
-    DB.prepare(`CREATE TABLE IF NOT EXISTS fast_answers (
-      business_id TEXT NOT NULL,
-      intent TEXT NOT NULL,
-      label TEXT NOT NULL DEFAULT '',
-      question TEXT NOT NULL DEFAULT '',
-      answer_json TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'error',
-      context_version TEXT NOT NULL DEFAULT '',
-      updated_at INTEGER NOT NULL,
-      PRIMARY KEY (business_id, intent)
-    )`),
     DB.prepare("CREATE INDEX IF NOT EXISTS chat_answer_cache_expiry_idx ON chat_answer_cache (expires_at)"),
     DB.prepare(`INSERT OR IGNORE INTO site_settings
       (id, organization_name, contact, main_headline, main_subcopy, chatbot_greeting, primary_color, updated_at)
@@ -189,10 +190,6 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
       updated_at INTEGER NOT NULL
     )`),
   ]);
-  const fastAnswerColumns = await DB.prepare("PRAGMA table_info(fast_answers)").all<{ name: string }>();
-  for (const [name, definition] of [["label", "TEXT NOT NULL DEFAULT ''"], ["question", "TEXT NOT NULL DEFAULT ''"]] as const) {
-    if (!fastAnswerColumns.results.some((column) => column.name === name)) await DB.prepare(`ALTER TABLE fast_answers ADD COLUMN ${name} ${definition}`).run();
-  }
   const businessColumns = await DB.prepare("PRAGMA table_info(businesses)").all<{ name: string }>();
   if (!businessColumns.results.some((column) => column.name === "is_public")) {
     await DB.prepare("ALTER TABLE businesses ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1").run();
@@ -214,6 +211,10 @@ async function initializeKnowledgeSchema(DB: DatabaseBinding) {
     WHERE h.business_id = businesses.id AND k.type = 'website' AND k.source_url IS NOT NULL
     LIMIT 1
   ), '') WHERE notice_url = ''`).run();
+  const consultationColumns = await DB.prepare("PRAGMA table_info(consultations)").all<{ name: string }>();
+  for (const [name, definition] of [["session_id", "TEXT NOT NULL DEFAULT ''"], ["turn_index", "INTEGER NOT NULL DEFAULT 0"]] as const) {
+    if (!consultationColumns.results.some((column) => column.name === name)) await DB.prepare(`ALTER TABLE consultations ADD COLUMN ${name} ${definition}`).run();
+  }
   const settingsColumns = await DB.prepare("PRAGMA table_info(site_settings)").all<{ name: string }>();
   if (!settingsColumns.results.some((column) => column.name === "gemini_api_key_encrypted")) {
     await DB.prepare("ALTER TABLE site_settings ADD COLUMN gemini_api_key_encrypted TEXT").run();
@@ -361,17 +362,22 @@ export async function recordConsultation(input: {
   confidence: number;
   review?: boolean;
   categoryId?: string;
+  sessionId?: string;
+  turnIndex?: number;
 }) {
   const DB = await ensureKnowledgeSchema();
+  await deleteExpiredConsultations(DB);
   const firstParagraph = input.answer.split(/\n\s*\n/)[0]?.trim() || input.answer.trim();
   const categories = await loadCategories(DB);
   const semantic = categories.find(c => c.id === input.categoryId && !c.replacement_id);
   await DB.prepare(`INSERT INTO consultations
-    (id, business_id, question, answer, summary, decision, category, source, confidence, review, created_at, category_revision)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    (id, business_id, session_id, turn_index, question, answer, summary, decision, category, source, confidence, review, created_at, category_revision)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(
       crypto.randomUUID(),
       input.businessId,
+      input.sessionId?.slice(0, 80) || "",
+      Number.isInteger(input.turnIndex) ? Math.max(0, input.turnIndex || 0) : 0,
       input.question.slice(0, 2_000),
       input.answer.slice(0, 20_000),
       firstParagraph.slice(0, 500),
@@ -383,6 +389,32 @@ export async function recordConsultation(input: {
       Date.now(),
       semantic ? categoryRevision(categories) : "",
     ).run();
+}
+
+export const CONSULTATION_RETENTION_MS = 365 * 24 * 60 * 60 * 1_000;
+
+export async function deleteExpiredConsultations(DB: DatabaseBinding, now = Date.now()) {
+  return DB.prepare("DELETE FROM consultations WHERE created_at < ?").bind(now - CONSULTATION_RETENTION_MS).run();
+}
+
+function kstDayKey(now: number) {
+  return new Date(now + 9 * 60 * 60 * 1_000).toISOString().slice(0, 10);
+}
+
+async function hashClientIp(ip: string) {
+  const salt = process.env.IP_RATE_LIMIT_SALT || process.env.ADMIN_SESSION_SECRET || "program-guide-chatbot-rate-limit";
+  const bytes = new TextEncoder().encode(`${salt}:${ip}`);
+  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+
+export async function consumeDailyQuestionAllowance(DB: DatabaseBinding, ip: string, now = Date.now(), limit = 100) {
+  const dayKey = kstDayKey(now);
+  const ipHash = await hashClientIp(ip);
+  await DB.prepare("DELETE FROM daily_question_limits WHERE day_key < ?").bind(dayKey).run();
+  const row = await DB.prepare(`INSERT INTO daily_question_limits (day_key, ip_hash, question_count, updated_at)
+    VALUES (?, ?, 1, ?) ON CONFLICT(day_key, ip_hash) DO UPDATE SET question_count = daily_question_limits.question_count + 1, updated_at = excluded.updated_at
+    RETURNING question_count`).bind(dayKey, ipHash, now).first<{ question_count: number }>();
+  return { allowed: Number(row?.question_count || 0) <= limit, count: Number(row?.question_count || 0), limit };
 }
 
 export async function loadKnowledgeContext(businessId: string) {

@@ -61,44 +61,6 @@ test('a source-backed application email is an application channel, not a referra
   assert.doesNotMatch(answer.text, /확인 필요|help@example\.org|02-1234-5678|`/);
 });
 
-test('FAQ readiness is derived by the server when registered contact details are complete', async () => {
-  const contactKnowledge = { sources: [{ id: 'required', businessId: 'test', title: '사업 필수 정보', type: 'text', updatedAt: 1, url: null, parts: [
-    { id: '0', title: '담당자 연락처', text: '담당 부서는 열매나눔재단 임팩트사업1팀이고, 전화는 02-2665-0046, 이메일은 impact@merryyear.org입니다. 전화 상담 가능 시간은 평일 10:00~12:00, 14:00~17:00입니다.', pages: [] },
-  ] }], conflicts: [], withheldParts: 0 };
-  const h = chatHarness({ knowledge: contactKnowledge, draft: { source: 'required', review: true, text: '담당 부서는 열매나눔재단 임팩트사업1팀이고, 전화는 02-2665-0046, 이메일은 impact@merryyear.org예요. 전화 상담 가능 시간은 평일 10:00~12:00, 14:00~17:00이에요.' } });
-  const answer = (await h.ask({ question: '담당자 연락처를 알려주세요.' })).payload.answer;
-  assert.equal(answer.review, false);
-  assert.match(answer.text, /impact@merryyear\.org/);
-  assert.match(answer.text, /02-2665-0046/);
-});
-
-test('contact FAQ is built from registered fields even when the model would classify it as a consultation', async () => {
-  const contactKnowledge = { sources: [{ id: 'business-details-test', businessId: 'test', title: '사업 필수 정보', type: 'text', updatedAt: 1, url: null, parts: [
-    { id: '0', title: '사업 필수 정보', text: '담당 부서: 열매나눔재단 임팩트사업1팀\n이메일: impact@merryyear.org\n연락처: 02-2665-0046\n전화 상담 가능 시간: 평일 10:00~12:00, 14:00~17:00', pages: [] },
-  ] }], conflicts: [], withheldParts: 0 };
-  const h = chatHarness({ knowledge: contactKnowledge, draft: { decision: 'consult', resolution: 'action_required', review: true,
-    source: 'business-details-test', text: '담당자에게 문의해 주세요.' } });
-  const answer = await h.generate('담당자 연락처를 알려주세요.', { faq: true, forceRefresh: true, requireReady: true });
-  assert.equal(answer.review, false);
-  assert.equal(answer.decision, 'fact');
-  assert.equal(answer.source, '사업 필수 정보');
-  assert.match(answer.text, /열매나눔재단 임팩트사업1팀/);
-  assert.match(answer.text, /impact@merryyear\.org/);
-  assert.match(answer.text, /02-2665-0046/);
-  assert.match(answer.text, /평일 10:00~12:00, 14:00~17:00/);
-  assert.equal(h.requests.length, 0);
-});
-
-test('contact FAQ still requires review when a registered email or phone is missing', async () => {
-  const incompleteKnowledge = { sources: [{ id: 'business-details-test', businessId: 'test', title: '사업 필수 정보', type: 'text', updatedAt: 1, url: null, parts: [
-    { id: '0', title: '사업 필수 정보', text: '담당 부서: 임팩트사업1팀\n연락처: 02-2665-0046', pages: [] },
-  ] }], conflicts: [], withheldParts: 0 };
-  const h = chatHarness({ knowledge: incompleteKnowledge, draft: { decision: 'consult', resolution: 'action_required', review: true,
-    source: 'business-details-test', text: '담당자에게 문의해 주세요.' } });
-  await assert.rejects(() => h.generate('담당자 연락처를 알려주세요.', { faq: true, forceRefresh: true, requireReady: true }), /faq_requires_ready_answer/);
-  assert.equal(h.requests.length, 2);
-});
-
 test('an unrelated email elsewhere in the source cannot masquerade as an application channel', async () => {
   const mixedKnowledge = { sources: [{ id: 'doc', businessId: 'test', title: '통합 안내문', type: 'text', updatedAt: 1, url: null, parts: [
     { id: '0', title: '신청 방법', text: '신청서는 온라인 양식으로 제출합니다.', pages: [] },

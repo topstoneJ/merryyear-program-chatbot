@@ -21,12 +21,6 @@ export const chatAnswerCache = sqliteTable("chat_answer_cache", {
   expiresAt: integer("expires_at").notNull(),
 }, table => [index("chat_answer_cache_expiry_idx").on(table.expiresAt)]);
 
-export const fastAnswers = sqliteTable("fast_answers", {
-  businessId: text("business_id").notNull(), intent: text("intent").notNull(), answerJson: text("answer_json").notNull().default(""),
-  label: text("label").notNull().default(""), question: text("question").notNull().default(""),
-  status: text("status").notNull().default("error"), contextVersion: text("context_version").notNull().default(""), updatedAt: integer("updated_at").notNull(),
-}, table => [uniqueIndex("fast_answers_business_intent_unique").on(table.businessId, table.intent)]);
-
 export const knowledgeConflictChecks = sqliteTable("knowledge_conflict_checks", {
   businessId: text("business_id").primaryKey(),
   snapshotKey: text("snapshot_key").notNull(),
@@ -84,6 +78,8 @@ export const businesses = sqliteTable("businesses", {
 export const consultations = sqliteTable("consultations", {
   id: text("id").primaryKey(),
   businessId: text("business_id").notNull(),
+  sessionId: text("session_id").notNull().default(""),
+  turnIndex: integer("turn_index").notNull().default(0),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   summary: text("summary").notNull(),
@@ -98,7 +94,15 @@ export const consultations = sqliteTable("consultations", {
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   index("consultation_business_date_idx").on(table.businessId, table.createdAt),
+  index("consultation_session_turn_idx").on(table.sessionId, table.turnIndex),
 ]);
+
+export const dailyQuestionLimits = sqliteTable("daily_question_limits", {
+  dayKey: text("day_key").notNull(),
+  ipHash: text("ip_hash").notNull(),
+  questionCount: integer("question_count").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+}, table => [uniqueIndex("daily_question_limits_day_ip_unique").on(table.dayKey, table.ipHash)]);
 
 export const randomQuestions = sqliteTable("random_questions", {
   id: text("id").primaryKey(),
