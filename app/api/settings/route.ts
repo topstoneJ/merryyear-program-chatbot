@@ -38,6 +38,16 @@ export async function PATCH(request: Request) {
   if (denied) return denied;
   try {
     const form = await request.formData();
+    if (form.get("action") === "privacy-policy-only") {
+      const privacyPolicy = clean(form.get("privacyPolicy"), 20_000);
+      if (privacyPolicy.length < 20) return Response.json({ error: "개인정보처리방침 내용을 입력해 주세요." }, { status: 400 });
+      const DB = await ensureKnowledgeSchema();
+      const previous = await DB.prepare("SELECT * FROM site_settings WHERE id = 'default'").first<SettingsRow>();
+      if (!previous) return Response.json({ error: "설정을 찾을 수 없습니다." }, { status: 404 });
+      const updatedAt = Date.now();
+      await DB.prepare("UPDATE site_settings SET privacy_policy = ?, updated_at = ? WHERE id = 'default'").bind(privacyPolicy, updatedAt).run();
+      return Response.json({ settings: publicSettings({ ...previous, privacy_policy: privacyPolicy, updated_at: updatedAt }) });
+    }
     const captionValue = form.has("socialCaption") ? normalizeSocialCaption(String(form.get("socialCaption") || "")) : null;
     if (captionValue !== null && !validSocialCaption(captionValue)) return Response.json({ error: "썸네일 문구는 20자 이하로 입력해 주세요." }, { status: 400 });
     if (form.get("action") === "social-image-only") {
