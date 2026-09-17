@@ -1,4 +1,4 @@
-import { findBusinessContact } from "@/app/answer-contact";
+import { findBusinessContact, findRegisteredContactDetails } from "@/app/answer-contact";
 import { answerSchema, contractRepairInstruction, AnswerContractError } from "@/app/answer-contract";
 import { getAdminSession, type AdminAccount } from "@/app/admin-session";
 import { loadAdminGuideContext } from "@/app/admin-guide-context";
@@ -82,12 +82,25 @@ export async function askGemini(businessId: string, businessName: string, questi
     if (customFaq) cacheIntent = `custom:${customFaq.intent}`;
   }
   if (history.length && !options.faq) cacheIntent = null;
+  const matchedIntent = cacheIntent;
   const faqMode = Boolean(options.faq || cacheIntent);
   if (cacheIntent && !options.forceRefresh && !options.candidateText) {
     const storedIntent = cacheIntent.startsWith("custom:") ? cacheIntent.slice(7) : cacheIntent;
     const stored = await timing.measure("cache", () => readReadyFastAnswer(DB, businessId, storedIntent).catch(() => null));
     if (stored) { timing.markCache("hit"); return stored; }
     cacheIntent = null;
+  }
+  const registeredContact = matchedIntent === "contact" && !options.candidateText
+    ? findRegisteredContactDetails(knowledge, businessId) : null;
+  if (registeredContact) {
+    const text = [
+      registeredContact.department && `담당 부서: ${registeredContact.department}`,
+      `이메일: ${registeredContact.email}`,
+      `전화번호: ${registeredContact.phone}`,
+      registeredContact.hours && `전화 상담 가능 시간: ${registeredContact.hours}`,
+    ].filter(Boolean).join("\n");
+    return { text, source: registeredContact.source, page: 0, confidence: 95, review: false, decision: "fact",
+      categoryId: categories.find(category => category.id === "운영 문의" || category.name === "운영 문의")?.id || categories[0].id };
   }
   if (!apiKey) throw new Error("AI API key is not configured");
   const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
