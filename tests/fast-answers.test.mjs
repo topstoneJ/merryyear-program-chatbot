@@ -44,6 +44,9 @@ test("business management exposes persistent traffic-light fast answer controls"
   assert.match(css, /fast-answer-item\.green/); assert.match(css, /fast-answer-item\.orange/); assert.match(css, /fast-answer-item\.red/);
   assert.match(api, /requireAdminApi\(\{ businessId \}\)/);
   assert.match(api, /forceRefresh: true/);
+  assert.match(api, /requireReady: true/);
+  assert.match(api, /signal: "green"/);
+  assert.doesNotMatch(api, /row\.status === "review" \? "orange"/);
   assert.match(api, /candidateText:/);
   assert.match(api, /body\.action === "add"/);
   assert.match(api, /body\.action === "delete"/);

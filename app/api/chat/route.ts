@@ -67,7 +67,7 @@ async function loadChatConfiguration(timing: ChatTiming) {
   });
 }
 
-export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { faq?: boolean; forceRefresh?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
+export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { faq?: boolean; forceRefresh?: boolean; requireReady?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
   const DB = await ensureKnowledgeSchema();
   const { settingsRow, allCategories, apiKey } = options.configuration ?? await loadChatConfiguration(timing);
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
@@ -142,6 +142,9 @@ export async function askGemini(businessId: string, businessName: string, questi
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
       const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question, { faq: faqMode, history }));
+      if (options.requireReady && (answer.decision !== "fact" || answer.review || !answer.source)) {
+        throw new AnswerContractError("faq_requires_ready_answer");
+      }
       if (cacheableRequest && answer.decision === "fact" && !answer.review && answer.source) {
         await timing.measure("cache", () => writeChatAnswerCache(DB, cacheKey, businessId, answer)
           .catch(() => console.error("Chat answer cache write failed")));

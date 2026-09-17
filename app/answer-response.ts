@@ -53,9 +53,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const modelRequestsReferral = /(?:담당자|담당\s*부서).{0,60}(?:문의|확인)/s.test(parsed.text);
   const directContactRequest = /(?:담당자|담당\s*부서|문의처|연락처|전화번호|이메일)/.test(question.replace(/\s+/g, ""));
   const needsReferral = ["missing_policy", "conflict", "action_required"].includes(parsed.resolution)
-    || parsed.decision === "consult" || modelRequestsReferral || directContactRequest
-    || /0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/.test(separated.body)
-    || Boolean(separated.body.match(CONTACT_EMAIL_PATTERN));
+    || parsed.decision === "consult" || modelRequestsReferral || directContactRequest;
   if (!verifiedContact && fallbackContact && (needsReferral || (parsed.decision === "fact" && !source && parsed.evidenceKind !== "system") || settings.alwaysContact)) {
     ({phone,evidence} = fallbackContact); verifiedContact = true;
   }
@@ -71,8 +69,26 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   validateAnswerSemantics(parsed, knowledge, question, context);
   const prefixes = decisionPrefixes(settings);
   const prefix = parsed.decision === "fact" ? "" : prefixes[parsed.decision as keyof typeof prefixes];
-  let body = separated.body.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "") ? value : "[연락처 확인 필요]")
-    .replace(CONTACT_EMAIL_PATTERN, (value: string) => email && value.toLowerCase() === email.toLowerCase() ? value : "[이메일 확인 필요]")
+  const plainBody = separated.body.replace(/`([^`\n]+)`/g, "$1");
+  const conflictsWith = (value: string) => knowledge.conflicts.some(conflict => [conflict.left, conflict.right]
+    .some(side => side.quote.toLowerCase().includes(value.toLowerCase())));
+  const sourceHasApplicationChannel = (value: string, phoneNumber = false) => {
+    if (!source || conflictsWith(value)) return false;
+    return source.parts.some(part => {
+      const text = part.text, found = phoneNumber ? phoneDigitsIn(text, value) : text.toLowerCase().includes(value.toLowerCase());
+      if (!found) return false;
+      const context = `${part.title}\n${text}`;
+      return /(?:신청|접수|제출|서류|송부|보내|등록|예약)/.test(context) && !/(?:후원|기부|대표|채용|개인정보)/.test(context);
+    });
+  };
+  const sourceHasEmail = (value: string) => sourceHasApplicationChannel(value);
+  const sourceHasPhone = (value: string) => sourceHasApplicationChannel(value, true);
+  const bodyEmails = [...plainBody.matchAll(CONTACT_EMAIL_PATTERN)].map(match => match[0]);
+  const bodyPhones = [...plainBody.matchAll(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g)].map(match => match[0]);
+  const hasUnverifiedBodyContact = bodyEmails.some(value => !sourceHasEmail(value) && (!email || value.toLowerCase() !== email.toLowerCase()))
+    || bodyPhones.some(value => !sourceHasPhone(value) && (!verifiedContact || value.replace(/[- .]/g, "") !== phone.replace(/[- .]/g, "")));
+  let body = plainBody.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => sourceHasPhone(value) || (verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "")) ? value : "[연락처 확인 필요]")
+    .replace(CONTACT_EMAIL_PATTERN, (value: string) => sourceHasEmail(value) || (email && value.toLowerCase() === email.toLowerCase()) ? value : "[이메일 확인 필요]")
     .replace(/(?:사업\s*)?담당자\s*문의\s*(?:\n|$)/g, "")
     .replace(/문의는\s*((?:평일|주말|매일)[^\n.!?]*(?:가능해요|가능합니다))/g, "전화 상담은 $1")
     .replace(/문의\s*가능\s*시간은/g, "전화 상담 가능 시간은");
@@ -87,7 +103,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email)
     && parsed.decision === "fact" && parsed.resolution === "complete";
   const review = parsed.review || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
-    || (needsReferral && !verifiedDirectContact) || !pageVerified;
+    || hasUnverifiedBodyContact || (needsReferral && !verifiedDirectContact) || !pageVerified;
   const shouldAppendReferral = needsReferral || settings.alwaysContact;
   const sourceUrl = source?.url && /^https?:\/\//i.test(source.url) ? source.url : "";
   const citations = (settings.showSources || separated.citations || /출처|근거/.test(question)) && source
