@@ -42,16 +42,13 @@ export function chatHarness(options = {}) {
       getConfiguredGeminiApiKey: async () => options.noApiKey ? undefined : 'test-only-not-a-real-key',
       loadKnowledgeContext: async () => { if (options.knowledgeError) throw options.knowledgeError; return knowledge; },
       recordConsultation: async value => records.push(value),
-      chatAnswerCacheKey: async request => JSON.stringify(request),
-      readChatAnswerCache: async (_DB, key) => { if(options.cacheReadError)throw options.cacheReadError;return answerCache.get(key) || null; },
-      writeChatAnswerCache: async (_DB, key, _businessId, answer) => { if(options.cacheWriteError)throw options.cacheWriteError;answerCache.set(key, answer); },
+      consumeDailyQuestionAllowance: async () => ({ allowed: options.dailyAllowed !== false, count: options.dailyAllowed === false ? 101 : 1, limit: 100 }),
     },
     '@/db/consultation-categories': {loadCategories:async () => [{id:'content',name:'지원 내용'}]},
     '@/db/api-usage': { trackedGeminiFetch: fetchModel, trackedGeminiJson: async (purpose, init) => {
       const response = await fetchModel(purpose, init);
       return { response, payload: await response.json() };
     } },
-    '@/app/fast-answer-store': { readReadyFastAnswer: async () => options.readyFastAnswer || null },
   }, options.routeSource ? { 'app/api/chat/route.ts': options.routeSource } : {});
   const api = load('app/api/chat/route.ts');
   return {requests, records, settings, knowledge, answerCache,
@@ -59,7 +56,7 @@ export function chatHarness(options = {}) {
     const timing = { measure: async (_name, work) => work(), add: () => {}, markCache: () => {} };
     return api.askGemini('test', '테스트 사업', question, knowledge, [], timing, options);
   }, async ask(body = {}) {
-    const response = await api.POST(new Request('https://test/api/chat', {method:'POST',body:JSON.stringify({businessId:'test',question:'신청 방법은?',...body})}));
+    const response = await api.POST(new Request('https://test/api/chat', {method:'POST',headers:options.requestHeaders,body:JSON.stringify({businessId:'test',question:'신청 방법은?',...body})}));
     return {status:response.status, payload:await response.json(), headers:response.headers};
   }};
 }

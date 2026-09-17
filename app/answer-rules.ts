@@ -65,12 +65,13 @@ export const ANSWER_RULES = [
 
 export function buildCoreSystemInstruction(categories: Array<{ id: string; name: string }>, styleInstruction: string, categoryGuidance: string) {
   return "[사업 안내 챗봇 v5 — 통합 답변 규칙]\n\n" + ANSWER_RULES.map(rule => rule.id + ". " + rule.title + "\n" + (rule.id === 9 ? styleInstruction : rule.instruction)).join("\n\n")
+    + "\n\n최종 우선 규칙: out_of_scope의 text는 정확히 ‘답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요.’로 작성한다. 챗봇 대화의 전달 여부를 물으면 개인정보를 입력하지 않은 상황 정보와 답변이 품질 관리용 상담내역에 기록될 수 있고, 직접 소통은 등록된 담당자 전화번호로 해야 한다고 안내한다."
     + "\n\n" + ANSWER_CONTRACT_INSTRUCTION
     + "\n\n질문 유형 분류: " + categoryGuidance + "\n등록 유형: " + JSON.stringify(categories.map(({id,name}) => ({id,name})));
 }
 
 export const ANSWER_FLOW = [
- { step: "01", question: "대화에서 무엇을 묻고 있나요?", result: "질문 해석", code: "intent", note: "최신 정정·짧은 응답을 반영하고 질문 대상을 구분해요. 답변 범위 밖이면 ‘답변할 수 없는 질문입니다.’라고만 답하고 추가 질문이나 담당자 문의를 붙이지 않아요." },
+ { step: "01", question: "대화에서 무엇을 묻고 있나요?", result: "질문 해석", code: "intent", note: "최신 정정·짧은 응답을 반영하고 질문 대상을 구분해요. 답변 범위 밖이면 ‘답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요.’라고 답해요." },
  { step: "02", question: "선택 사업의 어떤 자료가 필요한가요?", result: "자료 선택", code: "evidence", note: "공개·활성 자료의 적용 범위를 먼저 확인해요." },
  { step: "03", question: "질문에 필요한 근거가 충분한가요?", result: "근거 확인", code: "conflict", note: "자료 부족·사용자 조건 부족·해결되지 않는 충돌을 구분해요." },
  { step: "04", question: "질문 대상에 맞는 결론은 무엇인가요?", result: "판정", code: "decision", note: "개인 전체 자격과 특정 비용·절차의 제한을 구분해요." },

@@ -9,7 +9,7 @@ test('unverified, representative and absent contacts are omitted',async()=>{
  const h=chatHarness({draft:{decision:'consult',resolution:'conflict',text:fixed,contactPhone,contactEvidence}});const answer=(await h.ask()).payload.answer.text;assert.match(answer,/자료가 상충하여 담당자 확인이 필요/);assert.match(answer,/이메일: 등록 자료에서 확인되지 않음\n전화번호: 02-1234-5678/);assert.doesNotMatch(answer,/02-9999-9999|02-1111-1111/);}
 });
 test('out-of-scope response remains exact regardless of enabled style options',async()=>{
- const h=chatHarness({settings:{alwaysContact:true,showSources:true},draft:{questionTarget:'unrelated',evidenceKind:'none',decision:'out_of_scope',source:'',page:0}}),r=await h.ask({question:'저녁 요리 레시피 알려줘'});assert.equal(r.payload.answer.text,'답변할 수 없는 질문입니다.');assert.equal(r.payload.answer.source,'');assert.equal(r.payload.answer.page,0);
+ const h=chatHarness({settings:{alwaysContact:true,showSources:true},draft:{questionTarget:'unrelated',evidenceKind:'none',decision:'out_of_scope',source:'',page:0}}),r=await h.ask({question:'저녁 요리 레시피 알려줘'});assert.equal(r.payload.answer.text,'답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요.');assert.equal(r.payload.answer.source,'');assert.equal(r.payload.answer.page,0);
 });
 test('ordinary fact answers are not converted to conflict and need-info is not automatically review-needed',async()=>{
  const h=chatHarness();assert.equal((await h.ask()).payload.answer.text,'온라인으로 신청해요.');

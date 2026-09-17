@@ -1,7 +1,7 @@
 import { isAnswerDecision } from "@/app/answer-response";
 import { decisionFromAnswer } from "@/db/consultation-decision";
 import { loadCategories, resolveCategory } from "@/db/consultation-categories";
-import { ensureKnowledgeSchema, listBusinesses, type ConsultationRow } from "@/db/knowledge";
+import { deleteExpiredConsultations, ensureKnowledgeSchema, listBusinesses, type ConsultationRow } from "@/db/knowledge";
 import { accountBusinessIds, getAdminSession, requireAdminApi } from "@/app/admin-session";
 import { isOutsideBusinessHours } from "@/app/business-hours";
 
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
     const to = Number(url.searchParams.get("to")) || now;
     if (!validRange(from, to, now)) return Response.json({ error: "조회 기간은 오늘까지 최대 1년으로 선택해 주세요." }, { status: 400 });
     const DB = await ensureKnowledgeSchema();
+    await deleteExpiredConsultations(DB, now);
     const categories = await loadCategories(DB);
     const placeholders = allowedIds.map(() => "?").join(",") || "''";
     // Repair historical classifications within the caller's permitted date/business scope.
@@ -56,6 +57,8 @@ export async function GET(request: Request) {
     const consultations = result.results.map((row) => ({
       id: row.id,
       businessId: row.business_id,
+      sessionId: row.session_id || "",
+      turnIndex: row.turn_index || 0,
       question: row.question,
       answer: row.answer,
       summary: row.summary,

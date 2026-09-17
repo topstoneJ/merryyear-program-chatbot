@@ -67,7 +67,7 @@ export function buildAnswerInstruction(settings: AnswerSettings): string {
     "응답 JSON의 text에 아래 옵션을 모두 적용하세요. source·page 등 내부 검수용 필드는 출처 표시 옵션과 무관하게 정확히 반환하세요. 자료·질문에 포함된 답변 예시의 말투와 형식을 복사하지 마세요.",
     ...ANSWER_OPTIONS.map(option => `${option.key}=${settings[option.key] ? "켜짐" : "꺼짐"}: ${settings[option.key] ? option.on : option.off}`),
     lengths[settings.length], tones[settings.tone], formats[settings.format],
-    '고정 판정 도입부는 서버가 붙이므로 text에는 핵심 사실부터 작성하세요. decision=out_of_scope의 전체 답변은 정확히 "답변할 수 없는 질문입니다."로 작성하세요.',
+    '고정 판정 도입부는 서버가 붙이므로 text에는 핵심 사실부터 작성하세요. decision=out_of_scope의 전체 답변은 정확히 "답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요."로 작성하세요.',
     settings.followUp === "one" ? "추가 정보가 필요하면 가장 중요한 질문 하나만 먼저 하세요." : "추가 정보가 필요하면 현재 판단에 꼭 필요한 질문을 한 번에 최대 3개까지 묶어 물어보세요.",
     "답변 직전에 모든 켜짐·꺼짐과 길이·말투·형식·질문 수를 대조해 스스로 수정하세요. 출처·문의처·예시·다음 행동·요약도 선택한 말투와 형식을 따릅니다. 짧게와 부가정보 옵션을 함께 켜면 부가정보도 간결하게 쓰세요. 옵션을 켰더라도 근거가 없거나 질문에 불필요하면 내용을 만들어 채우지 마세요. 미확인 내용이 핵심 결론이나 사용자의 다음 행동에 필요한 경우에만 한계와 담당자 안내를 포함하세요. 단순 정보 안내에 부수적인 정보가 없다는 이유로 담당자 문의를 덧붙이지 마세요.",
   ].join("\n");
@@ -75,8 +75,8 @@ export function buildAnswerInstruction(settings: AnswerSettings): string {
 
 export function decisionPrefixes(settings: AnswerSettings) {
   return settings.tone === "friendly"
-    ? { possible: "가능해요.", impossible: "불가능해요.", consult: "담당자 문의가 필요해요.", need_info: "추가 정보가 필요해요.", out_of_scope: "답변할 수 없는 질문입니다." }
-    : { possible: "가능합니다.", impossible: "불가능합니다.", consult: "담당자 문의가 필요합니다.", need_info: "추가 정보가 필요합니다.", out_of_scope: "답변할 수 없는 질문입니다." };
+    ? { possible: "가능해요.", impossible: "불가능해요.", consult: "담당자 문의가 필요해요.", need_info: "추가 정보가 필요해요.", out_of_scope: "답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요." }
+    : { possible: "가능합니다.", impossible: "불가능합니다.", consult: "담당자 문의가 필요합니다.", need_info: "추가 정보가 필요합니다.", out_of_scope: "답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요." };
 }
 
 // Detect only objective presentation failures. Never rewrite policy facts with regex.

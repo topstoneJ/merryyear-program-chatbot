@@ -155,7 +155,7 @@ test("chat input enforces question and conversation limits and cycles thinking d
   assert.match(page, /question\.length > 150/);
   assert.match(page, /completedMessages\.length >= MAX_CHAT_TURNS/);
   assert.match(page, /conversationCharacters >= MAX_CHAT_CHARACTERS/);
-  assert.match(page, /disabled=\{!businessId \|\| conversationLimitReached\}/);
+  assert.match(page, /disabled=\{!businessId \|\| conversationLimitReached \|\| dailyLimitReached\}/);
   assert.match(css, /\.conversation-limit/);
   assert.match(css, /animation: thinking-dot-one 3s steps\(1, end\) infinite/);
   assert.match(css, /@keyframes thinking-dot-three/);
@@ -304,7 +304,7 @@ test("guide is a top-level page for every authenticated administrator", async ()
   assert.match(guide, /충돌 의심.*확인 필요.*담당자 문의/);
   assert.doesNotMatch(guide, /합니다\.|됩니다\.|있습니다\.|않습니다\.|입니다\./);
   assert.match(guide, /title: "13\. 자료 최적화"/);
-  assert.match(guide, /질문이 100회\(질문·답변 합계 200개\)/);
+  assert.match(guide, /같은 IP에서는 하루에 질문을 100회까지/);
   assert.match(guide, /title: "18\. 운영 시 주의사항"/);
   assert.match(css, /\.guide-section-body ul \{ list-style: disc; \}/);
   assert.match(css, /\.login-brand \{[^}]*width: fit-content;[^}]*margin: 0 auto 32px;/);

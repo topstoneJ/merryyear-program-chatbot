@@ -3,6 +3,11 @@ import type { AnswerKnowledge } from "./answer-knowledge";
 export const CONTACT_EMAIL_PATTERN = /[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?)+/gi;
 const phoneDigits = (text: string) => text.replace(/[- .\s]/g, "");
 
+export function isDirectContactQuestion(question: string) {
+  const normalized = question.replace(/\s+/g, "");
+  return /(?:담당자|담당부서|문의처|연락처|전화번호|이메일|메일주소).*(?:알려|뭐|어디|몇|문의|연락)|(?:어디|누구|몇번|어떻게).*(?:문의|연락)/.test(normalized);
+}
+
 export function findRegisteredContactDetails(knowledge: AnswerKnowledge, businessId: string) {
   const source = knowledge.sources.find(item => item.id === `business-details-${businessId}`);
   if (!source) return null;

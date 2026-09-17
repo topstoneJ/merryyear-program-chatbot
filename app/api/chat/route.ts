@@ -1,4 +1,4 @@
-import { findBusinessContact, findRegisteredContactDetails } from "@/app/answer-contact";
+import { findBusinessContact, findRegisteredContactDetails, isDirectContactQuestion } from "@/app/answer-contact";
 import { answerSchema, contractRepairInstruction, AnswerContractError } from "@/app/answer-contract";
 import { getAdminSession, type AdminAccount } from "@/app/admin-session";
 import { loadAdminGuideContext } from "@/app/admin-guide-context";
@@ -14,9 +14,7 @@ import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-setting
 import { buildCoreSystemInstruction } from "@/app/answer-rules";
 import { parseGeminiAnswer, type Answer } from "@/app/answer-response";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
-import { cacheIntentForGeneralQuestion } from "@/app/fast-answer-intents";
-import { readReadyFastAnswer } from "@/app/fast-answer-store";
-import { chatAnswerCacheKey, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, readChatAnswerCache, recordConsultation, writeChatAnswerCache } from "@/db/knowledge";
+import { consumeDailyQuestionAllowance, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, recordConsultation } from "@/db/knowledge";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME, ADMIN_GUIDE_TEXT } from "@/app/admin-guide";
 
 type GeminiPayload = { steps?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>; error?: { message?: string } };
@@ -67,30 +65,16 @@ async function loadChatConfiguration(timing: ChatTiming) {
   });
 }
 
-export async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { faq?: boolean; forceRefresh?: boolean; requireReady?: boolean; candidateText?: string; onCacheKey?: (cacheKey: string) => void; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
-  const DB = await ensureKnowledgeSchema();
+async function askGemini(businessId: string, businessName: string, question: string, knowledge: AnswerKnowledge, history: ChatTurn[], timing: ChatTiming, options: { candidateText?: string; configuration?: Awaited<ReturnType<typeof loadChatConfiguration>> } = {}): Promise<Answer> {
   const { settingsRow, allCategories, apiKey } = options.configuration ?? await loadChatConfiguration(timing);
   const answerSettings = readAnswerSettings(settingsRow?.answer_settings_json);
   const categories = (allCategories as QuestionCategory[]).filter(category => !category.replacement_id);
-  let cacheIntent: string | null = cacheIntentForGeneralQuestion(question);
-  if (!cacheIntent) {
-    let customFaqs: { results: Array<{ intent: string; question: string }> } = { results: [] };
-    try { customFaqs = await DB.prepare("SELECT intent, question FROM fast_answers WHERE business_id = ? AND status <> 'deleted' AND question <> ''").bind(businessId).all<{ intent: string; question: string }>(); }
-    catch { /* Legacy/test adapters without FAQ storage simply bypass custom FAQ matching. */ }
-    const normalizedQuestion = question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase();
-    const customFaq = customFaqs.results.find(item => item.question.replace(/[^0-9A-Za-z가-힣]/g, "").toLowerCase() === normalizedQuestion);
-    if (customFaq) cacheIntent = `custom:${customFaq.intent}`;
+  const systemQuestion = /(?:챗봇|대화|질문).*(?:사람|담당자|관리자).*(?:전달|보여|보나|확인|읽)|(?:사람|담당자|관리자).*(?:챗봇|대화|질문).*(?:전달|보여|보나|확인|읽)/.test(question.replace(/\s+/g, ""));
+  if (systemQuestion && !options.candidateText) {
+    return { text: "개인정보를 입력하지 않은 질문의 상황 정보와 챗봇 답변은 상담 품질 관리와 운영 개선을 위해 관리자 상담내역에 기록될 수 있어요. 주민등록번호 같은 식별정보는 입력 단계에서 가려지지만, 이름·연락처 등 개인정보는 입력하지 마세요. 담당자와 직접 소통하려면 안내된 담당자 전화번호로 연락해 주세요.", source: "", page: 0, confidence: 95, review: false, decision: "fact",
+      categoryId: categories.find(category => category.id === "운영 문의" || category.name === "운영 문의")?.id || categories[0].id };
   }
-  if (history.length && !options.faq) cacheIntent = null;
-  const matchedIntent = cacheIntent;
-  const faqMode = Boolean(options.faq || cacheIntent);
-  if (cacheIntent && !options.forceRefresh && !options.candidateText) {
-    const storedIntent = cacheIntent.startsWith("custom:") ? cacheIntent.slice(7) : cacheIntent;
-    const stored = await timing.measure("cache", () => readReadyFastAnswer(DB, businessId, storedIntent).catch(() => null));
-    if (stored) { timing.markCache("hit"); return stored; }
-    cacheIntent = null;
-  }
-  const registeredContact = matchedIntent === "contact" && !options.candidateText
+  const registeredContact = isDirectContactQuestion(question) && !options.candidateText
     ? findRegisteredContactDetails(knowledge, businessId) : null;
   if (registeredContact) {
     const text = [
@@ -103,11 +87,11 @@ export async function askGemini(businessId: string, businessName: string, questi
       categoryId: categories.find(category => category.id === "운영 문의" || category.name === "운영 문의")?.id || categories[0].id };
   }
   if (!apiKey) throw new Error("AI API key is not configured");
-  const conversation = JSON.parse(chatContextInput(cacheIntent ? [] : history, question));
+  const conversation = JSON.parse(chatContextInput(history, question));
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE);
   const verifiedBusinessContact = findBusinessContact(knowledge);
   const modelInput = {
-    serverMode: faqMode ? "faq" : "conversation",
+    serverMode: "conversation",
     business: { id: businessId, name: businessName },
     knowledge,
     verifiedBusinessContact,
@@ -126,17 +110,6 @@ export async function askGemini(businessId: string, businessName: string, questi
       schema: answerSchema(categories.map(category => category.id), knowledge),
     },
   };
-  const cacheableRequest = Boolean(cacheIntent);
-  const cacheKey = cacheIntent ? await chatAnswerCacheKey({
-    ...modelRequest, system_instruction: baseSystemInstruction,
-    input: JSON.stringify({ ...modelInput, conversation: { previousConversation: [], currentMessage: `FAQ:${cacheIntent}` } }),
-  }) : "";
-  if (cacheKey) options.onCacheKey?.(cacheKey);
-  if (cacheableRequest) {
-    const cached = options.forceRefresh ? null : await timing.measure("cache", () => readChatAnswerCache(DB, cacheKey).catch(() => null));
-    if (cached) { timing.markCache("hit"); return cached; }
-    timing.markCache("miss");
-  }
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -154,14 +127,7 @@ export async function askGemini(businessId: string, businessName: string, questi
       }
       const text = modelOutputText(payload);
       if (!text) throw new Error("Gemini returned an empty response");
-      const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question, { faq: faqMode, history }));
-      if (options.requireReady && (answer.decision !== "fact" || answer.review || !answer.source)) {
-        throw new AnswerContractError("faq_requires_ready_answer");
-      }
-      if (cacheableRequest && answer.decision === "fact" && !answer.review && answer.source) {
-        await timing.measure("cache", () => writeChatAnswerCache(DB, cacheKey, businessId, answer)
-          .catch(() => console.error("Chat answer cache write failed")));
-      }
+      const answer = await timing.measure("validation", async () => parseGeminiAnswer(text, knowledge, answerSettings, categories.map(category => category.id), question, { history }));
       return answer;
     } catch (error) {
       lastError = error;
@@ -210,7 +176,7 @@ export async function POST(request: Request) {
     status, headers: { "Server-Timing": timing.finish(status), "Cache-Control": "no-store", "X-Chat-Cache": timing.cacheStatus() },
   });
   try {
-    const body = await request.json() as { businessId?: string; question?: string; history?: unknown };
+    const body = await request.json() as { businessId?: string; question?: string; history?: unknown; sessionId?: string };
     let history: ChatTurn[];
     try { history = parseChatHistory(body.history); }
     catch (error) { return reply({ error: (error as Error).message }, 400); }
@@ -221,6 +187,13 @@ export async function POST(request: Request) {
     }
     if (history.length >= MAX_CHAT_TURNS || chatHistorySize(history) + question.length > MAX_CHAT_CHARACTERS) {
       return reply({ error: CHAT_LIMIT_MESSAGE }, 400);
+    }
+    const forwardedIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || request.headers.get("x-real-ip")?.trim() || request.headers.get("x-client-ip")?.trim();
+    if (forwardedIp) {
+      const DB = await ensureKnowledgeSchema();
+      const allowance = await consumeDailyQuestionAllowance(DB, forwardedIp);
+      if (!allowance.allowed) return reply({ error: "오늘은 너무 많이 질문하셨어요. 내일 다시 해주세요.", code: "daily_question_limit" }, 429);
     }
     if (businessId === ADMIN_GUIDE_BUSINESS_ID) {
       const account = await getAdminSession();
@@ -247,7 +220,8 @@ export async function POST(request: Request) {
       text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
       source: maskResidentRegistrationNumber(generatedAnswer.source),
     };
-    await timing.measure("consultation", () => recordConsultation({ businessId, question, categoryId: answer.categoryId, decision: answer.decision,
+    const sessionId = typeof body.sessionId === "string" && /^[A-Za-z0-9-]{1,80}$/.test(body.sessionId) ? body.sessionId : "";
+    await timing.measure("consultation", () => recordConsultation({ businessId, question, sessionId, turnIndex: history.length, categoryId: answer.categoryId, decision: answer.decision,
       answer: answer.text, source: answer.source, confidence: answer.confidence, review: answer.review,
     }).catch(() => console.error("Consultation recording failed")));
     return reply({ answer, question });

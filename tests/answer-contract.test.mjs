@@ -16,32 +16,23 @@ const draft = (overrides = {}) => ({ categoryId: 'content', questionTarget: 'gen
 const parse = (value, question = '신청 자격을 알려주세요.', context = {}) => parseGeminiAnswer(JSON.stringify(value), knowledge, settings, ['content'], question, context);
 const personal = (overrides = {}) => draft({ questionTarget: 'eligibility', decision: 'possible', text: '현재 확인된 연령 기준에 해당해요. 최종 선정은 별도 심사를 거쳐요.',
   eligibilityEvidence: [{ sourceId: 'doc', quote: '만 19세 이상만 신청할 수 있습니다.', userStatement: '저는 만 20세예요', result: 'met' }], ...overrides });
-const modelResponse = value => Response.json({ steps: [{ type: 'model_output', content: [{ type: 'text', text: JSON.stringify(value) }] }] });
 
 test('all three providers deliver the same system rules and the same semantic validation', () => {
-  const valid = draft(), invalid = personal();
+  const valid = draft();
   for (const [provider, key] of [['google','AIza-test'],['openai','sk-proj-test'],['anthropic','sk-ant-api03-test']]) {
     const request = prepareAiRequest(key, { body: JSON.stringify({ system_instruction: 'shared system rules', input: 'same evidence', response_format: { schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } } }) });
     const body = JSON.parse(request.init.body);
     assert.equal(body.system_instruction || body.instructions || body.system, 'shared system rules');
-    for (const value of [valid, invalid]) {
+    for (const value of [valid]) {
       const text = JSON.stringify(value);
       const raw = provider === 'google' ? { status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'text', text }] }] }
         : provider === 'openai' ? { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text }] }] }
         : { stop_reason: 'end_turn', content: [{ type: 'text', text }] };
       const normalized = normalizeAiPayload(raw, provider).steps[0].content[0].text;
-      const run = () => parseGeminiAnswer(normalized, knowledge, settings, ['content'], '신청 자격을 알려주세요.', { faq: true });
-      if (value === valid) assert.equal(run().decision, 'fact');
-      else assert.throws(run, /faq_requires_general_information/, provider);
+      const run = () => parseGeminiAnswer(normalized, knowledge, settings, ['content'], '신청 자격을 알려주세요.');
+      assert.equal(run().decision, 'fact');
     }
   }
-});
-
-test('general FAQ cannot contain applicant verdicts, ask personal questions or be out of scope', () => {
-  for (const decision of ['possible','impossible','need_info','out_of_scope']) assert.throws(() => parse(draft({ decision })), /faq_requires_general_information/);
-  assert.throws(() => parse(draft({ text: '가능해요.\n\n만 19세 이상이 대상이에요.' })), /verdict_in_information_answer/);
-  assert.throws(() => parse(draft({ decision: 'possible' }), '사용자 정의 FAQ', { faq: true }), /faq_requires_general_information/);
-  assert.equal(parse(draft()).decision, 'fact');
 });
 
 test('decision/resolution cross-product accepts only the documented pairs', () => {
@@ -106,15 +97,6 @@ test('model citations cannot inject invented source names or pages', () => {
   assert.equal(answer.review,true);
 });
 
-test('invalid FAQ is corrected once with specific feedback; only corrected output is stored', async () => {
-  const h = chatHarness({knowledge,responses:[modelResponse(personal()),modelResponse(draft())]});
-  const result = await h.ask({question:'신청 자격을 알려주세요.'});
-  assert.equal(result.status,200); assert.equal(result.payload.answer.decision,'fact');
-  assert.equal(h.requests.length,2); assert.match(h.requests[1].system_instruction,/faq_requires_general_information/);
-  assert.equal(JSON.parse(h.requests[0].input).serverMode,'faq');
-  assert.equal(h.records.length,1); assert.doesNotMatch(h.records[0].answer,/가능해요/);
-});
-
 test('two failed validations never publish or save the invalid answer', async () => {
   const h = chatHarness({knowledge,draft:personal()});
   const result = await h.ask({question:'신청 자격을 알려주세요.'});
@@ -122,22 +104,7 @@ test('two failed validations never publish or save the invalid answer', async ()
   assert.equal(h.requests.length,2); assert.equal(h.records.length,0); assert.equal(h.answerCache.size,0);
 });
 
-test('fast answer generation retries review output and returns only a ready FAQ', async () => {
-  const review = draft({ resolution:'partial', review:true });
-  const h = chatHarness({knowledge,responses:[modelResponse(review),modelResponse(draft())]});
-  const answer = await h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true });
-  assert.equal(answer.review,false); assert.equal(answer.decision,'fact'); assert.equal(answer.source,'신청 공고');
-  assert.equal(h.requests.length,2); assert.match(h.requests[1].system_instruction,/faq_requires_ready_answer/);
-  assert.match(h.requests[1].system_instruction,/신청 주소·이메일·전화번호가 출처 원문에 있으면 담당자 문의가 아니라 확인된 신청 정보/);
-});
-
-test('fast answer generation never returns a review result as a successful regeneration', async () => {
-  const h = chatHarness({knowledge,draft:draft({ resolution:'partial', review:true })});
-  await assert.rejects(() => h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true }), /faq_requires_ready_answer/);
-  assert.equal(h.requests.length,2);
-});
-
-test('valid normal answers need one model call; history prevents a FAQ shortcut', async () => {
+test('valid normal answers use one model call and preserve conversation history', async () => {
   const h = chatHarness({readyFastAnswer:{text:'cached',decision:'fact'}});
   const result=await h.ask({question:'신청 자격을 알려주세요.',history:[{question:'저는 20세예요',answer:'다른 조건을 확인해요.'}]});
   assert.equal(result.status,200); assert.equal(h.requests.length,1);
