@@ -96,10 +96,12 @@ test("home layout supports a configurable multiline title and narrows the chat c
   assert.match(css, /max-width: 600px;\s*justify-self: end/);
 });
 
-test("mobile home introduction stays compact while sitting slightly lower", async () => {
+test("mobile home introduction stays compact and reveals more chat", async () => {
   const css = await readFile(new URL("app/globals.css", root), "utf8");
-  assert.match(css, /\.intro \{ padding: 24px 4px 8px; transform: none; \}/);
-  assert.match(css, /\.workspace \{[^}]*gap: 12px; padding: 18px 14px 28px; \}/);
+  assert.match(css, /\.intro \{ padding: 8px 4px 4px; transform: none; \}/);
+  assert.match(css, /\.workspace \{[^}]*gap: 8px; padding: 10px 14px 24px; \}/);
+  assert.match(css, /h1 \{[^}]*margin: 8px 0 12px;/);
+  assert.match(css, /h1 \{[^}]*29px[^}]*line-height: 1\.35/);
   assert.doesNotMatch(css, /\.intro \{ min-height: calc\(100svh - 64px\)/);
 });
 
@@ -160,7 +162,10 @@ test("chat input enforces question and conversation limits and cycles thinking d
 });
 
 test("home defaults to the first business and copies a business-specific share link", async () => {
-  const page = await readFile(new URL("app/home-client.tsx", root), "utf8");
+  const [page, css] = await Promise.all([
+    readFile(new URL("app/home-client.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
+  ]);
   assert.match(page, /URLSearchParams\(window\.location\.search\)\.get\("business"\)/);
   assert.match(page, /next\[0\]\?\.id \|\| ""/);
   assert.match(page, /useState<BusinessId>\(""\)/);
@@ -168,6 +173,10 @@ test("home defaults to the first business and copies a business-specific share l
   assert.match(page, /searchParams\.set\("business", businessId\)/);
   assert.match(page, /navigator\.clipboard\.writeText/);
   assert.match(page, /현재 사업 챗봇 링크 복사/);
+  assert.match(page, /홈페이지 안내 보러가기[\s\S]*home-utility-actions[\s\S]*share-business/);
+  assert.match(css, /\.document-select-wrap::before \{ content: "▼";/);
+  assert.match(css, /\.configurable-headline \{[^}]*text-align: left/);
+  assert.match(css, /\.main-subcopy \{[^}]*text-align: left/);
 });
 
 test("knowledge management defaults to the first business and PDF input", async () => {

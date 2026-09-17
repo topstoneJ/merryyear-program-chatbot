@@ -11,7 +11,10 @@ test("the public mobile layout stays within the viewport", () => {
   assert.match(css, /\.intro, \.chat \{[^}]*max-width: 100%;[^}]*min-width: 0/);
 });
 
-test("the mobile title block is no longer pulled toward the topbar", () => {
-  assert.match(css, /\.intro \{ padding: 24px 4px 8px; transform: none; \}/);
+test("the mobile title block uses less top space", () => {
+  assert.match(css, /\.intro \{ padding: 8px 4px 4px; transform: none; \}/);
+  assert.match(css, /\.workspace \{[^}]*gap: 8px; padding: 10px 14px 24px; \}/);
+  assert.match(css, /h1 \{[^}]*margin: 8px 0 12px;/);
+  assert.match(css, /h1 \{[^}]*29px[^}]*line-height: 1\.35/);
   assert.doesNotMatch(css, /\.intro \{[^}]*translateY\(-20px\)/);
 });
