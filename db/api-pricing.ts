@@ -8,17 +8,23 @@ export function modelPricingInfo(model: string) {
 }
 // Standard paid-tier USD / million tokens, verified 2026-09-03.
 export function modelRates(model: string, at = Date.now()) {
-  if (model !== "gemini-3.8-flash") return null;
-  return at < Date.UTC(2027, 0, 1) ? { input: 0.75, output: 3.75, cached: 0.075 } : { input: 1.5, output: 7.5, cached: 0.15 };
+  if (model === "gemini-3.8-flash") return at < Date.UTC(2027, 0, 1) ? { input: 0.75, output: 3.75, cached: 0.075 } : { input: 1.5, output: 7.5, cached: 0.15 };
+  if (model === "gpt-5.4") return { input: 2.5, output: 15, cached: 0.25 };
+  if (model === "gpt-5.4-mini") return { input: 0.75, output: 4.5, cached: 0.075 };
+  if (model === "gpt-5.4-nano") return { input: 0.2, output: 1.25, cached: 0.02 };
+  return null;
 }
 function tokenCount(value: unknown): number | null { return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null; }
 export function readApiUsage(payload: unknown, model: string, at: number) {
   const data = payload as { usage?: Record<string, unknown>; interaction?: { usage?: Record<string, unknown> } } | null;
   const usage = data?.usage || data?.interaction?.usage;
-  const input = tokenCount(usage?.total_input_tokens);
-  const output = tokenCount(usage?.total_output_tokens);
-  const thought = usage ? tokenCount(usage.total_thought_tokens) ?? 0 : null;
-  const cached = usage && input !== null ? Math.min(input, tokenCount(usage.total_cached_tokens) ?? 0) : null;
+  const input = tokenCount(usage?.total_input_tokens) ?? tokenCount(usage?.input_tokens) ?? tokenCount(usage?.prompt_tokens);
+  const rawOutput = tokenCount(usage?.total_output_tokens) ?? tokenCount(usage?.output_tokens) ?? tokenCount(usage?.completion_tokens);
+  const outputDetails = usage?.output_tokens_details as Record<string, unknown> | undefined;
+  const inputDetails = usage?.input_tokens_details as Record<string, unknown> | undefined;
+  const thought = usage ? tokenCount(usage.total_thought_tokens) ?? tokenCount(outputDetails?.reasoning_tokens) ?? 0 : null;
+  const output = rawOutput === null ? null : Math.max(0, rawOutput - (usage?.output_tokens !== undefined ? thought || 0 : 0));
+  const cached = usage && input !== null ? Math.min(input, tokenCount(usage.total_cached_tokens) ?? tokenCount(inputDetails?.cached_tokens) ?? tokenCount(usage.prompt_tokens_details && (usage.prompt_tokens_details as Record<string, unknown>).cached_tokens) ?? 0) : null;
   const rates = modelRates(model, at);
   const estimatedUsd = rates && input !== null && output !== null ? ((input - (cached || 0)) * rates.input + (cached || 0) * rates.cached + (output + (thought || 0)) * rates.output) / 1_000_000 : null;
   return { input, output, thought, cached, estimatedUsd };

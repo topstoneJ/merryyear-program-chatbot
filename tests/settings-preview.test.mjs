@@ -59,6 +59,6 @@ test('logo loading keeps a fixed slot and design controls use the compact reques
  assert.match(settings,/title="브라우저 탭 아이콘" hint="PNG·JPG·WEBP, 최대 3MB"/);
  assert.match(settings,/settings-card-wide[\s\S]*chat-settings-row/);
  assert.match(css,/\.brand-colors-row \{[^}]*grid-template-columns: 1fr 1fr/);
- assert.match(css,/\.chat-settings-row \{[^}]*grid-template-columns: 1fr 1fr/);
+ assert.match(css,/\.chat-settings-row \{[^}]*grid-template-columns: calc\(50% - 30px\) minmax\(0, 1fr\)/);
  assert.match(css,/\.brand-image-field \{[^}]*padding: 0[^}]*border: 0/);
 });

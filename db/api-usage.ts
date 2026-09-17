@@ -1,5 +1,6 @@
 import { knowledgeEnv } from "./knowledge";
 import { readApiUsage } from "./api-pricing";
+import { normalizeAiPayload, prepareAiRequest } from "./ai-provider";
 
 async function record(model: string, purpose: string, status: number, payload: unknown) {
   try {
@@ -11,14 +12,17 @@ async function record(model: string, purpose: string, status: number, payload: u
 }
 
 export async function trackedGeminiFetch(purpose: "chat" | "knowledge" | "conflict" | "classification", init: RequestInit) {
-  const model = typeof init.body === "string" ? String(JSON.parse(init.body).model || "unknown") : "unknown";
+  const headers = new Headers(init.headers);
+  const apiKey = headers.get("x-goog-api-key") || headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const request = prepareAiRequest(apiKey, init);
+  const model = request.model;
   let response: Response;
-  try { response = await fetch("https://generativelanguage.googleapis.com/v1/interactions", init); }
+  try { response = await fetch(request.url, request.init); }
   catch (error) { await record(model, purpose, 0, null); throw error; }
   let payload: unknown = null;
   try { payload = await response.clone().json(); } catch { /* Keep response intact for the caller. */ }
   await record(model, purpose, response.status, payload);
-  return response;
+  return Response.json(normalizeAiPayload(payload, request.provider), { status: response.status });
 }
 
 // Chat consumes JSON only. Read it once, preserve per-attempt usage recording,
@@ -26,14 +30,17 @@ export async function trackedGeminiFetch(purpose: "chat" | "knowledge" | "confli
 export async function trackedGeminiJson<T>(purpose: "chat", init: RequestInit,
   onTiming?: (stage: "model" | "usage", duration: number) => void,
 ): Promise<{ response: Response; payload: T }> {
-  const model = typeof init.body === "string" ? String(JSON.parse(init.body).model || "unknown") : "unknown";
+  const headers = new Headers(init.headers);
+  const apiKey = headers.get("x-goog-api-key") || headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
+  const request = prepareAiRequest(apiKey, init);
+  const model = request.model;
   const started = performance.now();
   let response: Response | undefined;
   let payload: unknown = null;
   try {
-    response = await fetch("https://generativelanguage.googleapis.com/v1/interactions", init);
+    response = await fetch(request.url, request.init);
     payload = await response.json();
-    return { response, payload: payload as T };
+    return { response, payload: normalizeAiPayload(payload, request.provider) as T };
   } finally {
     onTiming?.("model", performance.now() - started);
     const recording = performance.now();
