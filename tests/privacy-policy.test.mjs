@@ -30,6 +30,7 @@ test("main and settings screens expose readable and editable privacy dialogs", a
   assert.match(settings, /privacyEditorOpen &&/);
   assert.match(settings, /privacy-policy-only/);
   assert.match(settings, /maxLength=\{20_000\}/);
+  assert.doesNotMatch(settings, /일반 텍스트로 입력해 주세요\. 줄바꿈은 메인 팝업에도 그대로 적용됩니다\./);
   assert.match(css, /\.privacy-home-link-row \{[^}]*justify-content: flex-end/);
   assert.match(css, /\.privacy-home-link-row button \{[^}]*text-decoration: none/);
   assert.match(css, /\.privacy-home-link-row button \{[^}]*border: 1px solid #e6e2de/);

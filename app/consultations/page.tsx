@@ -196,7 +196,7 @@ export default function ConsultationsPage() {
           <section className="consultation-controls"><label className="business-filter"><select aria-label="사업 선택" value={businessId} onChange={(event) => setBusinessId(event.target.value)}><option value="">사업 전체</option>{businesses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="period-panel"><label><input aria-label="시작일" type="date" min={shiftYear(to, -1)} max={to} value={from} onChange={(event) => setFrom(event.target.value)} /></label><i>–</i><label><input aria-label="종료일" type="date" min={from} max={[today, shiftYear(from, 1)].sort()[0]} value={to} onChange={(event) => setTo(event.target.value)} /></label></div></section>
         </section>
         <section className="consultation-stats">
-          <article><span>챗봇으로 절감한 시간</span><b>{Math.floor(savedMinutes / 60).toLocaleString("ko-KR")}시간 {savedMinutes % 60}분</b><small>건당 평균 3분</small></article>
+          <article><span>챗봇으로 절감한 시간</span><b>{Math.floor(savedMinutes / 60).toLocaleString("ko-KR")}시간 {savedMinutes % 60}분</b><small>전화상담 건당 평균 3분 기준</small></article>
           <article><span>상담 건수</span><b>{summary.total.toLocaleString("ko-KR")}건</b></article>
           <article><span>근무 외 시간 상담건수</span><b>{(summary.offHoursTotal || 0).toLocaleString("ko-KR")}건</b></article>
           <button type="button" className={`review-filter-card${reviewFilter ? " active" : ""}`} aria-pressed={reviewFilter} onClick={() => setReviewFilter(current => !current)}><span>확인 필요</span><b>{reviewCount.toLocaleString("ko-KR")}건</b></button>
