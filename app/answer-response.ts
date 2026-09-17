@@ -77,8 +77,11 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
     return source.parts.some(part => {
       const text = part.text, found = phoneNumber ? phoneDigitsIn(text, value) : text.toLowerCase().includes(value.toLowerCase());
       if (!found) return false;
-      const context = `${part.title}\n${text}`;
-      return /(?:신청|접수|제출|서류|송부|보내|등록|예약)/.test(context) && !/(?:후원|기부|대표|채용|개인정보)/.test(context);
+      const index = text.toLowerCase().indexOf(value.toLowerCase());
+      const nearby = index < 0 ? text : text.slice(Math.max(0, index - 180), Math.min(text.length, index + value.length + 180));
+      const channelContext = `${part.title}\n${nearby}`;
+      const unrelatedChannel = /(?:후원|기부|채용)\s*(?:문의|담당|이메일|메일|전화|연락처)|개인정보\s*(?:문의|담당|보호|처리방침|관리)|대표\s*(?:이메일|메일|전화|번호|연락처)/.test(channelContext);
+      return /(?:신청|접수|제출|서류|송부|보내|등록|예약)/.test(channelContext) && !unrelatedChannel;
     });
   };
   const sourceHasEmail = (value: string) => sourceHasApplicationChannel(value);
@@ -102,7 +105,9 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const referralAlreadyPresent = verifiedContact && email && phoneDigitsIn(body, phone) && body.toLowerCase().includes(email.toLowerCase());
   const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email)
     && parsed.decision === "fact" && parsed.resolution === "complete";
-  const review = parsed.review || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
+  // In FAQ mode the model's review flag is advisory. The server derives the
+  // reusable state from the resolution and independently verified evidence.
+  const review = (!context.faq && parsed.review) || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
     || hasUnverifiedBodyContact || (needsReferral && !verifiedDirectContact) || !pageVerified;
   const shouldAppendReferral = needsReferral || settings.alwaysContact;
   const sourceUrl = source?.url && /^https?:\/\//i.test(source.url) ? source.url : "";

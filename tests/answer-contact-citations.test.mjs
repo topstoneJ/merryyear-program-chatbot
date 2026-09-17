@@ -51,7 +51,7 @@ test('unverified email in the body is withheld and replaced with verified paired
 
 test('a source-backed application email is an application channel, not a referral', async () => {
   const applicationKnowledge = { sources: [{ id: 'doc', businessId: 'test', title: '2026 안내문', type: 'text', updatedAt: 1, url: null, parts: [
-    { id: '0', title: '신청 방법', text: '신청 서류는 apply@example.org 이메일로 제출합니다.', pages: [] },
+    { id: '0', title: '신청 방법', text: '신청기관이 신청서, 신청 공문, 개인정보 동의서를 취합해 apply@example.org 이메일로 제출합니다.', pages: [] },
     { id: '1', title: '문의처', text: '사업 담당자 문의: 02-1234-5678\n이메일: help@example.org', pages: [] },
   ] }], conflicts: [], withheldParts: 0 };
   const h = chatHarness({ knowledge: applicationKnowledge, draft: { text: '신청 서류는 `apply@example.org`로 보내면 돼요.' } });
@@ -59,6 +59,17 @@ test('a source-backed application email is an application channel, not a referra
   assert.equal(answer.review, false);
   assert.match(answer.text, /apply@example\.org/);
   assert.doesNotMatch(answer.text, /확인 필요|help@example\.org|02-1234-5678|`/);
+});
+
+test('FAQ readiness is derived by the server when registered contact details are complete', async () => {
+  const contactKnowledge = { sources: [{ id: 'required', businessId: 'test', title: '사업 필수 정보', type: 'text', updatedAt: 1, url: null, parts: [
+    { id: '0', title: '담당자 연락처', text: '담당 부서는 열매나눔재단 임팩트사업1팀이고, 전화는 02-2665-0046, 이메일은 impact@merryyear.org입니다. 전화 상담 가능 시간은 평일 10:00~12:00, 14:00~17:00입니다.', pages: [] },
+  ] }], conflicts: [], withheldParts: 0 };
+  const h = chatHarness({ knowledge: contactKnowledge, draft: { source: 'required', review: true, text: '담당 부서는 열매나눔재단 임팩트사업1팀이고, 전화는 02-2665-0046, 이메일은 impact@merryyear.org예요. 전화 상담 가능 시간은 평일 10:00~12:00, 14:00~17:00이에요.' } });
+  const answer = (await h.ask({ question: '담당자 연락처를 알려주세요.' })).payload.answer;
+  assert.equal(answer.review, false);
+  assert.match(answer.text, /impact@merryyear\.org/);
+  assert.match(answer.text, /02-2665-0046/);
 });
 
 test('an unrelated email elsewhere in the source cannot masquerade as an application channel', async () => {

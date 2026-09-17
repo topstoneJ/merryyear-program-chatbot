@@ -72,7 +72,8 @@ export async function POST(request: Request) {
       ON CONFLICT(business_id, intent) DO UPDATE SET label = excluded.label, question = excluded.question, answer_json = excluded.answer_json, status = excluded.status, context_version = excluded.context_version, updated_at = excluded.updated_at`)
       .bind(businessId, intent.id, intent.label, intent.question, JSON.stringify(answer), "ready", version, Date.now()).run();
     return Response.json({ item: { ...intent, signal: "green", status: "사용 중", answer: answer.text, source: answer.source, updatedAt: Date.now() } });
-  } catch {
+  } catch (error) {
+    console.error("Fast answer generation failed", { intent: intent.id, reason: error instanceof Error ? error.message : "unknown" });
     if (previous?.status === "ready" && previous.answer_json && previous.context_version === version) {
       return Response.json({ error: "기존 답변은 유지했지만 새 답변이 검증을 통과하지 못했습니다. 다시 시도해 주세요." }, { status: 502 });
     }
