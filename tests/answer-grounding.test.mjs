@@ -27,7 +27,7 @@ test('oversize knowledge fails without silently dropping conflicting documents',
  assert.throws(()=>buildAnswerKnowledge([row('large',{content:'x'.repeat(250001)})],'test'),/safe comparison limit/);
 });
 test('strict response contract rejects invented documents and malformed decision fields',()=>{
- const h=chatHarness();const draft={categoryId:'content',decision:'fact',evidenceKind:'document',resolution:'complete',text:'답변',source:'doc',page:0,review:false,contactPhone:'',contactEvidence:''};
+ const h=chatHarness();const draft={categoryId:'content',questionTarget:'general',eligibilityEvidence:[],decision:'fact',evidenceKind:'document',resolution:'complete',text:'답변',source:'doc',page:0,review:false,contactPhone:'',contactEvidence:''};
  for(const change of [{source:'invented'},{page:-1},{page:'1'},{decision:'unknown'},{decision:undefined},{review:'false'},{categoryId:'invented'},{extra:true}]) assert.throws(()=>parseGeminiAnswer(JSON.stringify({...draft,...change}),h.knowledge,h.settings,['content']));
  const k=buildAnswerKnowledge([row('a',{type:'pdf',content:JSON.stringify({format:'structured-markdown',sections:[{markdown:'내용',pages:[2]}]})}),row('b',{type:'pdf',content:JSON.stringify({format:'structured-markdown',sections:[{markdown:'다른 내용',pages:[3]}]})})],'test');
  const mismatched=parseGeminiAnswer(JSON.stringify({...draft,source:'a',page:3}),k,h.settings,['content']);
