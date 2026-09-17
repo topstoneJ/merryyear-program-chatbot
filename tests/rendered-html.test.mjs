@@ -174,14 +174,16 @@ test("home defaults to the first business and copies a business-specific share l
   assert.match(page, /navigator\.clipboard\.writeText/);
   assert.match(page, /현재 사업 챗봇 링크 복사/);
   assert.match(page, /<svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" \/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" \/><\/svg>/);
-  assert.match(page, /홈페이지 안내 보러가기[\s\S]*home-utility-actions[\s\S]*share-business/);
+  assert.match(page, /<span>홈페이지 안내 보러가기<\/span>[\s\S]*home-utility-actions[\s\S]*share-business/);
   assert.match(css, /\.document-select-wrap::before \{[^}]*content: "▼";[^}]*left: 16px;/);
-  assert.match(css, /\.document-select-wrap select \{[^}]*padding: 14px 16px 14px 40px;/);
-  assert.match(css, /\.homepage-link \{[^}]*padding-left: 40px;/s);
-  assert.match(css, /\.homepage-link::before \{[^}]*content: "●";[^}]*left: 16px;/);
+  assert.match(css, /\.intro \{[^}]*--home-control-text-inset: 40px;/);
+  assert.match(css, /\.document-select-wrap select \{[^}]*padding: 14px 16px 14px var\(--home-control-text-inset\);/);
+  assert.match(css, /\.homepage-link \{[^}]*grid-template-columns: calc\(var\(--home-control-text-inset\) - 16px\)[^}]*padding-left: 16px;[^}]*display: grid;/s);
+  assert.match(css, /\.homepage-link::before \{[^}]*content: "●";[^}]*grid-column: 1;/);
+  assert.match(css, /\.homepage-link > span \{[^}]*grid-column: 2;[^}]*font: inherit;/);
   assert.match(css, /\.share-business svg \{[^}]*width: 16px;[^}]*height: 16px;[^}]*stroke: currentColor;/);
-  assert.match(css, /\.configurable-headline \{[^}]*text-align: left/);
-  assert.match(css, /\.main-subcopy \{[^}]*text-align: left/);
+  assert.match(css, /\.configurable-headline \{[^}]*padding-inline-start: 0;[^}]*text-align: left/);
+  assert.match(css, /\.main-subcopy \{[^}]*padding-inline-start: 0;[^}]*text-align: left/);
 });
 
 test("consultation detail modal keeps its title prominent and category controls secondary", async () => {
