@@ -3,6 +3,18 @@ import type { AnswerKnowledge } from "./answer-knowledge";
 export const CONTACT_EMAIL_PATTERN = /[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?)+/gi;
 const phoneDigits = (text: string) => text.replace(/[- .\s]/g, "");
 
+export function findRegisteredContactDetails(knowledge: AnswerKnowledge, businessId: string) {
+  const source = knowledge.sources.find(item => item.id === `business-details-${businessId}`);
+  if (!source) return null;
+  const text = source.parts.map(part => part.text).join("\n");
+  const field = (label: string) => text.match(new RegExp(`^${label}:\\s*(.+)$`, "m"))?.[1].replace(/\s+/g, " ").trim().replace(/[.!。]+$/, "") || "";
+  const department = field("담당 부서"), email = field("이메일"), phone = field("연락처"), hours = field("전화 상담 가능 시간");
+  const exactEmail = email.match(CONTACT_EMAIL_PATTERN)?.[0] === email;
+  const exactPhone = /^0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}$/.test(phone);
+  if (!exactEmail || !exactPhone) return null;
+  return { department, email, phone, hours, source: source.title };
+}
+
 // Pair channels only within the same contact block; never borrow another
 // department's email to fill a missing channel.
 export function findBusinessEmail(knowledge: AnswerKnowledge, phone = ""): string | null {
