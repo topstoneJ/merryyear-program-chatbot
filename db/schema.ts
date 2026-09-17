@@ -129,6 +129,7 @@ export const siteSettings = sqliteTable("site_settings", {
   mainSubcopy: text("main_subcopy").notNull(),
   chatPlaceholder: text("chat_placeholder").notNull().default("선택한 사업에 대해 질문해 주세요"),
   chatbotGreeting: text("chatbot_greeting").notNull(),
+  privacyPolicy: text("privacy_policy").notNull().default(""),
   primaryColor: text("primary_color").notNull().default("#f26a2e"),
   secondaryColor: text("secondary_color").notNull().default("#808080"),
   geminiApiKeyEncrypted: text("gemini_api_key_encrypted"),

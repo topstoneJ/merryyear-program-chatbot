@@ -1,5 +1,6 @@
 import { brandingUrls } from "@/app/branding";
 import { configuredGeminiApiKeyStatus } from "@/db/knowledge";
+import { DEFAULT_PRIVACY_POLICY } from "@/app/privacy-policy";
 
 export type SettingsRow = {
   organization_name: string; contact: string; logo_key: string | null; main_headline: string;
@@ -8,6 +9,7 @@ export type SettingsRow = {
   favicon_key: string | null; social_image_key: string | null;
   social_caption: string;
   secondary_color: string;
+  privacy_policy?: string;
 };
 
 export function publicSettings(row: SettingsRow) {
@@ -20,6 +22,7 @@ export function publicSettings(row: SettingsRow) {
     mainHeadline: row.main_headline,
     mainSubcopy: row.main_subcopy,
     chatbotGreeting: row.chatbot_greeting,
+    privacyPolicy: row.privacy_policy?.trim() || DEFAULT_PRIVACY_POLICY,
     chatPlaceholder: row.chat_placeholder ?? "선택한 사업에 대해 질문해 주세요",
     primaryColor: row.primary_color,
     secondaryColor: row.secondary_color || "#808080",

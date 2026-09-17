@@ -97,8 +97,8 @@ test("home layout supports a configurable multiline title and narrows the chat c
 
 test("mobile home introduction stays compact while sitting slightly lower", async () => {
   const css = await readFile(new URL("app/globals.css", root), "utf8");
-  assert.match(css, /\.intro \{ padding: 8px 4px; transform: translateY\(-20px\); \}/);
-  assert.match(css, /\.workspace \{ gap: 4px; padding: 18px 14px 28px; \}/);
+  assert.match(css, /\.intro \{ padding: 24px 4px 8px; transform: none; \}/);
+  assert.match(css, /\.workspace \{[^}]*gap: 12px; padding: 18px 14px 28px; \}/);
   assert.doesNotMatch(css, /\.intro \{ min-height: calc\(100svh - 64px\)/);
 });
 
