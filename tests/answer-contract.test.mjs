@@ -123,7 +123,7 @@ test('two failed validations never publish or save the invalid answer', async ()
 });
 
 test('fast answer generation retries review output and returns only a ready FAQ', async () => {
-  const review = draft({ review:true });
+  const review = draft({ resolution:'partial', review:true });
   const h = chatHarness({knowledge,responses:[modelResponse(review),modelResponse(draft())]});
   const answer = await h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true });
   assert.equal(answer.review,false); assert.equal(answer.decision,'fact'); assert.equal(answer.source,'신청 공고');
@@ -132,7 +132,7 @@ test('fast answer generation retries review output and returns only a ready FAQ'
 });
 
 test('fast answer generation never returns a review result as a successful regeneration', async () => {
-  const h = chatHarness({knowledge,draft:draft({ review:true })});
+  const h = chatHarness({knowledge,draft:draft({ resolution:'partial', review:true })});
   await assert.rejects(() => h.generate('신청 자격을 알려주세요.', { faq:true, forceRefresh:true, requireReady:true }), /faq_requires_ready_answer/);
   assert.equal(h.requests.length,2);
 });
