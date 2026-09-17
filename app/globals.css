@@ -192,7 +192,7 @@
 .privacy-editor-modal textarea:focus { border-color: var(--orange); outline: 3px solid color-mix(in srgb, var(--orange) 12%, transparent); }
 .privacy-editor-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: #81786f; font-size: 12px; }
 .privacy-editor-error { margin: 10px 0 0 !important; color: #c4382e !important; font-weight: 750; }
-.chat-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.chat-settings-row { display: grid; grid-template-columns: calc(50% - 30px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .design-reset-button { justify-self: start; }
 .guide-panel { display: grid; gap: 20px; }
 .guide-connect-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 24px; padding: 30px 26px; color: #fff; background: var(--brand-preview, #f26a2e); border-radius: 20px; box-shadow: 0 14px 34px color-mix(in srgb, var(--brand-preview, #f26a2e) 20%, transparent); }

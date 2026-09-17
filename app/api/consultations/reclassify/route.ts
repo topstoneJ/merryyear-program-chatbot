@@ -1,4 +1,5 @@
 import { trackedGeminiFetch } from "@/db/api-usage";
+import { configuredAiModel } from "@/db/ai-provider";
 import { accountBusinessIds, getAdminSession } from "@/app/admin-session";
 import { ensureKnowledgeSchema, getConfiguredGeminiApiKey } from "@/db/knowledge";
 import { loadCategories } from "@/db/consultation-categories";
@@ -22,7 +23,7 @@ export async function POST() {
     const response = await trackedGeminiFetch("classification", {
       method: "POST", signal: AbortSignal.timeout(60000),
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey, "Api-Revision": "2026-05-20" },
-      body: JSON.stringify({ model: process.env.GEMINI_MODEL || "gemini-3.8-flash", store: false,
+      body: JSON.stringify({ model: configuredAiModel(apiKey), store: false,
         system_instruction: CATEGORY_GUIDANCE,
         input: JSON.stringify({ categories: categories.map(c => ({ id: c.id, name: c.name })), consultations: rows.map(r => ({ ...r, answer: r.answer.slice(0, 6000) })) }),
         response_format: { type: "text", mime_type: "application/json", schema: { type: "object", properties: { classifications: { type: "array", items: { type: "object", properties: { id: { type: "string" }, categoryId: { type: "string", enum: categories.map(c => c.id) } }, required: ["id", "categoryId"] } } }, required: ["classifications"] } },

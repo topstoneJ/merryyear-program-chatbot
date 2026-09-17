@@ -4,15 +4,19 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("production and local defaults use the supported Gemini model", async () => {
-  const [route, envExample] = await Promise.all([
+test("production and local defaults select a model from the connected API provider", async () => {
+  const [route, provider, envExample] = await Promise.all([
     readFile(new URL("app/api/chat/route.ts", root), "utf8"),
+    readFile(new URL("db/ai-provider.ts", root), "utf8"),
     readFile(new URL(".env.example", root), "utf8"),
   ]);
 
-  assert.match(route, /process\.env\.GEMINI_MODEL \|\| "gemini-3\.8-flash"/);
+  assert.match(route, /configuredAiModel\(apiKey\)/);
+  assert.match(provider, /process\.env\.GEMINI_MODEL \|\| "gemini-3\.8-flash"/);
+  assert.match(provider, /process\.env\.OPENAI_MODEL \|\| "gpt-5\.4-mini"/);
   assert.match(envExample, /^GEMINI_MODEL=gemini-3\.8-flash$/m);
-  assert.doesNotMatch(`${route}\n${envExample}`, /gemini-3\.[56]-flash/);
+  assert.match(envExample, /^OPENAI_MODEL=gpt-5\.4-mini$/m);
+  assert.doesNotMatch(`${route}\n${provider}\n${envExample}`, /gemini-3\.[56]-flash/);
 });
 
 
@@ -45,7 +49,7 @@ test("PDF upload uses Gemini structured JSON with markdown section bodies", asyn
     readFile(new URL("../db/knowledge.ts", import.meta.url), "utf8"),
   ]);
   assert.match(route, /analyzeSourceWithGemini/);
-  assert.match(route, /gemini-3\.8-flash/);
+  assert.match(route, /configuredAiModel\(apiKey\)/);
   assert.match(route, /markdown: \{ type: "string" \}/);
   assert.match(route, /format: "structured-markdown"/);
   assert.match(knowledge, /buildAnswerKnowledge/);

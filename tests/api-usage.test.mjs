@@ -7,6 +7,7 @@ async function load(path, deps = {}, fetcher = globalThis.fetch) {
   const output={};new Function('require','exports','fetch',code)(name=>deps[name],output,fetcher);return output;
 }
 const pricing=await load('db/api-pricing.ts');
+const provider=await load('db/ai-provider.ts');
 test('fees count discounted cached input and separately reported thinking tokens',()=>{
   const at=Date.UTC(2026,8,3);
   const usage=pricing.readApiUsage({usage:{total_input_tokens:1000000,total_output_tokens:100000,total_thought_tokens:100000,total_cached_tokens:200000}},'gemini-3.8-flash',at);
@@ -23,7 +24,7 @@ test('daily aggregation follows the Korean calendar boundary',()=>{
 test('usage wrapper preserves the response, records failed attempts, and never stores request data or keys',async()=>{
   const records=[];const DB={prepare:()=>({bind:(...values)=>({run:async()=>records.push(values)})})};
   let networkFail=false;
-  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing},async()=>{
+  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing,'./ai-provider':provider},async()=>{
     if(networkFail)throw new Error('network');return Response.json({steps:[{text:'answer'}],usage:{total_input_tokens:10,total_output_tokens:5,total_thought_tokens:2}});
   });
   const init={method:'POST',headers:{'x-goog-api-key':'test-secret'},body:JSON.stringify({model:'gemini-3.8-flash',input:'private-question'})};
@@ -37,7 +38,7 @@ test('chat JSON path parses once and durably records success, HTTP errors and ma
   const records=[],timings=[];let reads=0,mode='success';
   const payload={steps:[],usage:{total_input_tokens:20,total_output_tokens:7}};
   const DB={prepare:()=>({bind:(...values)=>({run:async()=>records.push(values)})})};
-  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing},async()=>{
+  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing,'./ai-provider':provider},async()=>{
     if(mode==='network')throw new Error('network');
     return {status:mode==='http'?429:200,ok:mode!=='http',clone(){throw new Error('must not clone');},async json(){reads++;if(mode==='malformed')throw new SyntaxError('malformed');return payload;}};
   });
@@ -57,7 +58,7 @@ test('API management rejects unauthorized requests and saves or deletes only the
   const DB={prepare:sql=>({bind:(...args)=>({run:async()=>{writes.push({sql,args});}})})};
   const disabled='!disabled';
   const status=(stored,fallback)=>({apiKeyConfigured:stored!==disabled&&Boolean(stored||fallback),storedApiKeyConfigured:stored!==disabled&&Boolean(stored),environmentApiKeyConfigured:Boolean(fallback)});
-  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async key=>'encrypted-'+key,GEMINI_API_KEY_DISABLED:disabled,configuredGeminiApiKeyStatus:status}});
+  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null},'@/db/api-pricing':pricing,'@/db/ai-provider':provider,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,encryptConfiguredGeminiApiKey:async key=>'encrypted-'+key,GEMINI_API_KEY_DISABLED:disabled,configuredGeminiApiKeyStatus:status,getConfiguredGeminiApiKey:async()=>null}});
   const request=key=>new Request('https://test/api/api-management',{method:'PATCH',body:JSON.stringify({apiKey:key})});
   assert.equal((await route.GET()).status,403);assert.equal((await route.PATCH(request('test-only'))).status,403);assert.equal((await route.DELETE()).status,403);assert.equal(writes.length,0);
   denied=false;assert.equal((await route.PATCH(request(' '))).status,400);assert.equal(writes.length,0);
@@ -80,6 +81,19 @@ test('official pricing links follow each provider without assigning unknown mode
   assert.equal(pricing.modelPricingInfo('custom').pricingUrl,null);
   assert.equal(pricing.modelRates('claude-sonnet-5'),null);
 });
+test('OpenAI Responses usage separates reasoning, discounts cached input, and calculates the fee',()=>{
+  const usage=pricing.readApiUsage({usage:{input_tokens:1000000,input_tokens_details:{cached_tokens:200000},output_tokens:200000,output_tokens_details:{reasoning_tokens:100000}}},'gpt-5.4-mini',Date.UTC(2026,8,17));
+  assert.deepEqual(usage,{input:1000000,output:100000,thought:100000,cached:200000,estimatedUsd:1.515});
+});
+test('OpenAI keys use the Responses API and normalize output for existing answer parsers',()=>{
+  assert.equal(provider.aiProviderFromKey('sk-proj-example'),'openai');
+  const request=provider.prepareAiRequest('sk-proj-example',{method:'POST',body:JSON.stringify({system_instruction:'rules',input:'question',response_format:{schema:{type:'object'}}})});
+  assert.equal(request.url,'https://api.openai.com/v1/responses');
+  assert.equal(request.init.headers.Authorization,'Bearer sk-proj-example');
+  const body=JSON.parse(request.init.body);assert.equal(body.instructions,'rules');assert.equal(body.model,'gpt-5.4-mini');assert.equal(body.text.format.type,'json_schema');
+  const payload=provider.normalizeAiPayload({output:[{type:'message',content:[{type:'output_text',text:'answer'}]}],usage:{input_tokens:3,output_tokens:2}},'openai');
+  assert.equal(payload.steps[0].content[0].text,'answer');assert.equal(payload.usage.input_tokens,3);
+});
 test('range route isolates Korean day boundaries and preserves costs across API key changes',async()=>{
   const {DatabaseSync}=await import('node:sqlite'); const db=new DatabaseSync(':memory:');
   db.exec(`CREATE TABLE api_usage (created_at INTEGER,model TEXT,purpose TEXT,status INTEGER,input_tokens INTEGER,output_tokens INTEGER,thought_tokens INTEGER,cached_tokens INTEGER,estimated_usd REAL);
@@ -91,7 +105,7 @@ test('range route isolates Korean day boundaries and preserves costs across API 
   insert.run(boundary+1,'gpt-5.4','knowledge',null);
   insert.run(pricing.selectedDayBounds('2024-02-29').end,'gemini-3.8-flash','chat',7);
   const DB={prepare(sql){const stmt=db.prepare(sql);const wrap=args=>({first:async()=>stmt.get(...args)||null,all:async()=>({results:stmt.all(...args)})});return {...wrap([]),bind:(...args)=>wrap(args)};}};
-  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/api-pricing':pricing,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored),storedApiKeyConfigured:Boolean(stored),environmentApiKeyConfigured:false})}});
+  const route=await load('app/api/api-management/route.ts',{'@/app/admin-session':{requireAdminApi:async()=>null},'@/db/api-pricing':pricing,'@/db/ai-provider':provider,'@/db/knowledge':{ensureKnowledgeSchema:async()=>DB,getConfiguredGeminiApiKey:async()=> 'AIza-test',configuredGeminiApiKeyStatus:stored=>({apiKeyConfigured:Boolean(stored),storedApiKeyConfigured:Boolean(stored),environmentApiKeyConfigured:false})}});
   const get=(from,to=from)=>route.GET(new Request(`https://test/api/api-management?from=${from}&to=${to}`));
   const response=await get('2024-02-29');assert.equal(response.status,200);const result=await response.json();
   assert.equal(result.dateKey,'2024-02-29~2024-02-29');assert.equal(result.totals.requests,2);assert.equal(result.totals.estimatedUsd,0.2);assert.equal(result.totals.unpriced,1);
