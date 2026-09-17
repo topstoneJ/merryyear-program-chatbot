@@ -91,8 +91,54 @@ test('OpenAI keys use the Responses API and normalize output for existing answer
   assert.equal(request.url,'https://api.openai.com/v1/responses');
   assert.equal(request.init.headers.Authorization,'Bearer sk-proj-example');
   const body=JSON.parse(request.init.body);assert.equal(body.instructions,'rules');assert.equal(body.model,'gpt-5.4-mini');assert.equal(body.text.format.type,'json_schema');
+  assert.equal(body.text.format.strict,true);assert.equal(body.text.format.schema.additionalProperties,false);
   const payload=provider.normalizeAiPayload({output:[{type:'message',content:[{type:'output_text',text:'answer'}]}],usage:{input_tokens:3,output_tokens:2}},'openai');
   assert.equal(payload.steps[0].content[0].text,'answer');assert.equal(payload.usage.input_tokens,3);
+});
+
+test('Claude uses its own authentication, messages, strict schema and text response blocks',()=>{
+  assert.equal(provider.aiProviderFromKey('sk-ant-api03-example'),'anthropic');
+  const schema={type:'object',properties:{sections:{type:'array',items:{type:'object',properties:{text:{type:'string'}},required:['text']}}},required:['sections']};
+  const request=provider.prepareAiRequest('sk-ant-api03-example',{body:JSON.stringify({system_instruction:'shared rules',input:'raw PDF sections remain separate',response_format:{schema}})});
+  const body=JSON.parse(request.init.body);
+  assert.equal(request.url,'https://api.anthropic.com/v1/messages');assert.equal(request.model,'claude-sonnet-4-6');
+  assert.equal(request.init.headers['x-api-key'],'sk-ant-api03-example');assert.equal(request.init.headers['anthropic-version'],'2023-06-01');
+  assert.equal(request.init.headers.Authorization,undefined);assert.equal(request.init.headers['x-goog-api-key'],undefined);
+  assert.equal(body.system,'shared rules');assert.equal(body.max_tokens,16384);assert.equal(body.store,undefined);
+  assert.deepEqual(body.messages,[{role:'user',content:'raw PDF sections remain separate'}]);
+  assert.equal(body.output_config.format.schema.properties.sections.items.additionalProperties,false);
+  assert.equal(schema.additionalProperties,undefined);
+  const normalized=provider.normalizeAiPayload({stop_reason:'end_turn',content:[{type:'thinking',thinking:'not an answer'},{type:'text',text:'{"sections":[]}'}],usage:{input_tokens:10,output_tokens:20}},'anthropic');
+  assert.equal(normalized.steps[0].content[0].text,'{"sections":[]}');assert.equal(normalized.usage.output_tokens,20);
+});
+
+test('refusals and incomplete output from any provider never become completed answers',()=>{
+  for(const [name,payload] of [
+    ['anthropic',{stop_reason:'max_tokens',content:[{type:'text',text:'{"text":"partial"}'}]}],
+    ['anthropic',{stop_reason:'refusal',content:[{type:'text',text:'refused'}]}],
+    ['openai',{status:'incomplete',output:[{type:'message',content:[{type:'output_text',text:'{"text":"partial"}'}]}]}],
+    ['openai',{status:'completed',output:[{type:'message',content:[{type:'refusal',refusal:'refused'}]}]}],
+    ['google',{status:'incomplete',steps:[{type:'model_output',content:[{type:'text',text:'{"text":"partial"}'}]}]}],
+  ])assert.deepEqual(provider.normalizeAiPayload(payload,name).steps,[]);
+});
+
+test('Claude usage counts separate cache reads/writes and bills 5 minute and 1 hour writes',()=>{
+  const usage=pricing.readApiUsage({usage:{input_tokens:1000,output_tokens:100,cache_read_input_tokens:2000,cache_creation_input_tokens:1000,cache_creation:{ephemeral_5m_input_tokens:600,ephemeral_1h_input_tokens:400}}},'claude-sonnet-4-6',Date.UTC(2026,8,17));
+  assert.equal(usage.input,4000);assert.equal(usage.cached,2000);assert.equal(usage.output,100);assert.equal(usage.thought,0);
+  assert.ok(Math.abs(usage.estimatedUsd-0.00975)<1e-12);
+  assert.equal(pricing.readApiUsage({},'claude-sonnet-4-6',Date.now()).estimatedUsd,null);
+  assert.equal(pricing.readApiUsage({usage:{input_tokens:10,output_tokens:20}},'claude-unknown',Date.now()).estimatedUsd,null);
+});
+
+test('Claude raw usage and actual provider model reach usage storage before response normalization',async()=>{
+  const records=[];const DB={prepare:()=>({bind:(...values)=>({run:async()=>records.push(values)})})};
+  const wrapper=await load('db/api-usage.ts',{'./knowledge':{knowledgeEnv:()=>({DB})},'./api-pricing':pricing,'./ai-provider':provider},async(url,init)=>{
+    assert.equal(url,'https://api.anthropic.com/v1/messages');assert.equal(JSON.parse(init.body).system,'rules');
+    return Response.json({stop_reason:'end_turn',content:[{type:'text',text:'answer'}],usage:{input_tokens:100,output_tokens:50}});
+  });
+  const result=await wrapper.trackedGeminiJson('chat',{headers:{'x-goog-api-key':'sk-ant-api03-test'},body:JSON.stringify({system_instruction:'rules',input:'question'})});
+  assert.equal(result.payload.steps[0].content[0].text,'answer');assert.equal(records[0][2],'claude-sonnet-4-6');
+  assert.equal(records[0][5],100);assert.equal(records[0][6],50);assert.ok(Math.abs(records[0][9]-0.00105)<1e-12);
 });
 test('range route isolates Korean day boundaries and preserves costs across API key changes',async()=>{
   const {DatabaseSync}=await import('node:sqlite'); const db=new DatabaseSync(':memory:');

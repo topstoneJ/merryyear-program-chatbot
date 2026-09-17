@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-type Usage = { date: string; dateKey: string; currentDate: string; model: string; apiProvider: "google" | "openai" | null; apiKeyConfigured: boolean; storedApiKeyConfigured: boolean; environmentApiKeyConfigured: boolean; trackingStartedAt: number | null; pricingUrl: string | null; provider: string | null;
+type Usage = { date: string; dateKey: string; currentDate: string; model: string; apiProvider: "google" | "openai" | "anthropic" | null; apiKeyConfigured: boolean; storedApiKeyConfigured: boolean; environmentApiKeyConfigured: boolean; trackingStartedAt: number | null; pricingUrl: string | null; provider: string | null;
   models: { model: string; provider: string | null; pricingUrl: string | null; requests: number; estimatedUsd: number; unpriced: number }[];
   rates: { input: number; output: number; cached: number } | null;
   totals: { requests: number; failed: number; inputTokens: number; outputTokens: number; thoughtTokens: number; cachedTokens: number; estimatedUsd: number; unpriced: number };
@@ -13,31 +13,46 @@ const dateInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffs
 function shiftYear(value: string, years: number) { const date = new Date(`${value}T00:00:00`); date.setFullYear(date.getFullYear() + years); return dateInput(date); }
 
 export default function ApiManagementPanel() {
-  const [usage, setUsage] = useState<Usage | null>(null);
+  const [loaded, setLoaded] = useState<{ query: string; usage: Usage | null; error: string } | null>(null);
   const today = dateInput(new Date());
   const monthAgo = new Date(); monthAgo.setMonth(monthAgo.getMonth() - 1);
   const [from, setFrom] = useState(() => dateInput(monthAgo));
   const [to, setTo] = useState(today);
-  const loadId = useRef(0);
+  const [revision, setRevision] = useState(0);
+  const query = `${from}/${to}/${revision}`;
+  const loading = loaded?.query !== query;
+  const usage = loading ? null : loaded?.usage;
   const [apiKey, setApiKey] = useState("");
-  const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false);
-  const [error, setError] = useState(""), [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [actionError, setError] = useState(""), [notice, setNotice] = useState("");
+  const error = actionError || (!loading && loaded?.error);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  async function load(selectedFrom: string, selectedTo: string) {
-    const id = ++loadId.current;
-    setLoading(true); setError("");
-    try { const response = await fetch(`/api/api-management?from=${encodeURIComponent(selectedFrom)}&to=${encodeURIComponent(selectedTo)}`, { cache: "no-store" }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error); if (id === loadId.current) setUsage(payload); }
-    catch (error) { if (id === loadId.current) { setUsage(null); setError(error instanceof Error ? error.message : "API 정보를 불러오지 못했습니다."); } }
-    finally { if (id === loadId.current) setLoading(false); }
+  function refresh() {
+    setError("");
+    setRevision(value => value + 1);
   }
-  useEffect(() => { void load(from, to); return () => { loadId.current++; }; }, [from, to]);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const response = await fetch(`/api/api-management?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error);
+        if (!controller.signal.aborted) setLoaded({ query, usage: payload, error: "" });
+      } catch (error) {
+        if (!controller.signal.aborted) setLoaded({ query, usage: null, error: error instanceof Error ? error.message : "API 정보를 불러오지 못했습니다." });
+      }
+    }
+    void load();
+    return () => controller.abort();
+  }, [from, to, query]);
   async function saveKey() {
     if (!apiKey.trim() || saving) return;
     setSaving(true); setError(""); setNotice("");
     try {
       const response = await fetch("/api/api-management", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ apiKey: apiKey.trim() }) });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-      setApiKey(""); await load(from, to);
+      setApiKey(""); refresh();
       setNotice("API 키가 저장되었습니다.");
     } catch (error) { setError(error instanceof Error ? error.message : "API 키를 저장하지 못했습니다."); }
     finally { setSaving(false); }
@@ -48,7 +63,7 @@ export default function ApiManagementPanel() {
     try {
       const response = await fetch("/api/api-management", { method: "DELETE" });
       const payload = await response.json(); if (!response.ok) throw new Error(payload.error);
-      setApiKey(""); setUsage(previous => previous ? { ...previous, apiKeyConfigured: Boolean(payload.apiKeyConfigured), storedApiKeyConfigured: false } : previous);
+      setApiKey(""); refresh();
       setNotice("API 키가 삭제되었습니다.");
       setConfirmDelete(false);
     } catch (error) { setError(error instanceof Error ? error.message : "API 키를 삭제하지 못했습니다."); }
@@ -62,7 +77,7 @@ export default function ApiManagementPanel() {
       {usage?.apiKeyConfigured && usage.environmentApiKeyConfigured && !usage.storedApiKeyConfigured && <p className="field-help">관리 화면에 저장한 키가 없으며 사이트의 기본 연결 키를 사용 중입니다.</p>}
       {notice && <p className="settings-notice" role="status">{notice}</p>}
     </section>
-    <section className="settings-card"><div className="api-usage-heading"><h2>API 사용량</h2><div className="period-panel"><label><input aria-label="시작일" type="date" min={shiftYear(to, -1)} max={to} value={from} onChange={e => { if (e.target.value) setFrom(e.target.value); }} /></label><i>–</i><label><input aria-label="종료일" type="date" min={from} max={[today, shiftYear(from, 1)].sort()[0]} value={to} onChange={e => { if (e.target.value) setTo(e.target.value); }} /></label></div><button type="button" className="cancel-button" disabled={loading} onClick={() => void load(from, to)}>{loading ? "불러오는 중…" : "새로고침"}</button></div>
+    <section className="settings-card"><div className="api-usage-heading"><h2>API 사용량</h2><div className="period-panel"><label><input aria-label="시작일" type="date" min={shiftYear(to, -1)} max={to} value={from} onChange={e => { if (e.target.value) setFrom(e.target.value); }} /></label><i>–</i><label><input aria-label="종료일" type="date" min={from} max={[today, shiftYear(from, 1)].sort()[0]} value={to} onChange={e => { if (e.target.value) setTo(e.target.value); }} /></label></div><button type="button" className="cancel-button" disabled={loading} onClick={refresh}>{loading ? "불러오는 중…" : "새로고침"}</button></div>
       {loading && <p className="field-help" role="status">선택한 기간의 사용량을 불러오는 중입니다.</p>}
       {usage && !loading && <>
         <div className="api-usage-metrics">

@@ -1,3 +1,4 @@
+import { ANSWER_CONTRACT_INSTRUCTION } from "./answer-contract";
 // One canonical definition for runtime instructions and the settings explanation.
 export const ANSWER_RULES = [
   {
@@ -46,7 +47,7 @@ export const ANSWER_RULES = [
     "id": 8,
     "title": "출처·문의처·출력 계약",
     "description": "출처는 답변 맨 마지막에, 담당자 이메일과 전화번호는 함께 안내해요.",
-    "instruction": "출력은 categoryId, decision, evidenceKind, resolution, text, source, page, review, contactPhone, contactEvidence의 10개 필드를 가진 JSON 객체이다. JSON 밖의 해설이나 코드 블록은 금지한다. decision은 위 6개 값, evidenceKind와 resolution은 5번의 값만 쓴다.\nsource는 핵심 사업 사실에 실제 사용한 sources 항목 id이다. system 또는 none이면 source=\"\"이다. 여러 자료의 독립적인 사실을 설명하면 text에서 확인된 자료명을 구분한다. page는 선택 PDF의 parts.pages 중 실제 근거 쪽수이며 없으면 0이다. 문서명·쪽수·URL을 만들지 않는다. 연락처의 출처를 사업 사실의 근거로 대신 사용하지 않는다. 출처를 표시하는 경우 옵션 켜짐 여부와 무관하게 답변 가장 마지막에 별도 문단으로 표기한다. 출처 문단은 반드시 ‘출처:’로 시작하며 출처 뒤에는 문의처·요약·다음 행동·추가 질문을 붙이지 않는다.\ncontactPhone은 선택 사업 담당자·부서의 확인된 전화번호, contactEvidence는 번호와 사업 문의 관계를 보여주는 연속 원문이다. 이 원문은 활성 sources 중 하나에 실제 있어야 하며 사업 사실 source와 달라도 된다. 대표번호나 다른 사업 번호를 담당자 번호로 대체하지 않는다. 근거가 없으면 두 필드는 빈 문자열이다. 검증 연락처는 서버가 이메일·전화번호 두 항목을 함께 덧붙이므로 이메일과 전화번호는 text에 중복해서 쓰지 않는다. 담당자 안내가 필요한 경우에는 그 이유만 본문에 설명한다. 연락처 블록에 ‘사업 담당자 문의’ 제목을 쓰지 않는다. 등록된 운영시간은 전화에만 적용되므로 ‘전화 상담은 평일 오전 10시부터 12시, 오후 14시부터 17시까지 가능해요’처럼 안내하고 이메일 문의 시간까지 제한하는 표현을 쓰지 않는다.\nresolution이 partial, missing_policy, conflict, action_required이면 review=true이다. system 근거 또는 일반적인 needs_user라는 이유만으로 review를 true로 만들지 않는다. out_of_scope는 source=\"\", page=0, review=false, contactPhone=\"\", contactEvidence=\"\"이다. 출처 표시 옵션은 내부 근거 기록을 생략하는 권한이 아니다."
+    "instruction": "출력은 요청된 스키마와 응답 계약의 JSON 객체 하나이다. JSON 밖의 해설이나 코드 블록은 금지한다. source는 핵심 사업 사실에 실제 사용한 sources 항목 id이다. 여러 자료의 독립적인 사실을 설명하면 본문에서 확인된 자료명을 구분한다. page는 선택 PDF의 parts.pages 중 실제 근거 쪽수이며 없으면 0이다. 연락처 문서를 다른 사업 사실의 근거로 대신 사용하지 않는다. 문서명·쪽수·URL을 만들지 않는다. 출처 표시는 서버가 검증된 source와 page로 마지막에 조립하므로 본문에 출처 문단을 직접 쓰지 않는다. 출처 표시 옵션은 내부 근거 기록을 생략하는 권한이 아니다.\ncontactPhone은 선택 사업 담당자·부서의 확인된 전화번호, contactEvidence는 번호와 사업 문의 관계를 보여주는 연속 원문이다. 이 원문은 활성 sources 중 하나에 실제 있어야 하며 사업 사실 source와 달라도 된다. 대표번호나 다른 사업 번호를 담당자 번호로 대체하지 않는다. 근거가 없으면 두 필드는 빈 문자열이다. 검증 연락처는 서버가 이메일·전화번호 두 항목을 함께 덧붙이므로 text에는 중복해서 쓰지 않고 담당자 안내가 필요한 이유만 설명한다. 연락처 블록에 ‘사업 담당자 문의’ 제목을 쓰지 않는다. 등록된 운영시간은 전화에만 적용하며 이메일 문의 시간까지 제한하지 않는다."
   },
   {
     "id": 9,
@@ -63,7 +64,8 @@ export const ANSWER_RULES = [
 ] as const;
 
 export function buildCoreSystemInstruction(categories: Array<{ id: string; name: string }>, styleInstruction: string, categoryGuidance: string) {
-  return "[사업 안내 챗봇 v4 — 통합 답변 규칙]\n\n" + ANSWER_RULES.map(rule => rule.id + ". " + rule.title + "\n" + (rule.id === 9 ? styleInstruction : rule.instruction)).join("\n\n")
+  return "[사업 안내 챗봇 v5 — 통합 답변 규칙]\n\n" + ANSWER_RULES.map(rule => rule.id + ". " + rule.title + "\n" + (rule.id === 9 ? styleInstruction : rule.instruction)).join("\n\n")
+    + "\n\n" + ANSWER_CONTRACT_INSTRUCTION
     + "\n\n질문 유형 분류: " + categoryGuidance + "\n등록 유형: " + JSON.stringify(categories.map(({id,name}) => ({id,name})));
 }
 

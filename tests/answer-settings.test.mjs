@@ -56,7 +56,9 @@ test('style preferences never trigger another generation that can change policy 
 });
 test('decision prefixes preserve explicit classification without duplication',async()=>{
  for(const decision of ['possible','impossible','consult','need_info']){
-  const h=chatHarness({draft:{decision,text:settings.decisionPrefixes({...defaults,tone:'friendly'})[decision]+' 확인된 조건이에요.'}}),r=await h.ask();
+  const personal=['possible','impossible'].includes(decision),question=decision==='impossible'?'저는 17세인데 신청할 수 있나요?':'저는 20세인데 신청할 수 있나요?';
+  const knowledge={sources:[{id:'doc',businessId:'test',title:'연령 안내',type:'text',parts:[{id:'0',title:'신청 자격',text:'만 19세 이상만 신청할 수 있습니다.',pages:[]}]}],conflicts:[],withheldParts:0};
+  const h=chatHarness({knowledge,draft:{decision,questionTarget:'eligibility',resolution:decision==='consult'?'missing_policy':decision==='need_info'?'needs_user':'complete',eligibilityEvidence:personal?[{sourceId:'doc',quote:'만 19세 이상만 신청할 수 있습니다.',userStatement:question,result:decision==='possible'?'met':'unmet'}]:[],text:settings.decisionPrefixes({...defaults,tone:'friendly'})[decision]+' 확인된 조건이에요.'}}),r=await h.ask({question});
   assert.equal(r.status,200);assert.equal(r.payload.answer.decision,decision);assert.equal(h.records[0].decision,decision);assert.equal(r.payload.answer.text.split(settings.decisionPrefixes(h.settings)[decision]).length-1,1);
  }
 });

@@ -2,24 +2,26 @@ import { CONTACT_EMAIL_PATTERN, findBusinessContact, findBusinessEmail } from ".
 import { separateCitations } from "./answer-citations";
 import { decisionPrefixes, type AnswerSettings } from "./answer-settings";
 import { sourceText, type AnswerKnowledge } from "./answer-knowledge";
+import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, QUESTION_TARGETS, isAnswerDecision, validateAnswerSemantics, type AnswerDecision, type AnswerDraft, type AnswerValidationContext } from "./answer-contract";
 
-export const ANSWER_DECISIONS = ["possible", "impossible", "consult", "need_info", "fact", "out_of_scope"] as const;
-export const EVIDENCE_KINDS = ["document", "system", "none"] as const;
-export const RESOLUTIONS = ["complete", "partial", "missing_policy", "conflict", "needs_user", "action_required"] as const;
-export type AnswerDecision = typeof ANSWER_DECISIONS[number];
-export const isAnswerDecision = (value: unknown): value is AnswerDecision => typeof value === "string" && (ANSWER_DECISIONS as readonly string[]).includes(value);
+export { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, isAnswerDecision };
+export type { AnswerDecision };
 export type Answer = { text: string; source: string; page: number; confidence: number; review: boolean; decision: AnswerDecision; categoryId?: string };
 export const NO_KNOWLEDGE_ANSWER: Answer = {
   text: "현재 자료에서 해당 기준을 확인하기 어려워요. 해당 사업 담당자에게 확인해 주세요. 현재 자료에는 확인된 담당자 연락처가 없어요.",
   source: "", page: 0, confidence: 65, review: true, decision: "fact",
 };
 
-export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, settings: AnswerSettings, categoryIds: string[], question = ""): Answer {
+export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, settings: AnswerSettings, categoryIds: string[], question = "", context: AnswerValidationContext = {}): Answer {
   const parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim());
-  const keys = ["categoryId", "decision", "evidenceKind", "resolution", "text", "source", "page", "review", "contactPhone", "contactEvidence"];
+  const keys = ["categoryId", "questionTarget", "decision", "evidenceKind", "resolution", "eligibilityEvidence", "text", "source", "page", "review", "contactPhone", "contactEvidence"];
   if (!parsed || Array.isArray(parsed) || typeof parsed !== "object" || Object.keys(parsed).length !== keys.length
     || keys.some(key => !Object.hasOwn(parsed, key)) || !isAnswerDecision(parsed.decision)
-    || !EVIDENCE_KINDS.includes(parsed.evidenceKind) || !RESOLUTIONS.includes(parsed.resolution)
+    || !EVIDENCE_KINDS.includes(parsed.evidenceKind) || !RESOLUTIONS.includes(parsed.resolution) || !QUESTION_TARGETS.includes(parsed.questionTarget)
+    || !Array.isArray(parsed.eligibilityEvidence) || parsed.eligibilityEvidence.length > 50
+    || parsed.eligibilityEvidence.some((item: AnswerDraft["eligibilityEvidence"][number]) => !item || typeof item !== "object" || Array.isArray(item)
+      || Object.keys(item).length !== 4 || !["sourceId", "quote", "userStatement"].every(key => typeof item[key as keyof typeof item] === "string" && item[key as keyof typeof item].trim())
+      || !["met", "unmet"].includes(item.result))
     || !categoryIds.includes(parsed.categoryId) || !["text", "source", "contactPhone", "contactEvidence"].every(key => typeof parsed[key] === "string")
     || !parsed.text.trim() || parsed.text.length > 20_000 || typeof parsed.review !== "boolean"
     || !Number.isInteger(parsed.page) || parsed.page < 0) throw new Error("Invalid Gemini response contract");
@@ -32,6 +34,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   if (!source && ["possible", "impossible"].includes(parsed.decision)) throw new Error("Eligibility decision without a source");
 
   if (parsed.decision === "out_of_scope") {
+    validateAnswerSemantics(parsed, knowledge, question, context);
     return { text: "답변할 수 없는 질문입니다.", source: "", page: 0, confidence: 95, review: false, decision: parsed.decision, categoryId: parsed.categoryId };
   }
   const fallbackContact = findBusinessContact(knowledge);
@@ -65,6 +68,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
     + "\n전화번호: " + (verifiedContact ? phone : "등록 자료에서 확인되지 않음");
   if (unsupported) return { ...NO_KNOWLEDGE_ANSWER, decision: "consult", categoryId: parsed.categoryId,
     text: (settings.tone === "friendly" ? "현재 자료에서 해당 기준을 확인하기 어려워요." : "현재 자료에서 해당 기준을 확인하기 어렵습니다.") + "\n\n" + referral };
+  validateAnswerSemantics(parsed, knowledge, question, context);
   const prefixes = decisionPrefixes(settings);
   const prefix = parsed.decision === "fact" ? "" : prefixes[parsed.decision as keyof typeof prefixes];
   let body = separated.body.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "") ? value : "[연락처 확인 필요]")
@@ -80,11 +84,14 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   }
   const withoutPrefix = prefix ? body.replace(/^(?:불가능(?:합니다|해요)|가능(?:합니다|해요)|담당자 문의가 필요(?:합니다|해요)|추가 정보가 필요(?:합니다|해요))[.!]?\s*/, "") : body;
   const referralAlreadyPresent = verifiedContact && email && phoneDigitsIn(body, phone) && body.toLowerCase().includes(email.toLowerCase());
-  const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email);
-  const review = (parsed.review && !verifiedDirectContact) || parsed.resolution === "partial"
+  const verifiedDirectContact = directContactRequest && verifiedContact && Boolean(email)
+    && parsed.decision === "fact" && parsed.resolution === "complete";
+  const review = parsed.review || ["partial", "missing_policy", "conflict", "action_required"].includes(parsed.resolution)
     || (needsReferral && !verifiedDirectContact) || !pageVerified;
   const shouldAppendReferral = needsReferral || settings.alwaysContact;
-  const citations = separated.citations || (settings.showSources && source ? `출처: ${source.title}${page ? ` (${page}쪽)` : ""}` : "");
+  const sourceUrl = source?.url && /^https?:\/\//i.test(source.url) ? source.url : "";
+  const citations = (settings.showSources || separated.citations || /출처|근거/.test(question)) && source
+    ? `출처: ${source.title}${page ? ` (${page}쪽)` : ""}${sourceUrl ? `\n${sourceUrl}` : ""}` : "";
   return { text: [prefix ? [prefix, withoutPrefix].filter(Boolean).join("\n\n") : body, shouldAppendReferral ? (referralAlreadyPresent ? "" : referral) : "", citations].filter(Boolean).join("\n\n"),
     source: source?.title || "", page, review, decision: parsed.decision, categoryId: parsed.categoryId,
     // Historical UI indicator, not a measured model confidence/probability.
