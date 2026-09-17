@@ -174,7 +174,8 @@ test("home defaults to the first business and copies a business-specific share l
   assert.match(page, /navigator\.clipboard\.writeText/);
   assert.match(page, /현재 사업 챗봇 링크 복사/);
   assert.match(page, /홈페이지 안내 보러가기[\s\S]*home-utility-actions[\s\S]*share-business/);
-  assert.match(css, /\.document-select-wrap::before \{ content: "▼";/);
+  assert.match(css, /\.document-select-wrap::before \{[^}]*content: "▼";[^}]*left: 16px;/);
+  assert.match(css, /\.document-select-wrap select \{[^}]*padding: 14px 16px 14px 40px;/);
   assert.match(css, /\.configurable-headline \{[^}]*text-align: left/);
   assert.match(css, /\.main-subcopy \{[^}]*text-align: left/);
 });
