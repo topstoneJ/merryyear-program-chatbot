@@ -49,6 +49,27 @@ test('unverified email in the body is withheld and replaced with verified paired
   assert.match(text, /이메일: help@example.org\n전화번호: 02-1234-5678/);
 });
 
+test('alternative contact and staff-change questions use registered business contact without model placeholders', async () => {
+  const businessDetails = { sources: [{ id: 'business-details-test', businessId: 'test', title: '사업 필수 정보', type: 'text', updatedAt: 1, url: null, parts: [{ id: '0', title: '사업 필수 정보', text: '담당 부서: 임팩트사업1팀\n이메일: impact@merryyear.org\n연락처: 02-1234-5678\n전화 상담 가능 시간: 평일 10:00~12:00, 14:00~17:00', pages: [] }] }], conflicts: [], withheldParts: 0 };
+  for (const question of ['이메일 문의를 보냈지만 답장이 없어요. 다른 문의 방법이 있나요?', '접수했던 복지관 담당자가 퇴사했어요. 연락 담당자 변경은 어디에 알리나요?']) {
+    const h = chatHarness({ knowledge: businessDetails });
+    const answer = (await h.ask({ question })).payload.answer.text;
+    assert.match(answer, /담당 부서: 임팩트사업1팀/);
+    assert.match(answer, /이메일: impact@merryyear\.org/);
+    assert.match(answer, /전화번호: 02-1234-5678/);
+    assert.match(answer, /전화 상담 가능 시간: 평일 10:00~12:00, 14:00~17:00/);
+    assert.doesNotMatch(answer, /\[(?:연락처|이메일) 확인 필요\]/);
+    assert.equal(h.requests.length, 0);
+  }
+});
+
+test('an invented phone is replaced with the verified business phone, never an internal placeholder', async () => {
+  const h = chatHarness({ knowledge: knowledge('사업 담당자 문의: 02-1234-5678\n이메일: help@example.org'), draft: { ...referralDraft, text: '전화는 010-9999-9999, 이메일은 help@example.org예요.' } });
+  const answer = (await h.ask({ question: '담당자에게 어떻게 문의하나요?' })).payload.answer.text;
+  assert.doesNotMatch(answer, /010-9999-9999|\[연락처 확인 필요\]/);
+  assert.match(answer, /02-1234-5678/);
+});
+
 test('a source-backed application email is an application channel, not a referral', async () => {
   const applicationKnowledge = { sources: [{ id: 'doc', businessId: 'test', title: '2026 안내문', type: 'text', updatedAt: 1, url: null, parts: [
     { id: '0', title: '신청 방법', text: '신청기관이 신청서, 신청 공문, 개인정보 동의서를 취합해 apply@example.org 이메일로 제출합니다.', pages: [] },
@@ -70,7 +91,7 @@ test('an unrelated email elsewhere in the source cannot masquerade as an applica
   const answer = (await h.ask({ question: '어떻게 신청하나요?' })).payload.answer;
   assert.equal(answer.review, true);
   assert.doesNotMatch(answer.text, /donation@example\.org/);
-  assert.match(answer.text, /이메일 확인 필요/);
+  assert.match(answer.text, /등록 자료에서 확인되지 않은 이메일 주소/);
 });
 
 test('email pairing excludes other contact blocks, donations, ambiguity and conflicts', () => {
