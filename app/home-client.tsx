@@ -129,7 +129,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
 
   const business = businesses.find((item) => item.id === businessId) || businesses[0] || EMPTY_BUSINESS;
   const isAdminGuide = businessId === ADMIN_GUIDE_BUSINESS_ID;
-  const completedMessages = messages.filter(message => !message.thinking && message.answer);
+  const completedMessages = useMemo(() => messages.filter(message => !message.thinking && message.answer), [messages]);
   const conversationCharacters = completedMessages.reduce((total, message) => total + message.question.length + message.answer!.text.length, 0);
   const conversationLimitReached = completedMessages.length >= MAX_CHAT_TURNS || conversationCharacters >= MAX_CHAT_CHARACTERS;
   const privacyPolicyText = useMemo(() => resolvePrivacyPolicy(siteSettings.privacyPolicy, siteSettings.organizationName, siteSettings.contact), [siteSettings.privacyPolicy, siteSettings.organizationName, siteSettings.contact]);
@@ -171,7 +171,13 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem("program-guide-chatbot-guidance");
-      if (stored) setManuals((previous) => ({ ...previous, ...JSON.parse(stored) }));
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const guidance = Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+          setManuals((previous) => ({ ...previous, ...guidance }));
+        }
+      }
     } catch {
       // The chatbot still works when storage is unavailable.
     }
@@ -179,13 +185,15 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
 
   useEffect(() => {
     if (!businessId) return;
-    if (businessId === ADMIN_GUIDE_BUSINESS_ID) { setWebsiteLinks((previous) => ({ ...previous, [businessId]: "" })); return; }
-    fetch(`/api/business-link?businessId=${encodeURIComponent(businessId)}`, { cache: "no-store" })
+    if (businessId === ADMIN_GUIDE_BUSINESS_ID) return;
+    const controller = new AbortController();
+    fetch(`/api/business-link?businessId=${encodeURIComponent(businessId)}`, { cache: "no-store", signal: controller.signal })
       .then((response) => response.json())
       .then((payload: { url?: string }) => {
-        setWebsiteLinks((previous) => ({ ...previous, [businessId]: payload.url || "" }));
+        if (!controller.signal.aborted) setWebsiteLinks((previous) => ({ ...previous, [businessId]: typeof payload.url === "string" ? payload.url : "" }));
       })
-      .catch(() => setWebsiteLinks((previous) => ({ ...previous, [businessId]: "" })));
+      .catch(() => { if (!controller.signal.aborted) setWebsiteLinks((previous) => ({ ...previous, [businessId]: "" })); });
+    return () => controller.abort();
   }, [businessId]);
 
   useEffect(() => {
@@ -209,7 +217,8 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
     shareUrl.searchParams.set("business", businessId);
     if (siteSettings.updatedAt) shareUrl.searchParams.set("share", String(siteSettings.updatedAt));
     shareUrl.hash = "";
-    await navigator.clipboard.writeText(shareUrl.toString());
+    try { await navigator.clipboard.writeText(shareUrl.toString()); }
+    catch { console.error("share_copy_failed"); return; }
     setShareCopied(true);
     window.setTimeout(() => setShareCopied(false), 1800);
   }
@@ -255,12 +264,6 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
     event.preventDefault();
     if (question.length > 150) return;
     ask(question);
-  }
-
-  function openAdmin() {
-    setManualDraft(manuals[businessId]);
-    setSelectedSurvey([]);
-    setAdminOpen(true);
   }
 
   function closeAdmin() {

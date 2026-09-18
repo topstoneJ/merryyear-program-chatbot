@@ -49,4 +49,18 @@ export async function getAdminSession() {
   const DB = await ensureBootstrapAdmin(); return DB.prepare("SELECT * FROM admin_accounts WHERE id = ?").bind(parts[0]).first<AdminAccount>();
 }
 export function accountBusinessIds(account: AdminAccount): string[] { try { const value: unknown = JSON.parse(account.business_ids_json); return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string" && id.length > 0) : []; } catch { return []; } }
-export async function requireAdminApi(options?: { businessId?: string; settings?: boolean; consultations?: boolean }) { const account = await getAdminSession(); if (!account) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 }); if (account.is_super_admin) return null; if (options?.consultations && account.can_view_consultations === 0) return Response.json({ error: "상담내역 조회 권한이 없습니다." }, { status: 403 }); if (options?.settings && !account.can_manage_settings) return Response.json({ error: "설정 접근 권한이 없습니다." }, { status: 403 }); if (options?.businessId && !accountBusinessIds(account).includes(options.businessId)) return Response.json({ error: "이 사업에 대한 접근 권한이 없습니다." }, { status: 403 }); return null; }
+export async function requireAdminApi(options?: { businessId?: string; settings?: boolean; consultations?: boolean }) {
+  try {
+    const account = await getAdminSession();
+    if (!account) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+    if (account.is_super_admin) return null;
+    if (options?.consultations && account.can_view_consultations === 0) return Response.json({ error: "상담내역 조회 권한이 없습니다." }, { status: 403 });
+    if (options?.settings && !account.can_manage_settings) return Response.json({ error: "설정 접근 권한이 없습니다." }, { status: 403 });
+    if (options?.businessId && !accountBusinessIds(account).includes(options.businessId)) return Response.json({ error: "이 사업에 대한 접근 권한이 없습니다." }, { status: 403 });
+    return null;
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error("admin-session:requireAdminApi", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
+    return Response.json({ error: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", requestId }, { status: 503, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
+  }
+}

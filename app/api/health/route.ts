@@ -9,7 +9,7 @@ export async function GET() {
     if (Number(result?.ok) !== 1) throw new Error("Database health check failed");
     return Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("Health check failed", error);
+    console.error("Health check failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ status: "unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }

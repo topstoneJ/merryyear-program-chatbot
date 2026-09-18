@@ -230,7 +230,6 @@ export async function POST(request: Request) {
     console.error("Knowledge create failed", {
       requestId: crypto.randomUUID(), stage,
       kind: error instanceof Error ? error.name : "UnknownError",
-      reason: error instanceof Error ? error.message.slice(0, 300) : "Unknown failure",
     });
     return Response.json({ error: message }, { status: error instanceof KnowledgeIntegrityError || error instanceof DocumentConversionError ? 400 : 500 });
   }

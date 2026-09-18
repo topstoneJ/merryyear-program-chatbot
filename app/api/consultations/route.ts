@@ -41,9 +41,8 @@ export async function GET(request: Request) {
     const repairs = [];
     for (const row of candidates.results) {
       const decision = isAnswerDecision(row.decision) ? row.decision : decisionFromAnswer(row.answer);
-      const category = resolveCategory(row.category, categories).id;
       const review = !row.review_manual && decision === "consult" ? 1 : row.review;
-      if (decision !== row.decision || review !== row.review || category !== row.category) repairs.push(
+      if (decision !== row.decision || review !== row.review) repairs.push(
         DB.prepare("UPDATE consultations SET decision = ?, review = CASE WHEN review_manual = 1 THEN review ELSE ? END WHERE id = ?").bind(decision, review, row.id),
       );
     }
@@ -54,7 +53,9 @@ export async function GET(request: Request) {
       : await DB.prepare(`SELECT * FROM consultations WHERE business_id IN (${placeholders}) AND created_at BETWEEN ? AND ? ORDER BY created_at DESC LIMIT 1000`)
         .bind(...allowedIds, from, to).all<ConsultationRow>();
 
-    const consultations = result.results.map((row) => ({
+    const consultations = result.results.map((row) => {
+      const category = resolveCategory(row.category, categories);
+      return {
       id: row.id,
       businessId: row.business_id,
       sessionId: row.session_id || "",
@@ -63,13 +64,13 @@ export async function GET(request: Request) {
       answer: row.answer,
       summary: row.summary,
       decision: row.decision,
-      category: resolveCategory(row.category, categories).name,
-      categoryId: resolveCategory(row.category, categories).id,
+      category: category.name,
+      categoryId: category.id,
       source: row.source,
       confidence: row.confidence,
       review: Boolean(row.review),
       createdAt: row.created_at,
-    }));
+    }; });
     const totals = businessId
       ? await DB.prepare(`SELECT decision, category, COUNT(*) AS count, SUM(review) AS review_count
           FROM consultations WHERE business_id = ? AND created_at BETWEEN ? AND ? GROUP BY decision, category`)

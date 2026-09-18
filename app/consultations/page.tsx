@@ -69,15 +69,15 @@ export default function ConsultationsPage() {
   const [loading, setLoading] = useState(true);
   const [brandColor, setBrandColor] = useState("#f26a2e");
 
-  const business = useMemo(() => businesses.find((item) => item.id === businessId), [businesses, businessId]);
   const savedMinutes = summary.total * 3;
   const reviewCount = useMemo(() => summary.reviewTotal ?? consultations.reduce((count, item) => count + Number(item.review), 0), [summary.reviewTotal, consultations]);
   const filteredConsultations = useMemo(() => consultations.filter((item) => (!decisionFilter || item.decision === decisionFilter) && (!categoryFilter || item.category === categoryFilter) && (!reviewFilter || item.review)), [consultations, decisionFilter, categoryFilter, reviewFilter]);
   const consultationTotalPages = Math.max(1, Math.ceil(filteredConsultations.length / pageSize));
   const pagedConsultations = useMemo(() => filteredConsultations.slice((consultationPage - 1) * pageSize, consultationPage * pageSize), [filteredConsultations, consultationPage, pageSize]);
-  const sessionConsultations = selected?.sessionId ? consultations
-    .filter(item => item.sessionId === selected.sessionId)
-    .sort((a, b) => a.turnIndex - b.turnIndex || a.createdAt - b.createdAt) : [];
+  const selectedSessionId = selected?.sessionId;
+  const sessionConsultations = useMemo(() => selectedSessionId ? consultations
+    .filter(item => item.sessionId === selectedSessionId)
+    .sort((a, b) => a.turnIndex - b.turnIndex || a.createdAt - b.createdAt) : [], [consultations, selectedSessionId]);
   const selectedSessionIndex = selected ? sessionConsultations.findIndex(item => item.id === selected.id) : -1;
   const previousConsultation = selectedSessionIndex > 0 ? sessionConsultations[selectedSessionIndex - 1] : null;
   const nextConsultation = selectedSessionIndex >= 0 && selectedSessionIndex < sessionConsultations.length - 1 ? sessionConsultations[selectedSessionIndex + 1] : null;

@@ -94,9 +94,17 @@ async function askGemini(businessId: string, businessName: string, question: str
   const verifiedBusinessContact = findBusinessContact(knowledge);
   const userStatements=[...history.map(turn=>turn.question),question];
   const evidence = reviewEvidence(knowledge);
+  const evidenceBySource = new Map<string, Map<string, Array<{ id: string; text: string }>>>();
+  for (const { sourceId, partId, id, text } of evidence) {
+    let parts = evidenceBySource.get(sourceId);
+    if (!parts) { parts = new Map(); evidenceBySource.set(sourceId, parts); }
+    let items = parts.get(partId);
+    if (!items) { items = []; parts.set(partId, items); }
+    items.push({ id, text });
+  }
   const reviewKnowledge = { ...knowledge, sources: knowledge.sources.map(source => ({ ...source,
     parts: source.parts.map(part => ({ id: part.id, title: part.title, pages: part.pages,
-      evidence: evidence.filter(item => item.sourceId === source.id && item.partId === part.id).map(({ id, text }) => ({ id, text })),
+      evidence: evidenceBySource.get(source.id)?.get(part.id) || [],
     })),
   })) };
   const modelInput = {
@@ -213,7 +221,9 @@ export async function POST(request: Request) {
     status, headers: { "Server-Timing": timing.finish(status), "Cache-Control": "no-store", "X-Chat-Cache": timing.cacheStatus() },
   });
   try {
-    const body = await request.json() as { businessId?: string; question?: string; history?: unknown; sessionId?: string };
+    const rawBody: unknown = await request.json().catch(() => null);
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) return reply({ error: "올바른 질문을 입력해 주세요." }, 400);
+    const body = rawBody as { businessId?: string; question?: string; history?: unknown; sessionId?: string };
     let history: ChatTurn[];
     try { history = parseChatHistory(body.history); }
     catch (error) { return reply({ error: (error as Error).message }, 400); }

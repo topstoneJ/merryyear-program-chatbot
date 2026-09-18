@@ -54,6 +54,24 @@ test("defaults, rename, add, duplicate protection, delete redirects, and no defa
   s.db.close();
 });
 
+test("resolved legacy categories do not cause repeated no-op writes when listing consultations", async () => {
+  const s = setup();
+  try {
+    await helper.loadCategories(s.DB);
+    s.db.prepare("INSERT INTO consultations (id, business_id, question, answer, summary, decision, category, source, confidence, review, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run('legacy', 'allowed', '신청 방법', '온라인 신청', '요약', 'fact', 'unknown-legacy-category', '자료', 90, 0, Date.now() - 1000);
+    s.db.exec("CREATE TABLE repair_writes (id TEXT); CREATE TRIGGER count_repairs AFTER UPDATE ON consultations BEGIN INSERT INTO repair_writes VALUES (NEW.id); END;");
+    for (let i = 0; i < 2; i++) {
+      const response = await s.consultations.GET(new Request('https://test/api/consultations'));
+      assert.equal(response.status, 200);
+      const data = await response.json();
+      assert.equal(data.consultations.length, 1);
+      assert.equal(data.consultations[0].categoryId, helper.resolveCategory('unknown-legacy-category', await helper.loadCategories(s.DB)).id);
+    }
+    assert.equal(s.db.prepare('SELECT COUNT(*) AS count FROM repair_writes').get().count, 0);
+  } finally { s.db.close(); }
+});
+
 test("manual choice survives GET repair and updates full-range summary; unauthorized business denied", async () => {
   const s = setup(); await helper.loadCategories(s.DB);
   s.db.prepare("INSERT INTO consultations (id, business_id, question, answer, summary, decision, category, source, confidence, review, created_at, category_manual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("c1", "allowed", "냉장고 지원되나요", "가능합니다.", "요약", "possible", "기타", "자료", 90, 0, Date.now(), 0);

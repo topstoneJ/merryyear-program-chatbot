@@ -20,7 +20,8 @@ export async function trackedGeminiFetch(purpose: "chat" | "knowledge" | "confli
   try { response = await fetch(request.url, request.init); }
   catch (error) { await record(model, purpose, 0, null); throw error; }
   let payload: unknown = null;
-  try { payload = await response.clone().json(); } catch { /* Keep response intact for the caller. */ }
+  // The caller receives a normalized response, so retaining an unread clone wastes memory.
+  try { payload = await response.json(); } catch { /* Normalize malformed provider responses safely. */ }
   await record(model, purpose, response.status, payload);
   return Response.json(normalizeAiPayload(payload, request.provider), { status: response.status });
 }

@@ -30,6 +30,8 @@ test('shared schema initializes locally and independent databases persist throug
     for (const DB of [first, second]) {
       const isolated = sourceLoader({ ...builtins, './runtime': { runtimeEnv: () => ({ DB }) } });
       await isolated('db/knowledge.ts').ensureKnowledgeSchema();
+      const plan = await DB.prepare('EXPLAIN QUERY PLAN DELETE FROM consultations WHERE created_at < ?').bind(0).all();
+      assert.match(JSON.stringify(plan.results), /consultation_created_at_idx/);
     }
     await first.prepare("UPDATE site_settings SET organization_name = ? WHERE id = 'default'").bind('Local test institution').run();
     assert.equal((await second.prepare("SELECT organization_name FROM site_settings").first()).organization_name, '기관명 미설정');

@@ -98,6 +98,7 @@ class PostgresDatabase implements DatabaseBinding {
 
   async batch(statements: PreparedDatabaseStatement[]) {
     const client = await this.pool.connect();
+    let discardClient = false;
     try {
       await client.query("BEGIN");
       const results: DatabaseRunResult[] = [];
@@ -109,10 +110,11 @@ class PostgresDatabase implements DatabaseBinding {
       await client.query("COMMIT");
       return results;
     } catch (error) {
-      await client.query("ROLLBACK");
+      try { await client.query("ROLLBACK"); }
+      catch { discardClient = true; }
       throw error;
     } finally {
-      client.release();
+      client.release(discardClient);
     }
   }
 }
@@ -122,18 +124,23 @@ class AzureBlobBinding implements ObjectBinding {
   constructor(private readonly container = blobContainer()) {}
 
   private async ready() {
-    this.containerPromise ??= this.container.createIfNotExists();
+    this.containerPromise ??= this.container.createIfNotExists().catch((error: unknown) => {
+      this.containerPromise = undefined;
+      throw error;
+    });
     await this.containerPromise;
     return this.container;
   }
 
   async put(key: string, value: ReadableStream<Uint8Array>, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }) {
     const container = await this.ready();
-    const bytes = Buffer.from(await new Response(value).arrayBuffer());
-    await container.getBlockBlobClient(key).uploadData(bytes, {
-      blobHTTPHeaders: { blobContentType: options?.httpMetadata?.contentType },
-      metadata: options?.customMetadata,
-    });
+    const stream = Readable.fromWeb(value as import("node:stream/web").ReadableStream<Uint8Array>);
+    try {
+      await container.getBlockBlobClient(key).uploadStream(stream, 4 * 1024 * 1024, 2, {
+        blobHTTPHeaders: { blobContentType: options?.httpMetadata?.contentType },
+        metadata: options?.customMetadata,
+      });
+    } finally { stream.destroy(); }
   }
 
   async get(key: string) {
@@ -172,12 +179,22 @@ function blobContainer() {
 
 const mode = storageMode();
 const connectionString = mode === "azure" ? process.env.DATABASE_URL : undefined;
+const configuredPoolSize = Number(process.env.DATABASE_POOL_SIZE || 5);
+const poolSize = Number.isSafeInteger(configuredPoolSize) && configuredPoolSize > 0 ? configuredPoolSize : 5;
+function createPool(connectionString: string) {
+  const pool = new Pool({
+    connectionString,
+    max: poolSize,
+    ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: true },
+  });
+  // An idle connection emits errors outside request handlers; an unhandled event exits Node.
+  pool.on("error", (error: Error) => {
+    console.error("database_pool_error", { requestId: crypto.randomUUID(), kind: error.name });
+  });
+  return pool;
+}
 const postgres = connectionString
-  ? new PostgresDatabase(new Pool({
-      connectionString,
-      max: Number(process.env.DATABASE_POOL_SIZE || 5),
-      ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: true },
-    }))
+  ? new PostgresDatabase(createPool(connectionString))
   : null;
 const blob = mode === "azure" && (process.env.AZURE_STORAGE_CONNECTION_STRING || process.env.AZURE_STORAGE_ACCOUNT_NAME)
   ? new AzureBlobBinding()

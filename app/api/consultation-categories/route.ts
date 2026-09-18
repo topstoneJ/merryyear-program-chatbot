@@ -3,9 +3,15 @@ import { ensureKnowledgeSchema } from "@/db/knowledge";
 import { loadCategories } from "@/db/consultation-categories";
 
 export async function GET() {
-  const denied = await requireAdminApi({ consultations: true }); if (denied) return denied;
-  const DB = await ensureKnowledgeSchema();
-  return Response.json({ categories: (await loadCategories(DB)).filter(item => !item.replacement_id) });
+  try {
+    const denied = await requireAdminApi({ consultations: true }); if (denied) return denied;
+    const DB = await ensureKnowledgeSchema();
+    return Response.json({ categories: (await loadCategories(DB)).filter(item => !item.replacement_id) });
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error("api/consultation-categories:GET", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
+    return Response.json({ error: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", requestId }, { status: 503, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
+  }
 }
 
 export async function POST(request: Request) {

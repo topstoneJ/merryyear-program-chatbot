@@ -51,6 +51,7 @@ async function initialize(DB: DatabaseBinding) {
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_business_idx ON knowledge_sources (business_id, updated_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS knowledge_revision_source_idx ON knowledge_source_revisions (source_id, created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS consultation_business_date_idx ON consultations (business_id, created_at)`),
+    DB.prepare(`CREATE INDEX IF NOT EXISTS consultation_created_at_idx ON consultations (created_at)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS consultation_session_turn_idx ON consultations (session_id, turn_index)`),
     DB.prepare(`CREATE INDEX IF NOT EXISTS random_question_business_status_idx ON random_questions (business_id, status, created_at)`),
     DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS random_question_business_key_unique ON random_questions (business_id, question_key)`),

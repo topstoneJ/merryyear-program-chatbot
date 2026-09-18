@@ -11,28 +11,34 @@ function clean(value: FormDataEntryValue | null, limit: number) {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const DB = await ensureKnowledgeSchema();
-  const row = await DB.prepare("SELECT * FROM site_settings WHERE id = 'default'").first<SettingsRow>();
-  if (!row) return Response.json({ error: "설정을 찾을 수 없습니다." }, { status: 404 });
-  if (url.searchParams.has("logo") || url.searchParams.has("asset")) {
-    const asset = url.searchParams.get("asset");
-    const isFavicon = !url.searchParams.has("logo") && asset === "favicon";
-    const key = url.searchParams.has("logo") ? row.logo_key : isFavicon ? row.favicon_key || row.logo_key : asset === "social" ? row.social_image_key : null;
-    if (!key) return new Response(null, { status: 404 });
-    const object = await knowledgeEnv().KNOWLEDGE_FILES?.get(key);
-    if (!object) return new Response(null, { status: 404 });
-    if (isFavicon) {
-      try {
-        const icon = await centeredFavicon(await new Response(object.body).arrayBuffer());
-        return new Response(icon as Uint8Array<ArrayBuffer>, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
-      } catch {
-        return Response.redirect(new URL("/default-favicon.svg", request.url), 302);
+  try {
+    const url = new URL(request.url);
+    const DB = await ensureKnowledgeSchema();
+    const row = await DB.prepare("SELECT * FROM site_settings WHERE id = 'default'").first<SettingsRow>();
+    if (!row) return Response.json({ error: "설정을 찾을 수 없습니다." }, { status: 404 });
+    if (url.searchParams.has("logo") || url.searchParams.has("asset")) {
+      const asset = url.searchParams.get("asset");
+      const isFavicon = !url.searchParams.has("logo") && asset === "favicon";
+      const key = url.searchParams.has("logo") ? row.logo_key : isFavicon ? row.favicon_key || row.logo_key : asset === "social" ? row.social_image_key : null;
+      if (!key) return new Response(null, { status: 404 });
+      const object = await knowledgeEnv().KNOWLEDGE_FILES?.get(key);
+      if (!object) return new Response(null, { status: 404 });
+      if (isFavicon) {
+        try {
+          const icon = await centeredFavicon(await new Response(object.body).arrayBuffer());
+          return new Response(icon as Uint8Array<ArrayBuffer>, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
+        } catch {
+          return Response.redirect(new URL("/default-favicon.svg", request.url), 302);
+        }
       }
+      return new Response(object.body, { headers: { "Content-Type": object.httpMetadata?.contentType || "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
     }
-    return new Response(object.body, { headers: { "Content-Type": object.httpMetadata?.contentType || "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
+    return Response.json({ settings: publicSettings(row) });
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error("api/settings:GET", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
+    return Response.json({ error: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", requestId }, { status: 503, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
   }
-  return Response.json({ settings: publicSettings(row) });
 }
 
 export async function PATCH(request: Request) {

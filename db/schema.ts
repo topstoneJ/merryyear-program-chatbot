@@ -94,6 +94,7 @@ export const consultations = sqliteTable("consultations", {
   createdAt: integer("created_at").notNull(),
 }, (table) => [
   index("consultation_business_date_idx").on(table.businessId, table.createdAt),
+  index("consultation_created_at_idx").on(table.createdAt),
   index("consultation_session_turn_idx").on(table.sessionId, table.turnIndex),
 ]);
 

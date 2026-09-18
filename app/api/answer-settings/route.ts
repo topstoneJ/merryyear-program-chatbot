@@ -3,11 +3,17 @@ import { parseAnswerSettings, readAnswerSettings } from "@/app/answer-settings";
 import { ensureKnowledgeSchema } from "@/db/knowledge";
 
 export async function GET() {
-  const denied = await requireAdminApi({ settings: true });
-  if (denied) return denied;
-  const DB = await ensureKnowledgeSchema();
-  const row = await DB.prepare("SELECT answer_settings_json FROM site_settings WHERE id = 'default'").first<{ answer_settings_json: string }>();
-  return Response.json({ settings: readAnswerSettings(row?.answer_settings_json) }, { headers: { "Cache-Control": "no-store" } });
+  try {
+    const denied = await requireAdminApi({ settings: true });
+    if (denied) return denied;
+    const DB = await ensureKnowledgeSchema();
+    const row = await DB.prepare("SELECT answer_settings_json FROM site_settings WHERE id = 'default'").first<{ answer_settings_json: string }>();
+    return Response.json({ settings: readAnswerSettings(row?.answer_settings_json) }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error("api/answer-settings:GET", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
+    return Response.json({ error: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.", requestId }, { status: 503, headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
+  }
 }
 
 export async function PATCH(request: Request) {
