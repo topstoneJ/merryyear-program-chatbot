@@ -81,6 +81,14 @@ test('official pricing links follow each provider without assigning unknown mode
   assert.equal(pricing.modelPricingInfo('custom').pricingUrl,null);
   assert.equal(pricing.modelRates('claude-sonnet-5'),null);
 });
+test('API usage SQL preserves camel-case JSON fields on PostgreSQL and reports tokens per model',async()=>{
+  const source=await readFile(new URL('../app/api/api-management/route.ts',import.meta.url),'utf8');
+  for(const alias of ['inputTokens','outputTokens','thoughtTokens','cachedTokens','estimatedUsd','firstAt']) {
+    assert.match(source,new RegExp(`AS "${alias}"`));
+  }
+  assert.match(source,/const models[^;]+SUM\(input_tokens\)[^;]+AS "inputTokens"[^;]+GROUP BY model/s);
+  assert.match(source,/const models[^;]+SUM\(output_tokens\)[^;]+AS "outputTokens"[^;]+GROUP BY model/s);
+});
 test('OpenAI Responses usage separates reasoning, discounts cached input, and calculates the fee',()=>{
   const usage=pricing.readApiUsage({usage:{input_tokens:1000000,input_tokens_details:{cached_tokens:200000},output_tokens:200000,output_tokens_details:{reasoning_tokens:100000}}},'gpt-5.4-mini',Date.UTC(2026,8,17));
   assert.deepEqual(usage,{input:1000000,output:100000,thought:100000,cached:200000,estimatedUsd:1.515});
@@ -155,6 +163,11 @@ test('range route isolates Korean day boundaries and preserves costs across API 
   const get=(from,to=from)=>route.GET(new Request(`https://test/api/api-management?from=${from}&to=${to}`));
   const response=await get('2024-02-29');assert.equal(response.status,200);const result=await response.json();
   assert.equal(result.dateKey,'2024-02-29~2024-02-29');assert.equal(result.totals.requests,2);assert.equal(result.totals.estimatedUsd,0.2);assert.equal(result.totals.unpriced,1);
+  assert.equal(result.totals.inputTokens,20);assert.equal(result.totals.outputTokens,10);assert.equal(result.totals.thoughtTokens,4);
+  assert.deepEqual(result.models.map(({model,inputTokens,outputTokens,thoughtTokens})=>({model,inputTokens,outputTokens,thoughtTokens})).sort((a,b)=>a.model.localeCompare(b.model)),[
+    {model:'claude-sonnet-5',inputTokens:10,outputTokens:5,thoughtTokens:2},
+    {model:'gpt-5.4',inputTokens:10,outputTokens:5,thoughtTokens:2},
+  ]);
   assert.deepEqual(result.models.map(m=>m.provider).sort(),['Anthropic','OpenAI']);
   const empty=await (await get('2023-12-01')).json();assert.equal(empty.totals.requests,0);assert.deepEqual(empty.models,[]);
   assert.equal((await get('invalid')).status,400);
