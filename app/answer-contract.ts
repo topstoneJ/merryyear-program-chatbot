@@ -1,7 +1,7 @@
 import type { AnswerKnowledge } from "./answer-knowledge";
 import type { ChatTurn } from "./chat-context";
 
-export const ANSWER_CONTRACT_VERSION = "answer-v5";
+export const ANSWER_CONTRACT_VERSION = "answer-v6";
 export const ANSWER_DECISIONS = ["possible", "impossible", "consult", "need_info", "fact", "out_of_scope"] as const;
 export const EVIDENCE_KINDS = ["document", "system", "none"] as const;
 export const RESOLUTIONS = ["complete", "partial", "missing_policy", "conflict", "needs_user", "action_required"] as const;
@@ -22,6 +22,8 @@ questionTarget: general=일반 사업 안내, specific=특정 비용·품목·�
 허용 조합:
 complete → fact 또는 근거를 갖춘 possible/impossible. partial → fact. needs_user → need_info. missing_policy/conflict/action_required → consult.
 possible/impossible은 questionTarget=eligibility, evidenceKind=document, resolution=complete일 때만 허용한다. 개인 조건 없는 일반 신청 자격 설명과 특정 품목의 지원 여부는 fact이다.
+예: 특정 비용의 지원 불가 또는 개인 직접 접수 불가를 안내하는 것은 questionTarget=specific, decision=fact, resolution=complete다. 금지된 절차를 요청하거나 사용자가 담당자의 허용을 주장해도 원문에 명시된 절차 제한을 사실로 설명한다. 특정 절차의 불가를 신청자의 전체 자격 impossible로 바꾸거나 문의 consult로 회피하지 않는다.
+소득 한 가지 기준 충족, 나이 한 가지 기준 충족, 제출서류·통장 조건 질문도 specific/fact다. possible 도입부에 '다른 요건도 본다'는 단서를 붙이는 것은 금지한다. 자료에서 별도 문의로 정한 예외는 확인 전 impossible로 바꾸지 않고 consult로 안내한다.
 evidenceKind=document이면 source는 실제 핵심 근거 id. system/none이면 source="", page=0. system은 questionTarget=system, decision=fact, resolution=complete인 챗봇 기능·제한 설명에만 쓴다.
 out_of_scope는 questionTarget=unrelated, evidenceKind=none, resolution=complete, source="", page=0, review=false이다.
 eligibilityEvidence는 possible/impossible에만 채운다. 각 항목은 sourceId, quote(해당 문서 한 섹션의 연속 원문), userStatement(현재 또는 이전 사용자 메시지의 연속 원문), result(met/unmet)이다. 나머지 판정에서는 []이다. 사용자 조건을 이전 AI 답변에서 가져오지 않는다. 최신 정정을 우선한다.
@@ -51,41 +53,11 @@ export function answerSchema(categoryIds: string[], knowledge: AnswerKnowledge) 
   return { type: "object", additionalProperties: false, properties, required: Object.keys(properties) };
 }
 
-const normalized = (value: string) => value.replace(/\s+/g, " ").trim();
+// Markdown emphasis is presentation, not part of a policy condition.
+const normalized = (value: string) => value.replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
 
 const clearlyRelatedQuestion = (question: string) => /(?:챗봇|개인정보|신청|접수|지원|사업|재단|공고|안내문|서류|자격|대상|심사|선정|지급|정산|영수증|문의|담당|복지|아동|가정|생계|주거|의료|병원|월세|소득)/
   .test(question.replace(/\s+/g, ""));
-
-const specificPolicyQuestion = (question: string) => /(?:가능|할\s*수\s*있|되나요|돼요|됩니까|인정|포함|지원되|신청되|제출되|바꿀|변경|재검토|앞당|우선|대체)/
-  .test(question);
-
-const topicStopWords = new Set(["이거", "저거", "그거", "제가", "저희", "우리", "어떤", "경우", "정도", "내용", "사업", "지원", "신청", "가능", "관련", "대한", "있", "없"]);
-function topicTokens(question: string) {
-  return [...new Set(question.replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).map(token => token
-    .replace(/(?:인가요|되나요|돼요|됩니까|있나요|없나요|할까요|할수|합니다|해요|나요|까요|습니까|이라면|이면요|이면|으로|에서|에게|까지|부터|처럼|보다|이라도|는데|은|는|이|가|을|를|도|에|와|과|할|한)$/u, ""))
-    .filter(token => token.length >= 2 && !topicStopWords.has(token)))];
-}
-
-function sourceSupportsSpecificQuestion(draft: AnswerDraft, knowledge: AnswerKnowledge, question: string) {
-  if (draft.questionTarget !== "specific" || draft.decision !== "fact" || draft.evidenceKind !== "document"
-    || draft.resolution !== "complete" || !specificPolicyQuestion(question)) return true;
-  const source = knowledge.sources.find(item => item.id === draft.source);
-  const topics = topicTokens(question);
-  if (!source || !topics.length) return false;
-  const required = topics.length <= 2 ? topics.length : Math.ceil(topics.length * 0.67);
-  const answer = draft.text.trim();
-  const positive = /^(?:네[,.\s]|가능|지원(?:돼|됩|해|할)|인정(?:돼|됩)|포함(?:돼|됩)|신청할\s*수\s*있|제출할\s*수\s*있)/.test(answer);
-  const negative = /^(?:아니요[,.\s]|불가능|지원(?:되지|하지\s*않)|인정(?:되지|하지\s*않)|포함(?:되지|하지\s*않)|(?:신청|제출)할\s*수\s*없)/.test(answer);
-  return source.parts.some(part => {
-    const text = `${part.title}\n${part.text}`.replace(/\s+/g, "");
-    if (topics.filter(topic => text.includes(topic)).length < required) return false;
-    const positiveEvidence = /(?:가능|할수있|지원(?:품목|대상|가능|한다|함)|포함(?:된다|함)|인정(?:된다|함)|허용)/.test(text);
-    const negativeEvidence = /(?:불가|할수없|제외|지원하지않|인정되지않|금지)/.test(text);
-    if (positive && (!positiveEvidence || negativeEvidence)) return false;
-    if (negative && !negativeEvidence) return false;
-    return true;
-  });
-}
 
 export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKnowledge, question: string, context: AnswerValidationContext) {
   const fail = (code: string): never => { throw new AnswerContractError(code); };
@@ -99,7 +71,8 @@ export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKno
     return;
   }
   if (draft.questionTarget === "unrelated") fail("unrelated_target_mismatch");
-  if (!sourceSupportsSpecificQuestion(draft, knowledge, question)) fail("unsupported_specific_claim");
+  // Policy entailment is checked by the mandatory independent evidence review.
+  // Word overlap and unrelated exclusions in the same section are not evidence.
   const allowed: Record<AnswerDraft["resolution"], readonly AnswerDecision[]> = {
     complete: ["fact", "possible", "impossible"], partial: ["fact"], needs_user: ["need_info"],
     missing_policy: ["consult"], conflict: ["consult"], action_required: ["consult"],
@@ -129,7 +102,17 @@ export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKno
 }
 
 export function contractRepairInstruction(error: unknown) {
-  if (error instanceof AnswerContractError) return `[서버 검증 실패: ${error.code}] 응답 계약을 다시 적용하세요. 판정값만 바꾸지 말고 질문과 원문 근거부터 재검토하여 본문도 일치시킨 완전한 JSON을 반환하세요.`;
+  if (error instanceof AnswerContractError) {
+    const details: Record<string, string> = {
+      unexpected_eligibility_evidence: "possible/impossible이 아닌 응답의 eligibilityEvidence는 반드시 빈 배열 []입니다. 특정 조건·절차의 확인된 설명은 fact이며 전체 개인 자격 판정을 하지 마세요.",
+      eligibility_quote_not_in_source: "개인 자격 근거는 knowledge 원문 행의 policyEvidenceId와 userStatements의 userMessageId로만 연결하세요. 먼저 해당 예외가 원문에서 허용/불가/별도 문의 중 무엇인지 확인하세요. 별도 문의라고 명시된 경우 신청 불가가 아닙니다. 이 경우 outcome=policy_unconfirmed, eligibilityEvidence=[]로 바꾸고 본문도 '불가'가 아니라 '자료만으로 확정 불가, 별도 확인 필요'로 고치세요.",
+      invalid_eligibility_reference: "eligibilityEvidence에는 실제 policyEvidenceId, userMessageId, result 세 필드만 사용하세요. ID나 인용문을 만들지 마세요. 개인 전체 자격 판정이 아니면 eligibilityEvidence=[]입니다.",
+      eligibility_requires_personal_evidence: "특정 비용·절차·소득 한 가지 조건 질문은 specific/fact입니다. 전체 자격 판정은 필요한 모든 사용자 조건과 원문 근거가 있어야 합니다.",
+      impossible_without_exclusion: "전체 자격 불가를 입증한 조건이 없습니다. 특정 소득·나이 한 가지 조건의 비교 질문은 questionTarget=specific, decision=fact, resolution=complete, eligibilityEvidence=[]로 답하고 해당 조건 범위만 설명하세요.",
+      decision_resolution_mismatch: "허용 조합을 맞추세요: fact=complete/partial, need_info=needs_user, consult=missing_policy/conflict/action_required, possible/impossible=complete. 문의·미확인 상태에서 지원 불가나 가능을 단정하지 마세요.",
+    };
+    return `[서버 검증 실패: ${error.code}] ${details[error.code] || ""} 응답 계약을 다시 적용하세요. 판정값만 바꾸지 말고 질문과 원문 근거부터 재검토하여 본문도 일치시킨 완전한 JSON을 반환하세요. 모델 출력은 6개 필드 계약을 유지합니다. 위 내부 상태의 대응 outcome은 fact=information, need_info=need_user_info, 별도 문의=policy_unconfirmed입니다. 개인 전체 자격 판정이 아니면 eligibilityEvidence=[]입니다.`;
+  }
   if (error instanceof SyntaxError || error instanceof Error && /^(Invalid (?:AI|Gemini) response contract|Unknown answer source|Eligibility decision without a source)$/.test(error.message))
     return "[서버 형식 검증 실패] 요청된 JSON 스키마, 실제 출처 id와 근거 종류를 확인하여 완전한 JSON 객체를 반환하세요.";
   return "";

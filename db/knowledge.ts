@@ -67,6 +67,7 @@ const schemaInitializations = new WeakMap<object, Promise<DatabaseBinding>>();
 async function initializeKnowledgeSchema(DB: DatabaseBinding) {
   await ensureAzureSchema(DB);
   await DB.batch([
+    DB.prepare(`CREATE TABLE IF NOT EXISTS policy_versions (business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE, revision INTEGER NOT NULL, knowledge_hash TEXT NOT NULL, rules_json TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('draft','approved','revoked')), created_by TEXT NOT NULL, approved_by TEXT, created_at INTEGER NOT NULL, approved_at INTEGER, PRIMARY KEY (business_id, revision))`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS businesses (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,

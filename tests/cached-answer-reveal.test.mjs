@@ -4,18 +4,16 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../app/home-client.tsx", import.meta.url), "utf8");
 
-test("all answers reveal at a constant thirty characters per second", () => {
+test("verified answers display immediately without partial-text animation", () => {
   assert.doesNotMatch(source, /CACHE_CONFIRMATION_MS|remainingConfirmation/);
-  assert.match(source, /ANSWER_REVEAL_CHARACTERS_PER_SECOND = 30/);
-  assert.match(source, /characters\.length \/ ANSWER_REVEAL_CHARACTERS_PER_SECOND \* 1000/);
+  assert.doesNotMatch(source, /ANSWER_REVEAL_CHARACTERS_PER_SECOND/);
   assert.doesNotMatch(source, /CACHE_REVEAL_MS/);
   assert.doesNotMatch(source, /response\.headers\.get\("x-chat-cache"\)/);
-  assert.match(source, /requestAnimationFrame\(reveal\)/);
+  assert.doesNotMatch(source, /requestAnimationFrame\(reveal\)/);
   assert.match(source, /<AnswerReveal answer=\{message\.answer\} \/>/);
 });
 
-test("answer animation preserves immediate accessible output", () => {
-  assert.match(source, /prefers-reduced-motion: reduce/);
-  assert.match(source, /<span className="sr-only">\{answer\.text\}<\/span>/);
-  assert.match(source, /if \(reduceMotion\) return <AnswerText text=\{answer\.text\} \/>/);
+test("a single complete accessible answer node is available to readers and collectors", () => {
+  assert.doesNotMatch(source, /<span className="sr-only">\{answer\.text\}<\/span>/);
+  assert.match(source, /data-answer-text="true" data-answer-complete="true"><AnswerText text=\{answer\.text\}/);
 });

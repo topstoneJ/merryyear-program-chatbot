@@ -42,9 +42,9 @@ test('operator question survives unverified page metadata without publishing the
  assert.deepEqual(h.requests[0].response_format.schema.properties.page.enum,[0]);
  assert.deepEqual(h.requests[0].response_format.schema.properties.source.enum,['','doc']);
 });
-test('unsourced policy facts are replaced with an honest evidence limit',async()=>{
+test('repeated unsourced policy facts fail validation without inventing a policy limit',async()=>{
  const h=chatHarness({draft:{source:'',text:'지원금은 999만원이에요.'}});const r=await h.ask();
- assert.equal(r.status,200);assert.doesNotMatch(r.payload.answer.text,/999/);assert.equal(r.payload.answer.review,true);assert.equal(r.payload.answer.page,0);
+ assert.equal(r.status,502);assert.equal(r.payload.code,'answer_verification_failed');assert.equal(r.payload.answer,undefined);assert.equal(h.records.length,0);
 });
 test('empty knowledge can still reach system capability rules without bundled numeric policies',async()=>{
  const h=chatHarness({knowledge:{sources:[],conflicts:[],withheldParts:0},draft:{source:'',evidenceKind:'none',resolution:'missing_policy',decision:'consult',text:'현재 자료에서 신청 기준을 확인하기 어려워요.'}});const r=await h.ask({businessId:'crisis',question:'아이 3명이고 보증금 500만원인데 가능해요?'});
