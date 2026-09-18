@@ -131,6 +131,17 @@ async function askGemini(businessId: string, businessName: string, question: str
       return answer;
     } catch (error) {
       lastError = error;
+      if (attempt === 1 && error instanceof AnswerContractError) {
+        const contact = findRegisteredContactDetails(knowledge, businessId);
+        const contactText = contact
+          ? [`담당 부서: ${contact.department}`, `이메일: ${contact.email}`, `전화번호: ${contact.phone}`, contact.hours && `전화 상담 가능 시간: ${contact.hours}`].filter(Boolean).join("\n")
+          : "현재 자료에는 확인된 담당자 연락처가 없어요.";
+        return {
+          text: `현재 등록된 자료만으로는 질문하신 조건을 확인하기 어려워요. 근거 없이 단정하지 않고 담당자 확인이 필요해요.\n\n${contactText}`,
+          source: contact?.source || "", page: 0, confidence: 65, review: true, decision: "consult",
+          categoryId: categories.find(category => category.id === "운영 문의" || category.name === "운영 문의")?.id || categories[0].id,
+        };
+      }
       if (attempt === 1 || (error as { retryable?: boolean }).retryable === false) throw error;
     }
   }
@@ -188,15 +199,15 @@ export async function POST(request: Request) {
     if (history.length >= MAX_CHAT_TURNS || chatHistorySize(history) + question.length > MAX_CHAT_CHARACTERS) {
       return reply({ error: CHAT_LIMIT_MESSAGE }, 400);
     }
+    const account = await getAdminSession();
     const forwardedIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
       || request.headers.get("x-real-ip")?.trim() || request.headers.get("x-client-ip")?.trim();
-    if (forwardedIp) {
+    if (forwardedIp && !account) {
       const DB = await ensureKnowledgeSchema();
       const allowance = await consumeDailyQuestionAllowance(DB, forwardedIp);
       if (!allowance.allowed) return reply({ error: "오늘은 너무 많이 질문하셨어요. 내일 다시 해주세요.", code: "daily_question_limit" }, 429);
     }
     if (businessId === ADMIN_GUIDE_BUSINESS_ID) {
-      const account = await getAdminSession();
       if (!account) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
       stage = "generation";
       const generatedAnswer = await timing.measure("generation", () => askAdminGuide(question, history, account, timing).catch(() => offlineGuideAnswer(question)));
@@ -208,7 +219,7 @@ export async function POST(request: Request) {
     }
     stage = "business";
     const business = await timing.measure("business", () => getBusiness(businessId));
-    if (!business || (!business.is_public && !(await getAdminSession())?.is_super_admin)) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
+    if (!business || (!business.is_public && !account?.is_super_admin)) return reply({ error: "선택한 사업을 찾을 수 없습니다." }, 404);
     stage = "knowledge";
     const [knowledge, configuration] = await Promise.all([
       timing.measure("knowledge", () => loadKnowledgeContext(businessId)),
