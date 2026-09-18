@@ -70,6 +70,27 @@ test('system/none cannot claim a business source; system explanation stays avail
   assert.equal(parse(value, '챗봇이 접수해 주나요?').review, false);
 });
 
+test('clearly related service questions cannot be mislabeled out of scope', () => {
+  const refusal = draft({ questionTarget:'unrelated', decision:'out_of_scope', evidenceKind:'none', resolution:'complete',
+    text:'답변할 수 없는 질문입니다.', source:'', page:0 });
+  for (const question of ['챗봇에 개인정보를 입력해도 되나요?', '여기서 신청 접수도 되나요?', '법률상담도 지원에 포함되나요?'])
+    assert.throws(() => parse(refusal, question), /related_question_out_of_scope/);
+  assert.equal(parse(refusal, '저녁 메뉴를 추천해 주세요.').decision, 'out_of_scope');
+});
+
+test('specific yes-no conclusions require the questioned conditions in the cited source', () => {
+  for (const [question,text] of [
+    ['진단서가 아직 없는데 먼저 신청할 수 있나요?', '네, 진단서 없이 먼저 신청할 수 있어요.'],
+    ['탈락한 뒤 다시 신청할 수 있나요?', '네, 다시 신청할 수 있어요.'],
+    ['친구 집에 머무는 비용도 임시주거비로 인정되나요?', '네, 임시주거비로 인정돼요.'],
+    ['냉장고가 고장 나기 전에 교체해도 지원되나요?', '네, 고장 전 교체도 지원돼요.'],
+  ]) assert.throws(() => parse(draft({ questionTarget:'specific', text }), question), /unsupported_specific_claim/);
+  const supported = draft({ questionTarget:'specific', text:'만 19세 이상이면 신청할 수 있어요.' });
+  assert.equal(parse(supported, '만 19세 이상이면 신청할 수 있나요?').decision, 'fact');
+  const negativeKnowledge = { ...knowledge, sources:[{...knowledge.sources[0],parts:[{id:'0',title:'지원 제외',text:'치료비는 지원할 수 없습니다.',pages:[2]}]}] };
+  assert.throws(() => parseGeminiAnswer(JSON.stringify(draft({questionTarget:'specific',text:'네, 치료비를 지원해요.'})),negativeKnowledge,settings,['content'],'치료비도 지원되나요?'), /unsupported_specific_claim/);
+});
+
 test('eligibility verdicts cannot ignore a review flag or known conflicting evidence', () => {
   const question='저는 만 20세예요. 신청할 수 있나요?';
   assert.throws(()=>parse(personal({review:true}),question),/eligibility_requires_personal_evidence/);
