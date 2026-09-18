@@ -1,4 +1,6 @@
-import { encryptConfiguredGeminiApiKey, ensureKnowledgeSchema, knowledgeEnv } from "@/db/knowledge";
+import { encryptConfiguredGeminiApiKey, ensureKnowledgeSchema, getConfiguredGeminiApiKey, knowledgeEnv } from "@/db/knowledge";
+import { aiProviderFromKey, configuredAiModel } from "@/db/ai-provider";
+import { refreshPrivacyPolicyDraft } from "@/app/privacy-policy";
 import { requireAdminApi } from "@/app/admin-session";
 import { validBrandImage, normalizeSocialCaption, validSocialCaption } from "@/app/branding";
 import { centeredFavicon } from "@/app/favicon-image";
@@ -38,6 +40,18 @@ export async function PATCH(request: Request) {
   if (denied) return denied;
   try {
     const form = await request.formData();
+    if (form.get("action") === "privacy-policy-refresh") {
+      const current = clean(form.get("privacyPolicy"), 20_000);
+      const DB = await ensureKnowledgeSchema();
+      const previous = await DB.prepare("SELECT * FROM site_settings WHERE id = 'default'").first<SettingsRow>();
+      if (!previous) return Response.json({ error: "설정을 찾을 수 없습니다." }, { status: 404 });
+      const apiKey = await getConfiguredGeminiApiKey(previous);
+      const provider = apiKey ? aiProviderFromKey(apiKey) : null;
+      const providerName = provider === "google" ? "Google" : provider === "openai" ? "OpenAI" : provider === "anthropic" ? "Anthropic" : "연결되지 않음";
+      const server = process.env.WEBSITE_SITE_NAME ? "Microsoft Azure App Service" : process.env.VERCEL ? "Vercel" : "현재 배포 서버";
+      const region = process.env.REGION_NAME || process.env.WEBSITE_LOCATION;
+      return Response.json({ draft: refreshPrivacyPolicyDraft(current, { server, region, apiProvider: providerName, apiModel: apiKey ? configuredAiModel(apiKey) : undefined }) });
+    }
     if (form.get("action") === "privacy-policy-only") {
       const privacyPolicy = clean(form.get("privacyPolicy"), 20_000);
       if (privacyPolicy.length < 20) return Response.json({ error: "개인정보처리방침 내용을 입력해 주세요." }, { status: 400 });

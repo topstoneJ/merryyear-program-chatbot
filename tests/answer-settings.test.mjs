@@ -26,8 +26,8 @@ test('every style combination includes each canonical rule once and preserves re
   if(format==='paragraph')assert.match(style,/자연스러운 완결 문장/);
   if(format==='list'){
    assert.match(style,/• 핵심어: 내용/);
-   assert.match(style,/종결어미와 반복 설명을 생략/);
-   assert.match(style,/제한·예외·주의사항.*완결 문장/);
+   assert.match(style,/‘~음’, ‘~임’ 또는 명사형/);
+   assert.match(style,/제한·예외·주의사항.*개조식 종결/);
   }
   if(followUp==='one')assert.doesNotMatch(style,/최대 3개/);
  }
@@ -36,6 +36,15 @@ test('legacy formal tone is read as polite without resetting other preferences',
  const legacy={...defaults,showSources:true,tone:'formal',format:'paragraph'};
  assert.deepEqual(settings.readAnswerSettings(JSON.stringify(legacy)),{...legacy,tone:'polite'});
  assert.throws(()=>settings.parseAnswerSettings(legacy));
+});
+test('answer style validation enforces long paragraph spacing and list endings',()=>{
+ const paragraph={...defaults,format:'paragraph'};
+ assert.match(settings.answerStyleIssues('첫째\n둘째\n셋째\n넷째\n다섯째\n여섯째',paragraph).join(' '),/빈 줄/);
+ assert.equal(settings.answerStyleIssues('첫째\n둘째\n셋째\n\n넷째\n다섯째\n여섯째',paragraph).length,0);
+ const list={...defaults,format:'list'};
+ assert.match(settings.answerStyleIssues('결론입니다.\n• 신청 대상: 아동이 있는 가정입니다.',list).join(' '),/~음/);
+ assert.equal(settings.answerStyleIssues('결론입니다.\n• 신청 대상: 아동이 있는 가정',list).length,0);
+ assert.equal(settings.ANSWER_STYLES.find(style=>style.key==='format').description,'쉽게 풀어서 답할지, 압축해서 답할지 선택해요.');
 });
 test('legacy saved options are reduced to the first three enabled choices',()=>{
  const legacy={...defaults,showSources:true,showNextSteps:true,includeRelated:true,alwaysContact:true};

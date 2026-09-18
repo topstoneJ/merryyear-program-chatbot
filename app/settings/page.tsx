@@ -48,6 +48,7 @@ export default function SettingsPage() {
   const [privacyEditorOpen, setPrivacyEditorOpen] = useState(false);
   const [privacyDraft, setPrivacyDraft] = useState("");
   const [privacySaving, setPrivacySaving] = useState(false);
+  const [privacyRefreshing, setPrivacyRefreshing] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState("");
   const previewLogo = useRef("");
   function closePreview() {
@@ -113,6 +114,19 @@ export default function SettingsPage() {
     } catch (error) { setPrivacyNotice(error instanceof Error ? error.message : "개인정보처리방침을 저장하지 못했습니다."); }
     finally { setPrivacySaving(false); }
   }
+  async function refreshPrivacyPolicy() {
+    if (privacySaving || privacyRefreshing) return;
+    setPrivacyRefreshing(true); setPrivacyNotice("");
+    try {
+      const form = new FormData(); form.set("action", "privacy-policy-refresh"); form.set("privacyPolicy", privacyDraft);
+      const response = await fetch("/api/settings", { method: "PATCH", body: form });
+      const payload = await response.json();
+      if (!response.ok || typeof payload.draft !== "string") throw new Error(payload.error || "수정본을 만들지 못했습니다.");
+      setPrivacyDraft(payload.draft);
+      setPrivacyNotice("현재 내용은 유지하고 서버와 API 연결 상태를 반영한 수정본을 만들었습니다. 확인 후 저장해 주세요.");
+    } catch (error) { setPrivacyNotice(error instanceof Error ? error.message : "수정본을 만들지 못했습니다."); }
+    finally { setPrivacyRefreshing(false); }
+  }
   async function save(event: FormEvent) {
     event.preventDefault(); if (!settings || saving || generatingDefault) return; setSaving(true); setNotice("");
     try {
@@ -163,6 +177,6 @@ export default function SettingsPage() {
       {(tab === "general" || tab === "design") && notice && <p className="settings-notice">{notice}</p>}{(tab === "general" || tab === "design") && <div className="settings-actions"><button type="button" className="cancel-button" onClick={openPreview}>메인 미리보기</button><button type="submit" className="knowledge-submit" disabled={saving}>{saving ? "저장하고 있어요…" : "설정 저장"}</button></div>}
     </form>
     {previewId && <div className="settings-preview-screen" role="dialog" aria-modal="true" aria-label="메인 미리보기"><div className="settings-preview-toolbar"><span>저장 전 미리보기 · 실제 설정은 변경되지 않습니다. 채팅 전송은 지원하지 않습니다.</span><button type="button" className="cancel-button" onClick={closePreview}>설정으로 돌아가기</button></div><iframe title="수정 내용이 반영된 메인 미리보기" src={`/settings/preview?draft=${encodeURIComponent(previewId)}`} /></div>}
-    {privacyEditorOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !privacySaving && setPrivacyEditorOpen(false)}><section className="modal privacy-editor-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-editor-title"><button type="button" className="modal-close" aria-label="닫기" disabled={privacySaving} onClick={() => setPrivacyEditorOpen(false)}>×</button><h2 id="privacy-editor-title">개인정보처리방침</h2><textarea value={privacyDraft} maxLength={20_000} onChange={event => { setPrivacyDraft(event.target.value); setPrivacyNotice(""); }} aria-label="개인정보처리방침 내용" /><div className="privacy-editor-meta"><span>{privacyDraft.length.toLocaleString("ko-KR")}/20,000자</span><span>{'{기관명}'}, {'{연락처}'} 사용 가능</span></div>{privacyNotice && <p className="privacy-editor-error" role="alert">{privacyNotice}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={privacySaving} onClick={() => setPrivacyEditorOpen(false)}>취소</button><button type="button" className="knowledge-submit" disabled={privacySaving || privacyDraft.trim().length < 20} onClick={() => void savePrivacyPolicy()}>{privacySaving ? "저장하고 있어요…" : "내용 저장"}</button></div></section></div>}
+    {privacyEditorOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !privacySaving && !privacyRefreshing && setPrivacyEditorOpen(false)}><section className="modal privacy-editor-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-editor-title"><button type="button" className="modal-close" aria-label="닫기" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>×</button><h2 id="privacy-editor-title">개인정보처리방침</h2><textarea value={privacyDraft} maxLength={20_000} disabled={privacyRefreshing} onChange={event => { setPrivacyDraft(event.target.value); setPrivacyNotice(""); }} aria-label="개인정보처리방침 내용" /><div className="privacy-editor-meta"><span>{privacyDraft.length.toLocaleString("ko-KR")}/20,000자</span><span>{'{기관명}'}, {'{연락처}'} 사용 가능</span></div>{privacyNotice && <p className="privacy-editor-error" role="status">{privacyNotice}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => void refreshPrivacyPolicy()}>{privacyRefreshing ? "수정본 생성 중…" : "새로고침"}</button><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>취소</button><button type="button" className="knowledge-submit" disabled={privacySaving || privacyRefreshing || privacyDraft.trim().length < 20} onClick={() => void savePrivacyPolicy()}>{privacySaving ? "저장하고 있어요…" : "내용 저장"}</button></div></section></div>}
   </main>;
 }

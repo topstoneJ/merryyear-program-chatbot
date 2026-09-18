@@ -35,3 +35,24 @@ export function resolvePrivacyPolicy(content: string | null | undefined, organiz
     .replaceAll("{기관명}", organizationName || "기관")
     .replaceAll("{연락처}", contact || "기관 개인정보 담당부서");
 }
+
+export type PrivacyRuntimeState = {
+  server: string;
+  region?: string;
+  apiProvider: "Google" | "OpenAI" | "Anthropic" | "연결되지 않음";
+  apiModel?: string;
+};
+
+export function refreshPrivacyPolicyDraft(content: string, state: PrivacyRuntimeState) {
+  const current = content.trim() || DEFAULT_PRIVACY_POLICY;
+  const location = state.region ? `${state.server}(${state.region})` : state.server;
+  const ai = state.apiProvider === "연결되지 않음"
+    ? "• AI API: 현재 연결된 외부 AI API가 없습니다. API가 연결되면 질문과 사업 자료가 답변 생성을 위해 해당 공급자에게 전송될 수 있으므로 방침을 다시 새로고침해야 합니다."
+    : `• ${state.apiProvider} API${state.apiModel ? `(${state.apiModel})` : ""}: 질문 분석과 답변 생성을 위해 이용자의 질문, 같은 대화의 이전 질문·답변, 선택한 사업의 공개·활성 자료와 답변 설정이 암호화된 통신망을 통해 전송될 수 있습니다.`;
+  const openAi = state.apiProvider === "OpenAI"
+    ? "\n• OpenAI API 요청에는 응답 저장을 비활성화하는 설정(store: false)을 사용합니다. API 입력과 출력의 처리·보관은 OpenAI의 적용 정책을 따릅니다."
+    : "";
+  const section = `3. 개인정보 처리 위탁 및 국외 이전\n• 서비스 운영 서버: ${location} 환경을 사용합니다.\n${ai}${openAi}\n• 국외 이전을 원하지 않는 이용자는 챗봇을 사용하지 않고 해당 사업 담당자에게 전화나 이메일로 문의할 수 있습니다.`;
+  const sectionPattern = /3\. 개인정보 처리 위탁 및 국외 이전[\s\S]*?(?=\n4\.\s)/;
+  return sectionPattern.test(current) ? current.replace(sectionPattern, section) : `${current}\n\n${section}`;
+}
