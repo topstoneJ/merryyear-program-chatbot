@@ -72,32 +72,10 @@ const EMPTY_BUSINESS: Business = {
   survey: [],
 };
 
-const ANSWER_REVEAL_CHARACTERS_PER_SECOND = 30;
-
 function AnswerReveal({ answer }: { answer: Answer }) {
-  const characters = useMemo(() => Array.from(answer.text), [answer.text]);
-  const revealDurationMs = characters.length / ANSWER_REVEAL_CHARACTERS_PER_SECOND * 1000;
-  const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const [visibleCharacters, setVisibleCharacters] = useState(reduceMotion ? characters.length : 0);
-
-  useEffect(() => {
-    if (reduceMotion) { setVisibleCharacters(characters.length); return; }
-    const startedAt = performance.now();
-    let frame = 0;
-    const reveal = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / revealDurationMs);
-      setVisibleCharacters(Math.ceil(characters.length * progress));
-      if (progress < 1) frame = window.requestAnimationFrame(reveal);
-    };
-    frame = window.requestAnimationFrame(reveal);
-    return () => window.cancelAnimationFrame(frame);
-  }, [characters, reduceMotion, revealDurationMs]);
-
-  if (reduceMotion) return <AnswerText text={answer.text} />;
-  return <>
-    <div aria-hidden="true"><AnswerText text={characters.slice(0, visibleCharacters).join("")} /></div>
-    <span className="sr-only">{answer.text}</span>
-  </>;
+  // Publish the verified answer once: no partial + hidden full-text duplicates,
+  // no artificial delay after generation. Keep the real text accessible.
+  return <div data-answer-text="true" data-answer-complete="true"><AnswerText text={answer.text} /></div>;
 }
 
 export function HomeClient({ previewSettings, initialSettings }: { previewSettings?: SiteSettings; initialSettings?: SiteSettings } = {}) {

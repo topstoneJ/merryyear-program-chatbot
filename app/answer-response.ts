@@ -1,8 +1,8 @@
-import { CONTACT_EMAIL_PATTERN, findBusinessContact, findBusinessEmail } from "./answer-contact";
+import { CONTACT_EMAIL_PATTERN, findBusinessContact, findBusinessEmail, isDirectContactQuestion } from "./answer-contact";
 import { separateCitations } from "./answer-citations";
 import { decisionPrefixes, type AnswerSettings } from "./answer-settings";
 import { sourceText, type AnswerKnowledge } from "./answer-knowledge";
-import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, QUESTION_TARGETS, isAnswerDecision, validateAnswerSemantics, type AnswerDecision, type AnswerDraft, type AnswerValidationContext } from "./answer-contract";
+import { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, QUESTION_TARGETS, isAnswerDecision, validateAnswerSemantics, AnswerContractError, type AnswerDecision, type AnswerDraft, type AnswerValidationContext } from "./answer-contract";
 
 export { ANSWER_DECISIONS, EVIDENCE_KINDS, RESOLUTIONS, isAnswerDecision };
 export type { AnswerDecision };
@@ -51,7 +51,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   // reserved for unresolved policy/operations, conflicts, or an explicit consult
   // decision instead of being appended to every incomplete comparison.
   const modelRequestsReferral = /(?:담당자|담당\s*부서).{0,60}(?:문의|확인)/s.test(parsed.text);
-  const directContactRequest = /(?:담당자|담당\s*부서|문의처|연락처|전화번호|이메일)/.test(question.replace(/\s+/g, ""));
+  const directContactRequest = isDirectContactQuestion(question);
   const needsReferral = ["missing_policy", "conflict", "action_required"].includes(parsed.resolution)
     || parsed.decision === "consult" || modelRequestsReferral || directContactRequest;
   if (!verifiedContact && fallbackContact && (needsReferral || (parsed.decision === "fact" && !source && parsed.evidenceKind !== "system") || settings.alwaysContact)) {
@@ -64,8 +64,7 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const email = findBusinessEmail(knowledge, verifiedContact ? phone : "");
   const referral = "이메일: " + (email || "등록 자료에서 확인되지 않음")
     + "\n전화번호: " + (verifiedContact ? phone : "등록 자료에서 확인되지 않음");
-  if (unsupported) return { ...NO_KNOWLEDGE_ANSWER, decision: "consult", categoryId: parsed.categoryId,
-    text: (settings.tone === "friendly" ? "현재 자료에서 해당 기준을 확인하기 어려워요." : "현재 자료에서 해당 기준을 확인하기 어렵습니다.") + "\n\n" + referral };
+  if (unsupported) throw new AnswerContractError("unsupported_policy_fact");
   validateAnswerSemantics(parsed, knowledge, question, context);
   const prefixes = decisionPrefixes(settings);
   const prefix = parsed.decision === "fact" ? "" : prefixes[parsed.decision as keyof typeof prefixes];

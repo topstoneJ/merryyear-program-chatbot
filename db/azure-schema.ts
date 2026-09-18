@@ -44,6 +44,7 @@ async function initialize(DB: DatabaseBinding) {
     DB.prepare(`ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS is_super_admin INTEGER NOT NULL DEFAULT 0`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS consultation_categories (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, sort_order INTEGER NOT NULL DEFAULT 0, replacement_id TEXT)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS knowledge_conflict_checks (business_id TEXT PRIMARY KEY, snapshot_key TEXT NOT NULL, report TEXT NOT NULL)`),
+    DB.prepare(`CREATE TABLE IF NOT EXISTS policy_versions (business_id TEXT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE, revision INTEGER NOT NULL, knowledge_hash TEXT NOT NULL, rules_json TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('draft','approved','revoked')), created_by TEXT NOT NULL, approved_by TEXT, created_at BIGINT NOT NULL, approved_at BIGINT, PRIMARY KEY (business_id, revision))`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS business_homepage_sources (business_id TEXT PRIMARY KEY, source_id TEXT NOT NULL)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS api_usage (id TEXT PRIMARY KEY, created_at BIGINT NOT NULL, model TEXT NOT NULL, purpose TEXT NOT NULL, status INTEGER NOT NULL, input_tokens BIGINT, output_tokens BIGINT, thought_tokens BIGINT, cached_tokens BIGINT, estimated_usd DOUBLE PRECISION)`),
     DB.prepare(`CREATE TABLE IF NOT EXISTS chat_answer_cache (cache_key TEXT PRIMARY KEY, business_id TEXT NOT NULL, answer_json TEXT NOT NULL, created_at BIGINT NOT NULL, expires_at BIGINT NOT NULL)`),
