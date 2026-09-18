@@ -1315,7 +1315,6 @@ h1 em {
 
 .consultation-list-actions { display: flex; gap: 8px; }
 .consultation-list-actions { align-items: center; }
-.consultation-retention-note { color: #aaa19a; font-size: max(var(--admin-min-font, 0px), calc((9px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); white-space: nowrap; }
 .consultation-detail-actions { justify-content: space-between; }
 .consultation-detail-actions > div { display: flex; align-items: center; gap: 9px; }
 .consultation-session-nav .cancel-button { min-height: 44px; }
@@ -1333,7 +1332,6 @@ h1 em {
 @media (max-width: 520px) { .export-scope-options { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
   .consultation-list-actions { flex-wrap: wrap; justify-content: flex-end; }
-  .consultation-retention-note { order: 3; width: 100%; text-align: right; white-space: normal; }
   .consultation-detail-actions { align-items: stretch; }
   .consultation-detail-actions > div { flex-wrap: wrap; }
 }
@@ -1341,7 +1339,9 @@ h1 em {
 .consultation-delete-button:hover:not(:disabled) { background: #fff5f3; border-color: #df8f85; }
 .consultation-delete-button:focus-visible { outline: 2px solid #b43a30; outline-offset: 2px; }
 .consultation-bulk-delete-modal { width: min(460px, 100%); }
+.consultation-bulk-delete-modal h2 { font-weight: 800; }
 .consultation-bulk-delete-modal > p { color: #5f5851; line-height: 1.7; }
+.consultation-retention-help { display: block; margin-top: 10px; color: #9b938c; font-size: max(var(--admin-min-font, 0px), calc((10px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.5; text-align: right; }
 
 /* Administrator text: at least 20% larger, with a readable floor for small labels. */
 :is(.knowledge-shell, .consultation-shell, .settings-shell, .login-shell) {
