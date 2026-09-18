@@ -22,6 +22,18 @@ test('the 101st daily question is blocked before model generation', async () => 
   assert.equal(h.records.length, 0);
 });
 
+test('a logged-in administrator bypasses the daily IP question limit', async () => {
+  const h = chatHarness({
+    admin: { id: 'admin', is_super_admin: 1 },
+    dailyAllowed: false,
+    requestHeaders: { 'x-forwarded-for': '203.0.113.4' },
+  });
+  const result = await h.ask();
+  assert.equal(result.status, 200);
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.records.length, 1);
+});
+
 test('new consultation records keep the conversation session and turn order', async () => {
   const h = chatHarness();
   const result = await h.ask({ sessionId: 'session-123', history: [{ question: '첫 질문', answer: '첫 답변' }] });
