@@ -9,6 +9,7 @@
 - API 설정 화면은 사용 모델과 키 등록 여부를 구분하며, 키 등록만으로 실제 연결 성공이라고 표시하지 않습니다.
 - 관리자 가이드 챗봇은 API 키 없이 문서 기반 기본 안내를 제공합니다. 현재 운영 상태를 활용한 AI 답변에는 API 연결이 필요하며 가이드 대화는 상담내역에 기록하지 않습니다.
 - 활성 사업과 지식 자료를 범위로 제한한 근거 기반 답변
+- 자료 관리에서 정책 규칙 초안·원문 대조·버전 승인. 승인된 금액·예외는 서버가 처리하며 자료 변경 시 재승인 전까지 적용 중단
 - 출처 문서와 페이지 검증, 자료 충돌 감지, 자료 부족 안내
 - 상담 기록 조회·분류·보완 답변·내보내기
 - PDF 기반 지식 자료 등록과 공개 범위 관리
@@ -18,7 +19,7 @@
 - Azure PostgreSQL과 Azure Blob Storage 연동
 - GitHub Actions를 통한 Azure App Service 자동 배포와 상태 확인
 
-답변 판정과 근거 처리의 기존 정책은 [docs/answer-rules-v4.md](docs/answer-rules-v4.md), 현재 API 공통 계약과 검증·운영 방법은 [docs/answer-contract-v5.md](docs/answer-contract-v5.md)를 참고하세요.
+답변 판정과 근거 처리의 기존 정책은 [docs/answer-rules-v4.md](docs/answer-rules-v4.md), 판정 계약은 [docs/answer-contract-v5.md](docs/answer-contract-v5.md), 현재 API 공통 근거 검수와 오류 처리·운영 방법은 [docs/answer-contract-v6.md](docs/answer-contract-v6.md)를 참고하세요.
 
 ## 로컬 실행
 

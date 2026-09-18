@@ -63,11 +63,14 @@ export const ANSWER_RULES = [
   }
 ] as const;
 
-export function buildCoreSystemInstruction(categories: Array<{ id: string; name: string }>, styleInstruction: string, categoryGuidance: string) {
-  return "[사업 안내 챗봇 v5 — 통합 답변 규칙]\n\n" + ANSWER_RULES.map(rule => rule.id + ". " + rule.title + "\n" + (rule.id === 9 ? styleInstruction : rule.instruction)).join("\n\n")
+export function buildCoreSystemInstruction(categories: Array<{ id: string; name: string }>, styleInstruction: string, categoryGuidance: string, outputContract = ANSWER_CONTRACT_INSTRUCTION) {
+  // The single-outcome contract replaces legacy multi-field classification and
+  // output instructions; do not give the model two competing output workflows.
+  const rules = ANSWER_RULES.filter(rule => outputContract === ANSWER_CONTRACT_INSTRUCTION || ![5, 8, 10].includes(rule.id));
+  return "[사업 안내 챗봇 — 통합 답변 규칙]\n\n" + rules.map(rule => rule.id + ". " + rule.title + "\n" + (rule.id === 9 ? styleInstruction : rule.instruction)).join("\n\n")
     + "\n\n최종 우선 규칙: out_of_scope의 text는 정확히 ‘답변할 수 없는 질문입니다. 해당 사업과 관련된 질문을 해주세요.’로 작성한다. 챗봇 대화의 전달 여부를 물으면 개인정보를 입력하지 않은 상황 정보와 답변이 품질 관리용 상담내역에 기록될 수 있고, 직접 소통은 등록된 담당자 전화번호로 해야 한다고 안내한다."
-    + "\n\n" + ANSWER_CONTRACT_INSTRUCTION
-    + "\n\n질문 유형 분류: " + categoryGuidance + "\n등록 유형: " + JSON.stringify(categories.map(({id,name}) => ({id,name})));
+    + "\n\n질문 유형 분류: " + categoryGuidance + "\n등록 유형: " + JSON.stringify(categories.map(({id,name}) => ({id,name})))
+    + "\n\n" + outputContract;
 }
 
 export const ANSWER_FLOW = [
