@@ -73,6 +73,10 @@ const EMPTY_BUSINESS: Business = {
 };
 
 const ANSWER_REVEAL_CHARACTERS_PER_SECOND = 30;
+const faqPromptQuestion = (text: string) => {
+  const sentence = text.normalize("NFC").trim().replace(/[.!?。？！]+$/u, "");
+  return `${sentence}${/(?:주세요|바랍니다|합니다|됩니다)$/u.test(sentence) ? "." : "?"}`;
+};
 
 function AnswerReveal({ answer }: { answer: Answer }) {
   const characters = useMemo(() => Array.from(answer.text), [answer.text]);
@@ -181,7 +185,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           [questions[index], questions[selected]] = [questions[selected], questions[index]];
         }
         const icons = ["✓", "₩", "▤"];
-        const prompts = questions.slice(0, 3).map((value, index) => ({ icon: icons[index], question: /[?？]$/.test(value) ? value : `${value}?` }));
+        const prompts = questions.slice(0, 3).map((value, index) => ({ icon: icons[index], question: faqPromptQuestion(value) }));
         setBusinesses(current => current.map(item => item.id === businessId ? { ...item, prompts } : item));
       })
       .catch(() => undefined);

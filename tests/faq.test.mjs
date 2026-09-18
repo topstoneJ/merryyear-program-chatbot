@@ -1,18 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sourceLoader} from './load-source.mjs';
-const {matchFaq,FAQ_TOPICS,faqTopicsFor}=sourceLoader()('app/faq-match.ts');
-test('FAQ topics follow the business profile instead of forcing welfare questions',()=>{
- const facility=faqTopicsFor('사회적기업 시설운영비 지원사업','운영비 대출과 상환 조건 안내');
- assert.equal(facility.length,8);
- assert.deepEqual(facility.map(([id])=>id),['사업 소개','신청 요건','지원 용도','지원 한도','금리와 상환','담보와 보증','제출 서류','신청과 문의']);
- assert.equal(facility.some(([id])=>id==='생활비'||id==='공과금'),false);
- assert.equal(faqTopicsFor('위기아동가정 지원사업','생계비와 공과금 지원'),FAQ_TOPICS);
+const {matchFaq,FAQ_TOPICS,faqTopicsFor,faqPromptQuestion}=sourceLoader()('app/faq-match.ts');
+test('FAQ uses the same six canonical topics for every business',()=>{
+ const expected=['사업소개','신청자격','지원내용','접수기간','신청방법','연락처'];
+ assert.deepEqual(faqTopicsFor('사회적기업 시설운영비 지원사업','운영비 대출').map(([id])=>id),expected);
+ assert.deepEqual(faqTopicsFor('위기아동가정 지원사업','생계비 지원').map(([id])=>id),expected);
+});
+test('FAQ example punctuation follows the Korean sentence ending',()=>{
+ assert.equal(faqPromptQuestion('신청 자격을 알려주세요.?'),'신청 자격을 알려주세요.');
+ assert.equal(faqPromptQuestion('지원금은 얼마인가요.'),'지원금은 얼마인가요?');
+ assert.equal(faqPromptQuestion('접수 기간은 언제인가요?'),'접수 기간은 언제인가요?');
 });
 test('FAQ accepts only complete approved questions; preserves extra conditions and context',()=>{
  const entries=FAQ_TOPICS.map(([id,question])=>({id,question}));
- assert.equal(matchFaq(entries,'문의 전화번호를 알려주세요!',[])?.id,'전화');
- for(const q of ['담당자가 전화로 개인 신청도 된다고 했는데요','문의 전화번호를 알려주세요. 그리고 서류도요','생활비 한도가 얼마인가요? 4인 가구예요','생활비 한도가 얼마가 아닌가요?','생활비한도가얼마인가요','문의 전화번호를 알려주세요\n아까 그 사업']) assert.equal(matchFaq(entries,q,[]),null,q);
+ assert.equal(matchFaq(entries,'문의할 연락처를 알려주세요!',[])?.id,'연락처');
+ for(const q of ['담당자가 전화로 개인 신청도 된다고 했는데요','문의할 연락처를 알려주세요. 그리고 서류도요','어떤 지원을 받을 수 있나요? 4인 가구예요','지원받을 수 없는 건가요?','어떤지원을받을수있나요','문의할 연락처를 알려주세요\n아까 그 사업']) assert.equal(matchFaq(entries,q,[]),null,q);
  assert.equal(matchFaq(entries,entries[0].question,[{question:'앞선 질문'}]),null);
  assert.equal(matchFaq([entries[0],entries[0]],entries[0].question,[]),null);
 });
