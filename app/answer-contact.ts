@@ -7,7 +7,10 @@ export function isDirectContactQuestion(question: string) {
   const normalized = question.replace(/\s+/g, "");
   // An anchored allowlist for pure contact lookup only. Mixed intent must reach
   // the normal answer/review path; a keyword must never replace the question.
-  return /^(?:(?:이|해당)?사업(?:관련)?|재단)?(?:의)?(?:(?:담당자|담당부서|담당팀)(?:의)?)?(?:연락처|전화번호|이메일(?:주소)?|메일주소|문의처|문의시간|전화상담가능시간)(?:(?:와|과|및)(?:전화번호|이메일(?:주소)?|문의시간|전화상담가능시간))?(?:은|는|을|를|가|이)?(?:함께)?(?:알려(?:주세요|줘|주시겠어요)|무엇인가요|뭔가요|뭐예요|몇번인가요|어디인가요|있나요)?[?.!]*$/.test(normalized);
+  const simpleLookup = /^(?:(?:이|해당)?사업(?:관련)?|재단)?(?:의)?(?:(?:담당자|담당부서|담당팀)(?:의)?)?(?:연락처|전화번호|이메일(?:주소)?|메일주소|문의처|문의시간|전화상담가능시간)(?:(?:와|과|및)(?:전화번호|이메일(?:주소)?|문의시간|전화상담가능시간))?(?:은|는|을|를|가|이)?(?:함께)?(?:알려(?:주세요|줘|주시겠어요)|무엇인가요|뭔가요|뭐예요|몇번인가요|어디인가요|있나요)?[?.!]*$/.test(normalized);
+  const unansweredEmail = /^(?:이메일|메일)(?:문의)?를?(?:보냈|드렸)(?:지만|는데)?(?:답장|답변|회신)이?(?:없|안왔|오지않).*?(?:다른)?(?:문의|연락)(?:방법|수단|처)?(?:이|가)?(?:있나요|무엇인가요|뭔가요|어디인가요)?[?.!]*$/.test(normalized);
+  const contactChange = /^(?:접수했던)?(?:복지관|기관|시설)?(?:의)?(?:연락)?담당자가?(?:퇴사|변경|교체).*?(?:연락)?담당자(?:변경)?(?:은|을|를)?(?:어디|누구|어느곳)(?:에|에게)?(?:알리|문의|연락)(?:나요|하면되나요|해야하나요)?[?.!]*$/.test(normalized);
+  return simpleLookup || unansweredEmail || contactChange;
 }
 
 export function findRegisteredContactDetails(knowledge: AnswerKnowledge, businessId: string) {
