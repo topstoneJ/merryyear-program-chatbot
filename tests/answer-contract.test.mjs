@@ -69,6 +69,10 @@ test('system/none cannot claim a business source; system explanation stays avail
   const value = draft({questionTarget:'system',source:'',page:0,evidenceKind:'system',text:'챗봇은 실제 접수를 대신할 수 없어요.'});
   assert.equal(parse(value, '챗봇이 접수해 주나요?').review, false);
 });
+test('Markdown emphasis changes do not invalidate an otherwise exact eligibility quote',()=>{
+ const marked={...knowledge,sources:[{...knowledge.sources[0],parts:[{...knowledge.sources[0].parts[0],text:'**만 19세 이상**만 신청할 수 있습니다. 나이 외의 자격 제한은 없습니다.'}]}]};
+ assert.equal(parseGeminiAnswer(JSON.stringify(personal()),marked,settings,['content'],'저는 만 20세예요. 신청할 수 있나요?').decision,'possible');
+});
 
 test('clearly related service questions cannot be mislabeled out of scope', () => {
   const refusal = draft({ questionTarget:'unrelated', decision:'out_of_scope', evidenceKind:'none', resolution:'complete',
@@ -78,17 +82,26 @@ test('clearly related service questions cannot be mislabeled out of scope', () =
   assert.equal(parse(refusal, '저녁 메뉴를 추천해 주세요.').decision, 'out_of_scope');
 });
 
-test('specific yes-no conclusions require the questioned conditions in the cited source', () => {
+test('unsupported specific conclusions are rejected by mandatory evidence review, not word overlap', async () => {
   for (const [question,text] of [
     ['진단서가 아직 없는데 먼저 신청할 수 있나요?', '네, 진단서 없이 먼저 신청할 수 있어요.'],
     ['탈락한 뒤 다시 신청할 수 있나요?', '네, 다시 신청할 수 있어요.'],
     ['친구 집에 머무는 비용도 임시주거비로 인정되나요?', '네, 임시주거비로 인정돼요.'],
     ['냉장고가 고장 나기 전에 교체해도 지원되나요?', '네, 고장 전 교체도 지원돼요.'],
-  ]) assert.throws(() => parse(draft({ questionTarget:'specific', text }), question), /unsupported_specific_claim/);
+  ]) {
+    const h = chatHarness({ knowledge, draft:draft({ questionTarget:'specific', text }), review: {
+      checks:{answersQuestion:true,groundedClaims:false,correctNumbers:true,completeConditions:true,calibratedDecision:true,appropriateReferral:true},
+      issues:['unsupported_claim'],evidence:[],calculations:[],
+    }});
+    const result = await h.ask({question});
+    assert.equal(result.status,502); assert.equal(result.payload.code,'answer_verification_failed');
+    assert.equal(h.reviewRequests.length,2); assert.equal(h.records.length,0);
+  }
   const supported = draft({ questionTarget:'specific', text:'만 19세 이상이면 신청할 수 있어요.' });
   assert.equal(parse(supported, '만 19세 이상이면 신청할 수 있나요?').decision, 'fact');
   const negativeKnowledge = { ...knowledge, sources:[{...knowledge.sources[0],parts:[{id:'0',title:'지원 제외',text:'치료비는 지원할 수 없습니다.',pages:[2]}]}] };
-  assert.throws(() => parseGeminiAnswer(JSON.stringify(draft({questionTarget:'specific',text:'네, 치료비를 지원해요.'})),negativeKnowledge,settings,['content'],'치료비도 지원되나요?'), /unsupported_specific_claim/);
+  const h = chatHarness({knowledge:negativeKnowledge,draft:draft({questionTarget:'specific',text:'네, 치료비를 지원해요.'}),review:{checks:{answersQuestion:true,groundedClaims:false,correctNumbers:true,completeConditions:true,calibratedDecision:false,appropriateReferral:true},issues:['unsupported_claim'],evidence:[],calculations:[]}});
+  assert.equal((await h.ask({question:'치료비도 지원되나요?'})).status,502);
 });
 
 test('eligibility verdicts cannot ignore a review flag or known conflicting evidence', () => {
@@ -118,19 +131,19 @@ test('model citations cannot inject invented source names or pages', () => {
   assert.equal(answer.review,true);
 });
 
-test('two failed validations publish only a deterministic safe fallback', async () => {
+test('two failed validations return a technical failure, never a fabricated policy referral', async () => {
   const h = chatHarness({knowledge,draft:personal()});
   const result = await h.ask({question:'신청 자격을 알려주세요.'});
-  assert.equal(result.status,200); assert.equal(result.payload.answer.decision,'consult');
-  assert.match(result.payload.answer.text,/근거 없이 단정하지 않고 담당자 확인이 필요/);
-  assert.doesNotMatch(result.payload.answer.text,/신청할 수 있어요/);
-  assert.equal(h.requests.length,2); assert.equal(h.records.length,1); assert.equal(h.answerCache.size,0);
+  assert.equal(result.status,502); assert.equal(result.payload.code,'answer_verification_failed');
+  assert.equal(result.payload.answer,undefined);
+  assert.equal(h.requests.length,2); assert.equal(h.records.length,0); assert.equal(h.answerCache.size,0);
 });
 
-test('valid normal answers use one model call and preserve conversation history', async () => {
+test('valid normal answers use one generation plus one independent review and preserve history', async () => {
   const h = chatHarness({readyFastAnswer:{text:'cached',decision:'fact'}});
   const result=await h.ask({question:'신청 자격을 알려주세요.',history:[{question:'저는 20세예요',answer:'다른 조건을 확인해요.'}]});
   assert.equal(result.status,200); assert.equal(h.requests.length,1);
+  assert.equal(h.reviewRequests.length,1);
   assert.equal(JSON.parse(h.requests[0].input).conversation.previousConversation.length,1);
   assert.equal(JSON.parse(h.requests[0].input).serverMode,'conversation');
 });

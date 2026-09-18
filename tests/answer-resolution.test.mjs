@@ -20,7 +20,7 @@ test('unverified phone in prose cannot bypass contact verification',async()=>{
 });
 test('unsupported policy still cannot pass as an unsourced fact',async()=>{
  const h=chatHarness({draft:{source:'',evidenceKind:'none',text:'지원금 999만원이 확정됐어요.'}});
- const r=await h.ask();assert.doesNotMatch(r.payload.answer.text,/999|확정|사업 담당자 문의/);assert.match(r.payload.answer.text,/이메일:.*\n전화번호:/);
+ const r=await h.ask();assert.equal(r.status,502);assert.equal(r.payload.code,'answer_verification_failed');assert.equal(r.payload.answer,undefined);assert.equal(h.records.length,0);
 });
 
 test('staff referrals recover a missing model contact from registered text',async()=>{

@@ -5,7 +5,9 @@ const phoneDigits = (text: string) => text.replace(/[- .\s]/g, "");
 
 export function isDirectContactQuestion(question: string) {
   const normalized = question.replace(/\s+/g, "");
-  return /(?:담당자|담당부서|문의처|연락처|전화번호|이메일|메일주소).*(?:알려|뭐|어디|몇|문의|연락)|(?:어디|누구|몇번|어떻게).*(?:문의|연락)/.test(normalized);
+  // An anchored allowlist for pure contact lookup only. Mixed intent must reach
+  // the normal answer/review path; a keyword must never replace the question.
+  return /^(?:(?:이|해당)?사업(?:관련)?|재단)?(?:의)?(?:(?:담당자|담당부서|담당팀)(?:의)?)?(?:연락처|전화번호|이메일(?:주소)?|메일주소|문의처|문의시간|전화상담가능시간)(?:(?:와|과|및)(?:전화번호|이메일(?:주소)?|문의시간|전화상담가능시간))?(?:은|는|을|를|가|이)?(?:함께)?(?:알려(?:주세요|줘|주시겠어요)|무엇인가요|뭔가요|뭐예요|몇번인가요|어디인가요|있나요)?[?.!]*$/.test(normalized);
 }
 
 export function findRegisteredContactDetails(knowledge: AnswerKnowledge, businessId: string) {
