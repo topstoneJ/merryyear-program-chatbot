@@ -78,7 +78,6 @@ export function chatHarness(options = {}) {
       consumeDailyQuestionAllowance: async () => ({ allowed: options.dailyAllowed !== false, count: options.dailyAllowed === false ? 101 : 1, limit: 100 }),
     },
     '@/db/consultation-categories': {loadCategories:async () => [{id:'content',name:'지원 내용'}]},
-    '@/db/policy-store': {loadActivePolicyRules:async()=>options.policyRules||[]},
     '@/db/api-usage': { trackedGeminiFetch: fetchModel, trackedGeminiJson: async (purpose, init) => {
       const response = await fetchModel(purpose, init);
       return { response, payload: await response.json() };

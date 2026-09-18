@@ -15,10 +15,7 @@ import { CATEGORY_GUIDANCE } from "@/db/semantic-category";
 import { buildAnswerInstruction, readAnswerSettings } from "@/app/answer-settings";
 import { ANSWER_RULES, buildCoreSystemInstruction } from "@/app/answer-rules";
 import { parseGeminiAnswer, type Answer } from "@/app/answer-response";
-import { loadActivePolicyRules } from "@/db/policy-store";
-import { evaluatePolicyRoute, readPolicyRouting, policySelectionSchema, POLICY_SELECTION_INSTRUCTION, POLICY_COVERAGE_INSTRUCTION, policyCoverageSchema, completePolicyCoverage } from "@/app/policy-rules";
 import type { AnswerKnowledge } from "@/app/answer-knowledge";
-import { POLICY_EXCERPT_INSTRUCTION, policyExcerptSchema, compilePolicyExcerpt } from "@/app/policy-excerpt";
 import { consumeDailyQuestionAllowance, ensureKnowledgeSchema, getBusiness, getConfiguredGeminiApiKey, loadKnowledgeContext, recordConsultation } from "@/db/knowledge";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME, ADMIN_GUIDE_TEXT } from "@/app/admin-guide";
 
@@ -92,53 +89,6 @@ async function askGemini(businessId: string, businessName: string, question: str
       categoryId: categories.find(category => category.id === "운영 문의" || category.name === "운영 문의")?.id || categories[0].id };
   }
   if (!apiKey) throw new Error("AI API key is not configured");
-  // Only explicitly approved, source-current rules can bypass free-form policy
-  // generation. The provider selects a rule; the server extracts inputs and
-  // renders approved text/numeric values. Ambiguous or multi-turn input falls back.
-  const policyRules=!options.candidateText && !history.length ? await loadActivePolicyRules(businessId,knowledge) : [];
-  if(policyRules.length){
-    const selection=await trackedGeminiJson<GeminiPayload>("chat",{
-      method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-      body:JSON.stringify({model:configuredAiModel(apiKey),store:false,system_instruction:POLICY_SELECTION_INSTRUCTION,
-        input:JSON.stringify({serverMode:"policy_selection",question,rules:policyRules.map(({id,title,scope,kind})=>({id,title,scope,kind}))}),
-        response_format:{type:"text",mime_type:"application/json",schema:policySelectionSchema(policyRules)}}),
-    },timing.add);
-    if(!selection.response.ok)throw Object.assign(new Error("Policy selection provider failure"),{providerStatus:selection.response.status,retryable:false});
-    let selected:unknown;try{selected=JSON.parse(modelOutputText(selection.payload));}catch{selected=null;}
-    const routing=readPolicyRouting(selected,question);
-    const deterministic=routing&&routing.coverage!=="none"?evaluatePolicyRoute({ruleId:routing.ruleId,coverage:"complete"},policyRules,knowledge,question,categories.map(c=>c.id)):null;
-    if(deterministic){
-      const selectedRule=policyRules.find(r=>r.id===routing!.ruleId)!;
-      const approved=parseGeminiAnswer(JSON.stringify(deterministic),knowledge,answerSettings,categories.map(c=>c.id),question,{history});
-      let combined:Answer|null=approved;
-      if(routing!.coverage==="partial"){
-        const excerpt=await trackedGeminiJson<GeminiPayload>("chat",{
-          method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-          body:JSON.stringify({model:configuredAiModel(apiKey),store:false,system_instruction:POLICY_EXCERPT_INSTRUCTION,
-            input:JSON.stringify({serverMode:"policy_excerpt",context:{originalUserMessage:question},evidence:reviewEvidence(knowledge),question:routing!.remainingQuestion}),
-            response_format:{type:"text",mime_type:"application/json",schema:policyExcerptSchema(knowledge)}}),
-        },timing.add);
-        if(!excerpt.response.ok)throw Object.assign(new Error("Policy excerpt provider failure"),{providerStatus:excerpt.response.status,retryable:false});
-        let value:unknown;try{value=JSON.parse(modelOutputText(excerpt.payload));}catch{value=null;}
-        const remaining=compilePolicyExcerpt(value,knowledge);
-        combined=remaining?{...approved,text:`${approved.text}\n\n추가 질문 관련 원문 안내:\n${remaining.text}`,
-          source:[...new Set([approved.source,...remaining.sources].filter(Boolean))].join(" · "),page:0}:null;
-      }
-      if(combined){
-      const coverage=await trackedGeminiJson<GeminiPayload>("chat",{
-        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-        body:JSON.stringify({model:configuredAiModel(apiKey),store:false,system_instruction:POLICY_COVERAGE_INSTRUCTION,
-          input:JSON.stringify({serverMode:"policy_coverage",question,selectedScope:selectedRule.scope,additionalVerifiedScope:routing!.remainingQuestion,approvedAnswer:combined.text}),
-          response_format:{type:"text",mime_type:"application/json",schema:policyCoverageSchema}}),
-      },timing.add);
-      if(!coverage.response.ok)throw Object.assign(new Error("Policy coverage provider failure"),{providerStatus:coverage.response.status,retryable:false});
-      let checked:unknown;try{checked=JSON.parse(modelOutputText(coverage.payload));}catch{checked=null;}
-      if(completePolicyCoverage(checked))return combined;
-      }
-      // Do not replace an approved exception with a conflicting free-form answer.
-      if(routing!.coverage==="partial")throw new AnswerReviewError(["question_not_answered"]);
-    }
-  }
   const conversation = JSON.parse(chatContextInput(history, question));
   const baseSystemInstruction = buildCoreSystemInstruction(categories, buildAnswerInstruction(answerSettings), CATEGORY_GUIDANCE, ANSWER_PLAN_INSTRUCTION);
   const verifiedBusinessContact = findBusinessContact(knowledge);
