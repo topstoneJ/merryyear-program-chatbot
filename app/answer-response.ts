@@ -89,8 +89,8 @@ export function parseGeminiAnswer(raw: string, knowledge: AnswerKnowledge, setti
   const bodyPhones = [...plainBody.matchAll(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g)].map(match => match[0]);
   const hasUnverifiedBodyContact = bodyEmails.some(value => !sourceHasEmail(value) && (!email || value.toLowerCase() !== email.toLowerCase()))
     || bodyPhones.some(value => !sourceHasPhone(value) && (!verifiedContact || value.replace(/[- .]/g, "") !== phone.replace(/[- .]/g, "")));
-  let body = plainBody.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => sourceHasPhone(value) || (verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "")) ? value : "[연락처 확인 필요]")
-    .replace(CONTACT_EMAIL_PATTERN, (value: string) => sourceHasEmail(value) || (email && value.toLowerCase() === email.toLowerCase()) ? value : "[이메일 확인 필요]")
+  let body = plainBody.replace(/0[0-9]{1,2}[- .]?[0-9]{3,4}[- .]?[0-9]{4}/g, (value: string) => sourceHasPhone(value) || (verifiedContact && value.replace(/[- .]/g, "") === phone.replace(/[- .]/g, "")) ? value : verifiedContact ? phone : "등록 자료에서 확인되지 않은 전화번호")
+    .replace(CONTACT_EMAIL_PATTERN, (value: string) => sourceHasEmail(value) || (email && value.toLowerCase() === email.toLowerCase()) ? value : email || "등록 자료에서 확인되지 않은 이메일 주소")
     .replace(/(?:사업\s*)?담당자\s*문의\s*(?:\n|$)/g, "")
     .replace(/문의는\s*((?:평일|주말|매일)[^\n.!?]*(?:가능해요|가능합니다))/g, "전화 상담은 $1")
     .replace(/문의\s*가능\s*시간은/g, "전화 상담 가능 시간은");
