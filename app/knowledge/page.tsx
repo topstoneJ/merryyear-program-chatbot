@@ -6,7 +6,6 @@ import AdminNav from "@/app/admin-nav";
 import BrandLink from "@/app/brand-link";
 import AdminPagination, { PAGE_SIZE_OPTIONS } from "@/app/admin-pagination";
 import ConflictPanel from "./conflict-panel";
-import PolicyPanel from "./policy-panel";
 import { useConflictReport } from "./use-conflict-report";
 import { filterSources, sourceKind } from "./source-filter";
 import { SOURCE_LIMITS, sourceLimitMessage } from "./source-limits";
@@ -644,7 +643,6 @@ export default function KnowledgePage() {
           </section>
           {sourceLimitReached && <p className="knowledge-notice error" role="status">{sourceLimitMessage(sourceType)}</p>}
           {notice && <div className={`knowledge-notice ${notice.tone}`} role="status"><span>!</span>{notice.text}<button type="button" aria-label="알림 닫기" onClick={() => setNotice(null)}>×</button></div>}
-          {businessId&&<details><summary style={{cursor:"pointer",padding:"16px 0",fontWeight:600}}>정확도 관리 · 정책 규칙표 검토</summary><PolicyPanel key={businessId} businessId={businessId}/></details>}
           <section className="knowledge-list" aria-labelledby="knowledge-list-title">
             <div className="list-toolbar source-list-toolbar"><h2 id="knowledge-list-title">등록된 데이터</h2>
               <div className="source-filter-bar" role="group" aria-label="등록 데이터 유형 필터">{(["all", "pdf", "website", "text", "random"] as const).map(kind => <button key={kind} type="button" className={typeFilter === kind ? "active" : ""} aria-pressed={typeFilter === kind} onClick={() => setTypeFilter(kind)}>{kind === "all" ? "전체" : TYPE_META[kind].label}</button>)}</div>
