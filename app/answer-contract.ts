@@ -52,6 +52,41 @@ export function answerSchema(categoryIds: string[], knowledge: AnswerKnowledge) 
 }
 
 const normalized = (value: string) => value.replace(/\s+/g, " ").trim();
+
+const clearlyRelatedQuestion = (question: string) => /(?:챗봇|개인정보|신청|접수|지원|사업|재단|공고|안내문|서류|자격|대상|심사|선정|지급|정산|영수증|문의|담당|복지|아동|가정|생계|주거|의료|병원|월세|소득)/
+  .test(question.replace(/\s+/g, ""));
+
+const specificPolicyQuestion = (question: string) => /(?:가능|할\s*수\s*있|되나요|돼요|됩니까|인정|포함|지원되|신청되|제출되|바꿀|변경|재검토|앞당|우선|대체)/
+  .test(question);
+
+const topicStopWords = new Set(["이거", "저거", "그거", "제가", "저희", "우리", "어떤", "경우", "정도", "내용", "사업", "지원", "신청", "가능", "관련", "대한", "있", "없"]);
+function topicTokens(question: string) {
+  return [...new Set(question.replace(/[^\p{L}\p{N}]+/gu, " ").split(/\s+/).map(token => token
+    .replace(/(?:인가요|되나요|돼요|됩니까|있나요|없나요|할까요|할수|합니다|해요|나요|까요|습니까|이라면|이면요|이면|으로|에서|에게|까지|부터|처럼|보다|이라도|는데|은|는|이|가|을|를|도|에|와|과|할|한)$/u, ""))
+    .filter(token => token.length >= 2 && !topicStopWords.has(token)))];
+}
+
+function sourceSupportsSpecificQuestion(draft: AnswerDraft, knowledge: AnswerKnowledge, question: string) {
+  if (draft.questionTarget !== "specific" || draft.decision !== "fact" || draft.evidenceKind !== "document"
+    || draft.resolution !== "complete" || !specificPolicyQuestion(question)) return true;
+  const source = knowledge.sources.find(item => item.id === draft.source);
+  const topics = topicTokens(question);
+  if (!source || !topics.length) return false;
+  const required = topics.length <= 2 ? topics.length : Math.ceil(topics.length * 0.67);
+  const answer = draft.text.trim();
+  const positive = /^(?:네[,.\s]|가능|지원(?:돼|됩|해|할)|인정(?:돼|됩)|포함(?:돼|됩)|신청할\s*수\s*있|제출할\s*수\s*있)/.test(answer);
+  const negative = /^(?:아니요[,.\s]|불가능|지원(?:되지|하지\s*않)|인정(?:되지|하지\s*않)|포함(?:되지|하지\s*않)|(?:신청|제출)할\s*수\s*없)/.test(answer);
+  return source.parts.some(part => {
+    const text = `${part.title}\n${part.text}`.replace(/\s+/g, "");
+    if (topics.filter(topic => text.includes(topic)).length < required) return false;
+    const positiveEvidence = /(?:가능|할수있|지원(?:품목|대상|가능|한다|함)|포함(?:된다|함)|인정(?:된다|함)|허용)/.test(text);
+    const negativeEvidence = /(?:불가|할수없|제외|지원하지않|인정되지않|금지)/.test(text);
+    if (positive && (!positiveEvidence || negativeEvidence)) return false;
+    if (negative && !negativeEvidence) return false;
+    return true;
+  });
+}
+
 export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKnowledge, question: string, context: AnswerValidationContext) {
   const fail = (code: string): never => { throw new AnswerContractError(code); };
   const decision = draft.decision, resolution = draft.resolution;
@@ -60,9 +95,11 @@ export function validateAnswerSemantics(draft: AnswerDraft, knowledge: AnswerKno
   if (decision === "out_of_scope") {
     if (draft.questionTarget !== "unrelated" || draft.evidenceKind !== "none" || resolution !== "complete"
       || draft.review || draft.contactPhone || draft.contactEvidence || draft.eligibilityEvidence.length) fail("out_of_scope_contract");
+    if (clearlyRelatedQuestion(question)) fail("related_question_out_of_scope");
     return;
   }
   if (draft.questionTarget === "unrelated") fail("unrelated_target_mismatch");
+  if (!sourceSupportsSpecificQuestion(draft, knowledge, question)) fail("unsupported_specific_claim");
   const allowed: Record<AnswerDraft["resolution"], readonly AnswerDecision[]> = {
     complete: ["fact", "possible", "impossible"], partial: ["fact"], needs_user: ["need_info"],
     missing_policy: ["consult"], conflict: ["consult"], action_required: ["consult"],
