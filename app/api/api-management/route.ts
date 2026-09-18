@@ -11,13 +11,18 @@ export async function GET(request: Request) {
     if (!day) return Response.json({ error: "조회 기간은 오늘까지 최대 1년으로 선택해 주세요." }, { status: 400 });
     const DB = await ensureKnowledgeSchema();
     const totals = await DB.prepare(`SELECT COUNT(*) AS requests, SUM(CASE WHEN status < 200 OR status >= 300 THEN 1 ELSE 0 END) AS failed,
-      COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens,
-      COALESCE(SUM(thought_tokens), 0) AS thoughtTokens, COALESCE(SUM(cached_tokens), 0) AS cachedTokens,
-      COALESCE(SUM(estimated_usd), 0) AS estimatedUsd, SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
+      CAST(COALESCE(SUM(input_tokens), 0) AS BIGINT) AS "inputTokens", CAST(COALESCE(SUM(output_tokens), 0) AS BIGINT) AS "outputTokens",
+      CAST(COALESCE(SUM(thought_tokens), 0) AS BIGINT) AS "thoughtTokens", CAST(COALESCE(SUM(cached_tokens), 0) AS BIGINT) AS "cachedTokens",
+      COALESCE(SUM(estimated_usd), 0) AS "estimatedUsd", SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
       FROM api_usage WHERE created_at >= ? AND created_at < ?`).bind(day.start, day.end).first();
-    const breakdown = await DB.prepare("SELECT purpose, COUNT(*) AS requests, COALESCE(SUM(estimated_usd), 0) AS estimatedUsd, SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced FROM api_usage WHERE created_at >= ? AND created_at < ? GROUP BY purpose ORDER BY requests DESC").bind(day.start, day.end).all();
-    const started = await DB.prepare("SELECT MIN(created_at) AS firstAt FROM api_usage").first<{ firstAt: number | null }>();
-    const models = await DB.prepare("SELECT model, COUNT(*) AS requests, COALESCE(SUM(estimated_usd), 0) AS estimatedUsd, SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced FROM api_usage WHERE created_at >= ? AND created_at < ? GROUP BY model ORDER BY requests DESC").bind(day.start, day.end).all<{model: string; requests: number; estimatedUsd: number; unpriced: number}>();
+    const breakdown = await DB.prepare(`SELECT purpose, COUNT(*) AS requests, COALESCE(SUM(estimated_usd), 0) AS "estimatedUsd", SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced FROM api_usage WHERE created_at >= ? AND created_at < ? GROUP BY purpose ORDER BY requests DESC`).bind(day.start, day.end).all();
+    const started = await DB.prepare(`SELECT MIN(created_at) AS "firstAt" FROM api_usage`).first<{ firstAt: number | null }>();
+    const models = await DB.prepare(`SELECT model, COUNT(*) AS requests,
+      CAST(COALESCE(SUM(input_tokens), 0) AS BIGINT) AS "inputTokens", CAST(COALESCE(SUM(output_tokens), 0) AS BIGINT) AS "outputTokens",
+      CAST(COALESCE(SUM(thought_tokens), 0) AS BIGINT) AS "thoughtTokens", COALESCE(SUM(estimated_usd), 0) AS "estimatedUsd",
+      SUM(CASE WHEN input_tokens IS NULL OR output_tokens IS NULL THEN 1 ELSE 0 END) AS unmeasured,
+      SUM(CASE WHEN estimated_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
+      FROM api_usage WHERE created_at >= ? AND created_at < ? GROUP BY model ORDER BY requests DESC`).bind(day.start, day.end).all<{model: string; requests: number; inputTokens: number; outputTokens: number; thoughtTokens: number; estimatedUsd: number; unmeasured: number; unpriced: number}>();
     const settings = await DB.prepare("SELECT gemini_api_key_encrypted FROM site_settings WHERE id = 'default'").first<{ gemini_api_key_encrypted: string | null }>();
     const apiKey = await getConfiguredGeminiApiKey(settings);
     const model = configuredAiModel(apiKey);
