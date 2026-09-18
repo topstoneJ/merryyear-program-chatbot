@@ -113,6 +113,9 @@ test("consultation summaries filter the detail list by result and category", asy
   assert.match(page, /삭제할 상담내역의 범위를 선택해 주세요/);
   assert.match(page, /target\.map\(\(item\) => item\.id\)/);
   assert.match(page, /상담내역 삭제 권한이 없습니다/);
+  assert.doesNotMatch(page, /consultation-retention-note/);
+  assert.match(page, /className="consultation-retention-help">모든 상담내역은 개인정보보호를 위해 1년이 경과시 자동 삭제돼요/);
+  assert.match(await readFile(new URL("app\/globals.css", root), "utf8"), /\.consultation-bulk-delete-modal h2 \{ font-weight: 800; \}/);
   assert.match(page, /aria-pressed=\{decisionFilter === key\}/);
   assert.match(page, /aria-pressed=\{categoryFilter === item\.category\}/);
   assert.match(page, /pagedConsultations\.map/);
