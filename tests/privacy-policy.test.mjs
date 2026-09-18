@@ -11,6 +11,11 @@ test("privacy policy placeholders use the configured institution details", async
   new Function("exports", ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(output);
   const resolved = output.resolvePrivacyPolicy("{기관명} 문의: {연락처}", "테스트재단", "02-123-4567");
   assert.equal(resolved, "테스트재단 문의: 02-123-4567");
+  const refreshed = output.refreshPrivacyPolicyDraft(output.DEFAULT_PRIVACY_POLICY, { server: "Microsoft Azure App Service", region: "Korea Central", apiProvider: "Google", apiModel: "gemini-test" });
+  assert.match(refreshed, /서비스 운영 서버: Microsoft Azure App Service\(Korea Central\)/);
+  assert.match(refreshed, /Google API\(gemini-test\)/);
+  assert.doesNotMatch(refreshed, /OpenAI GPT API/);
+  assert.match(refreshed, /4\. 제3자 제공/);
   assert.match(output.DEFAULT_PRIVACY_POLICY, /국외 이전/);
   assert.match(output.DEFAULT_PRIVACY_POLICY, /OpenAI GPT API/);
   assert.match(output.DEFAULT_PRIVACY_POLICY, /store: false/);
@@ -33,6 +38,8 @@ test("main and settings screens expose readable and editable privacy dialogs", a
   assert.match(settings, /onClick=\{openPrivacyEditor\}>내용 편집<\/button>/);
   assert.match(settings, /privacyEditorOpen &&/);
   assert.match(settings, /privacy-policy-only/);
+  assert.match(settings, /privacy-policy-refresh/);
+  assert.match(settings, /privacyRefreshing \? "수정본 생성 중…" : "새로고침"/);
   assert.match(settings, /maxLength=\{20_000\}/);
   assert.doesNotMatch(settings, /일반 텍스트로 입력해 주세요\. 줄바꿈은 메인 팝업에도 그대로 적용됩니다\./);
   assert.match(css, /\.home-utility-actions \{[^}]*justify-content: flex-end/);
@@ -40,6 +47,9 @@ test("main and settings screens expose readable and editable privacy dialogs", a
   assert.match(css, /\.share-business \{[^}]*min-height: 34px/);
   assert.match(css, /\.privacy-editor-modal > h2 \{ font-weight: 800; \}/);
   assert.match(css, /\.privacy-policy-modal/);
+  assert.match(css, /\.privacy-policy-modal h2 \{[^}]*font-weight: 800/);
+  assert.match(css, /\.answer-settings-actions \{ position: static;/);
+  assert.doesNotMatch(css, /\.answer-settings-actions \{[^}]*position: sticky/);
   assert.match(css, /\.privacy-editor-modal/);
 });
 
