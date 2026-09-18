@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {sourceLoader} from './load-source.mjs';
-const {matchFaq,FAQ_TOPICS}=sourceLoader()('app/faq-match.ts');
+const {matchFaq,FAQ_TOPICS,faqTopicsFor}=sourceLoader()('app/faq-match.ts');
+test('FAQ topics follow the business profile instead of forcing welfare questions',()=>{
+ const facility=faqTopicsFor('사회적기업 시설운영비 지원사업','운영비 대출과 상환 조건 안내');
+ assert.equal(facility.length,8);
+ assert.deepEqual(facility.map(([id])=>id),['사업 소개','신청 요건','지원 용도','지원 한도','금리와 상환','담보와 보증','제출 서류','신청과 문의']);
+ assert.equal(facility.some(([id])=>id==='생활비'||id==='공과금'),false);
+ assert.equal(faqTopicsFor('위기아동가정 지원사업','생계비와 공과금 지원'),FAQ_TOPICS);
+});
 test('FAQ accepts only complete approved questions; preserves extra conditions and context',()=>{
  const entries=FAQ_TOPICS.map(([id,question])=>({id,question}));
  assert.equal(matchFaq(entries,'문의 전화번호를 알려주세요!',[])?.id,'전화');

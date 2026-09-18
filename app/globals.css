@@ -94,11 +94,11 @@
 .section-content { min-height: 190px !important; }
 .markdown-preview { min-height: 190px; background: #fff; border: 1px solid #ddd5cc; border-radius: 11px; padding: 16px; overflow-y: auto; }
 .markdown-preview h3, .markdown-preview h4 { color: #463f38; margin: 6px 0 10px; }
-.markdown-preview h3 { font-size: max(var(--admin-min-font, 0px), calc((16px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
-.markdown-preview h4 { font-size: max(var(--admin-min-font, 0px), calc((13px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
-.markdown-preview p { color: #5e574f; margin: 5px 0; font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.65; }
+.markdown-preview h3 { font-size: max(var(--admin-min-font, 0px), calc((14.667px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.markdown-preview h4 { font-size: max(var(--admin-min-font, 0px), calc((11.667px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.markdown-preview p { color: #5e574f; margin: 5px 0; font-size: max(var(--admin-min-font, 0px), calc((9.667px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.65; }
 .markdown-list-item { display: grid; grid-template-columns: 16px 1fr; gap: 3px; }
-.markdown-list-item > span { color: #d45f28; font-size: max(var(--admin-min-font, 0px), calc((11px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.65; font-weight: 900; }
+.markdown-list-item > span { color: #d45f28; font-size: max(var(--admin-min-font, 0px), calc((9.667px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); line-height: 1.65; font-weight: 900; }
 .section-source { background: #faf7f3; border: 1px solid #ece3da; border-radius: 11px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: 12px; padding: 11px; }
 .section-source > span { color: #8a8178; font-size: max(var(--admin-min-font, 0px), calc((9px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); font-weight: 800; }
 .section-source > b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: max(var(--admin-min-font, 0px), calc((9px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
@@ -1482,16 +1482,22 @@ h1 em {
 
 .permissions-card > h2, .account-manager-heading h2, .answer-settings-panel h2 { font-weight: 800; }
 .faq-modal { width:min(700px,94vw); max-height:90vh; overflow-y:auto; padding:32px; }
-.faq-modal h2 { display:flex; justify-content:space-between; align-items:center; padding-right:24px; }
-.faq-modal h2 small { font-size:12px; color:#328b58; background:#f4f5f1; padding:7px 12px; border-radius:20px; }
-.faq-note { font-size:12px; line-height:1.75; background:#f7f5f1; color:#706b65; padding:14px; border-radius:10px; }
+.detail-modal > h2, .faq-modal h2 { font-weight:800; }
+.faq-modal h2 { padding-right:24px; }
+.faq-note { font-size:12px; line-height:1.75; text-align:left; background:#f7f5f1; color:#706b65; padding:14px 14px 14px 31px; border-radius:10px; }
+.faq-note li::marker { color:#706b65; }
 .faq-card { border:1px solid #eee; border-left:3px solid #3da568; border-radius:12px; padding:16px; margin-top:12px; }
+.faq-card, .faq-card header, .faq-card p { text-align:left; }
 .faq-card header { display:flex; justify-content:space-between; gap:16px; font-size:12px; }
+.faq-card header b { display:flex; align-items:center; }
+.faq-approved-dot { flex:0 0 auto; width:10px; height:10px; border-radius:50%; background:#3da568; display:inline-block; }
 .faq-card header span { color:#777; }
-.faq-card p { white-space:pre-wrap; font-size:13px; line-height:1.7; }
-.faq-card details { font-size:12px; color:#777; }
+.faq-card p { white-space:pre-wrap; font-size:12px; line-height:1.75; }
 .faq-card footer { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
 .faq-modal button:not(.modal-close) { border:1px solid #eee; border-radius:8px; padding:8px 12px; background:white; cursor:pointer; }
 .faq-modal button:disabled { opacity:.5; cursor:wait; }
+.faq-modal .faq-icon-button { width:34px; height:34px; display:grid; place-items:center; padding:7px; color:#6f675f; }
+.faq-modal .faq-icon-button.danger { color:#bd4335; }
+.faq-icon-button svg { width:18px; height:18px; }
 .faq-card textarea { width:100%; min-height:150px; padding:12px; margin-top:12px; }
 @media(max-width:600px) { .faq-modal { padding:22px 16px; } .faq-card header { flex-direction:column; gap:6px; } }

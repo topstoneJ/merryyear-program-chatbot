@@ -169,6 +169,26 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
   }, []);
 
   useEffect(() => {
+    if (!businessId || businessId === ADMIN_GUIDE_BUSINESS_ID || previewSettings) return;
+    const controller = new AbortController();
+    fetch(`/api/faq?businessId=${encodeURIComponent(businessId)}&view=questions`, { cache: "no-store", signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then((payload: { questions?: string[] }) => {
+        const questions = [...new Set((payload.questions || []).map(value => value.trim()).filter(Boolean))];
+        if (!questions.length) return;
+        for (let index = questions.length - 1; index > 0; index--) {
+          const selected = Math.floor(Math.random() * (index + 1));
+          [questions[index], questions[selected]] = [questions[selected], questions[index]];
+        }
+        const icons = ["✓", "₩", "▤"];
+        const prompts = questions.slice(0, 3).map((value, index) => ({ icon: icons[index], question: /[?？]$/.test(value) ? value : `${value}?` }));
+        setBusinesses(current => current.map(item => item.id === businessId ? { ...item, prompts } : item));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [businessId, previewSettings]);
+
+  useEffect(() => {
     try {
       const stored = window.localStorage.getItem("program-guide-chatbot-guidance");
       if (stored) {

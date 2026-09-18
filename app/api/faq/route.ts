@@ -2,9 +2,12 @@ import { requireAdminApi } from '@/app/admin-session';
 import { faqContext,listFaq,generateFaq,verifyFaq,type Faq } from '@/db/faq';
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(request:Request) {
-  const businessId=new URL(request.url).searchParams.get('businessId');if(!businessId)return reply({error:'사업을 선택해 주세요.'},400);
+  const url=new URL(request.url),businessId=url.searchParams.get('businessId');if(!businessId)return reply({error:'사업을 선택해 주세요.'},400);
+  if(url.searchParams.get('view')==='questions') {
+    try {const ctx=await faqContext(businessId);return reply({questions:ctx.isPublic?(await listFaq(ctx,businessId)).map(item=>item.question):[]});}catch{return reply({questions:[]});}
+  }
   const denied=await requireAdminApi({businessId});if(denied)return denied;
-  try {const ctx=await faqContext(businessId);return reply({items:await listFaq(ctx,businessId)});}catch{return reply({error:'FAQ를 불러오지 못했습니다.'},503);}
+  try {const ctx=await faqContext(businessId);return reply({items:await listFaq(ctx,businessId),topics:ctx.topics});}catch{return reply({error:'FAQ를 불러오지 못했습니다.'},503);}
 }
 export async function POST(request:Request) {
   const body=await request.json().catch(()=>null);
