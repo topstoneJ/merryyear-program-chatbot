@@ -118,11 +118,13 @@ test('model citations cannot inject invented source names or pages', () => {
   assert.equal(answer.review,true);
 });
 
-test('two failed validations never publish or save the invalid answer', async () => {
+test('two failed validations publish only a deterministic safe fallback', async () => {
   const h = chatHarness({knowledge,draft:personal()});
   const result = await h.ask({question:'신청 자격을 알려주세요.'});
-  assert.equal(result.status,502); assert.equal(result.payload.answer,undefined);
-  assert.equal(h.requests.length,2); assert.equal(h.records.length,0); assert.equal(h.answerCache.size,0);
+  assert.equal(result.status,200); assert.equal(result.payload.answer.decision,'consult');
+  assert.match(result.payload.answer.text,/근거 없이 단정하지 않고 담당자 확인이 필요/);
+  assert.doesNotMatch(result.payload.answer.text,/신청할 수 있어요/);
+  assert.equal(h.requests.length,2); assert.equal(h.records.length,1); assert.equal(h.answerCache.size,0);
 });
 
 test('valid normal answers use one model call and preserve conversation history', async () => {
