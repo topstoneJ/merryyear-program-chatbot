@@ -1,4 +1,5 @@
 "use client";
+import FaqPanel from './faq-panel';
 
 import { brandTheme } from "@/app/branding";
 import { CSSProperties, FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -618,6 +619,7 @@ export default function KnowledgePage() {
               <button className={`data-volume-indicator ${volumeStatus.tone}`} type="button" disabled={loading} aria-haspopup="dialog" onClick={() => setVolumeDialogOpen(true)}>
                 <span className="data-volume-dot" aria-hidden="true" /><span>{loading ? "자료량 확인 중" : volumeStatus.label}</span>
               </button>
+              {business && <FaqPanel key={business.id} businessId={business.id} />}
             </div>
             <div className="source-tabs" role="tablist" aria-label="자료 형식">
               {(Object.keys(TYPE_META) as AddMode[]).map((type) => <button className={sourceType === type ? "active" : ""} type="button" role="tab" aria-selected={sourceType === type} key={type} onClick={() => setSourceType(type)}><span>{TYPE_META[type].icon}</span><b>{TYPE_META[type].label}</b></button>)}

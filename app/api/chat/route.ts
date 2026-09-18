@@ -1,4 +1,5 @@
 import { findBusinessContact, findRegisteredContactDetails, isDirectContactQuestion } from "@/app/answer-contact";
+import { directFaq } from '@/db/faq';
 import { contractRepairInstruction, AnswerContractError } from "@/app/answer-contract";
 import { ANSWER_PLAN_INSTRUCTION, answerPlanSchema, compileAnswerPlan } from "@/app/answer-plan";
 import { ANSWER_REVIEW_INSTRUCTION, AnswerReviewError, answerReviewSchema, validateAnswerReview, reviewRepairInstruction, reviewEvidence, reviewClaims } from "@/app/answer-review";
@@ -262,7 +263,8 @@ export async function POST(request: Request) {
       loadChatConfiguration(timing),
     ]);
     stage = "generation";
-    const generatedAnswer = await timing.measure("generation", () => askGemini(businessId, business.name, question, knowledge, history, timing, { configuration }));
+    const faq = await directFaq(businessId,question,history,knowledge);
+    const generatedAnswer: Answer = faq ? {text:faq.text,source:knowledge.sources.find(s=>s.id===faq.source)?.title||faq.source,page:faq.page,confidence:95,review:false,decision:'fact'} : await timing.measure("generation", () => askGemini(businessId, business.name, question, knowledge, history, timing, { configuration }));
     const answer = { ...generatedAnswer,
       text: maskResidentRegistrationNumber(distinguishSectionBullets(removeMarkdownEmphasis(generatedAnswer.text))),
       source: maskResidentRegistrationNumber(generatedAnswer.source),

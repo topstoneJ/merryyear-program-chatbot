@@ -1481,3 +1481,17 @@ h1 em {
 .main-source-control button { margin-bottom: 12px; }
 
 .permissions-card > h2, .account-manager-heading h2, .answer-settings-panel h2 { font-weight: 800; }
+.faq-modal { width:min(700px,94vw); max-height:90vh; overflow-y:auto; padding:32px; }
+.faq-modal h2 { display:flex; justify-content:space-between; align-items:center; padding-right:24px; }
+.faq-modal h2 small { font-size:12px; color:#328b58; background:#f4f5f1; padding:7px 12px; border-radius:20px; }
+.faq-note { font-size:12px; line-height:1.75; background:#f7f5f1; color:#706b65; padding:14px; border-radius:10px; }
+.faq-card { border:1px solid #eee; border-left:3px solid #3da568; border-radius:12px; padding:16px; margin-top:12px; }
+.faq-card header { display:flex; justify-content:space-between; gap:16px; font-size:12px; }
+.faq-card header span { color:#777; }
+.faq-card p { white-space:pre-wrap; font-size:13px; line-height:1.7; }
+.faq-card details { font-size:12px; color:#777; }
+.faq-card footer { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.faq-modal button:not(.modal-close) { border:1px solid #eee; border-radius:8px; padding:8px 12px; background:white; cursor:pointer; }
+.faq-modal button:disabled { opacity:.5; cursor:wait; }
+.faq-card textarea { width:100%; min-height:150px; padding:12px; margin-top:12px; }
+@media(max-width:600px) { .faq-modal { padding:22px 16px; } .faq-card header { flex-direction:column; gap:6px; } }
