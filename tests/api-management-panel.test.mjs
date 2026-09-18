@@ -90,3 +90,17 @@ test('saving a key refreshes the latest selected dates, not dates captured when 
   h.requests[3].resolve(Response.json(usage('new-key-model')));await flush();
   assert.match(h.text(h.render()),/new-key-model/);
 });
+
+test('usage from multiple API models remains visible with per-model tokens and fees', async t => {
+  const h=harness(t);h.render();
+  const accumulated=usage('gpt-5.4-mini');
+  accumulated.totals={requests:3,failed:0,inputTokens:4000,outputTokens:600,thoughtTokens:100,cachedTokens:0,estimatedUsd:1.25,unpriced:0};
+  accumulated.models=[
+    {model:'gemini-3.8-flash',provider:'Google',pricingUrl:'https://example.com/google',requests:1,inputTokens:1000,outputTokens:100,thoughtTokens:0,estimatedUsd:0.25,unmeasured:0,unpriced:0},
+    {model:'gpt-5.4-mini',provider:'OpenAI',pricingUrl:'https://example.com/openai',requests:2,inputTokens:3000,outputTokens:500,thoughtTokens:100,estimatedUsd:1,unmeasured:0,unpriced:0},
+  ];
+  h.requests[0].resolve(Response.json(accumulated));await flush();
+  const text=h.text(h.render());
+  assert.match(text,/gemini-3\.8-flash/);assert.match(text,/gpt-5\.4-mini/);
+  assert.match(text,/4,000/);assert.match(text,/700/);assert.match(text,/\$1\.2500/);
+});
