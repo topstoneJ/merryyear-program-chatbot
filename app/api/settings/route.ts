@@ -24,11 +24,14 @@ export async function GET(request: Request) {
       const object = await knowledgeEnv().KNOWLEDGE_FILES?.get(key);
       if (!object) return new Response(null, { status: 404 });
       if (isFavicon) {
+        const original = await new Response(object.body).arrayBuffer();
         try {
-          const icon = await centeredFavicon(await new Response(object.body).arrayBuffer());
+          const icon = await centeredFavicon(original);
           return new Response(icon as Uint8Array<ArrayBuffer>, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
         } catch {
-          return Response.redirect(new URL("/default-favicon.svg", request.url), 302);
+          // A browser can use the uploaded image directly when the optional
+          // server-side image transformer is unavailable on the host.
+          return new Response(original, { headers: { "Content-Type": object.httpMetadata?.contentType || "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });
         }
       }
       return new Response(object.body, { headers: { "Content-Type": object.httpMetadata?.contentType || "image/png", "Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff" } });

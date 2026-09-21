@@ -29,7 +29,7 @@ test("main and settings screens expose readable and editable privacy dialogs", a
     readFile(new URL("app/settings/page.tsx", root), "utf8"),
     readFile(new URL("app/globals.css", root), "utf8"),
   ]);
-  assert.match(home, /<div className="home-utility-actions"><button className=\{`share-business/);
+  assert.match(home, /<div className=\{`home-utility-actions\$\{isAdminGuide \? " guide-actions" : ""\}`\}><button className=\{`share-business/);
   assert.ok(home.indexOf("share-business") < home.indexOf("privacy-home-button"));
   assert.ok(home.indexOf("home-utility-actions") > home.indexOf("homepage-slot"));
   assert.match(home, /aria-labelledby="privacy-policy-title"/);
@@ -43,6 +43,7 @@ test("main and settings screens expose readable and editable privacy dialogs", a
   assert.match(settings, /maxLength=\{20_000\}/);
   assert.doesNotMatch(settings, /일반 텍스트로 입력해 주세요\. 줄바꿈은 메인 팝업에도 그대로 적용됩니다\./);
   assert.match(css, /\.home-utility-actions \{[^}]*justify-content: flex-end/);
+  assert.match(css, /\.home-utility-actions\.guide-actions \{[^}]*margin-top: 14px/);
   assert.match(css, /\.privacy-home-button \{[^}]*min-height: 34px/);
   assert.match(css, /\.share-business \{[^}]*min-height: 34px/);
   assert.match(css, /\.privacy-editor-modal > h2 \{ font-weight: 800; \}/);

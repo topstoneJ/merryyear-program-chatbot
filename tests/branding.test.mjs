@@ -57,6 +57,16 @@ test('settings authenticate uploads, preserve unselected images, and serve saved
   assert.equal(row.favicon_key,originalIcon); assert.equal(row.gemini_api_key_encrypted,'encrypted');
 });
 
+test('saved favicon bytes remain available when host image conversion is unavailable', async () => {
+  const bytes = new Uint8Array(await png.arrayBuffer());
+  const row = {favicon_key:'saved-icon'};
+  const api = await moduleAt('app/api/settings/route.ts', name => name === '@/app/favicon-image' ? {centeredFavicon: async () => { throw new Error('native image runtime unavailable'); }} : name === '@/app/branding' ? branding : name === '@/app/public-settings' ? publicSettingsModule : name === '@/app/admin-session' ? {requireAdminApi: async () => null} : {ensureKnowledgeSchema:async()=>({prepare:()=>({first:async()=>row})}),knowledgeEnv:()=>({KNOWLEDGE_FILES:{async get(){return {body:bytes,httpMetadata:{contentType:'image/png'}};}}})});
+  const image = await api.GET(new Request('https://example.test/api/settings?asset=favicon'));
+  assert.equal(image.status,200);
+  assert.equal(image.headers.get('content-type'),'image/png');
+  assert.deepEqual(new Uint8Array(await image.arrayBuffer()),bytes);
+});
+
 test('default thumbnail uses white 1200x630 canvas and centers the original logo without distortion', async () => {
   const originalImage = globalThis.Image, originalDocument = globalThis.document;
   let drawn, captionDrawn;

@@ -350,7 +350,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           </div>
 
           {!isAdminGuide && <div className="homepage-slot">{websiteLinks[businessId] ? <a className="homepage-link" href={websiteLinks[businessId]} target="_blank" rel="noreferrer"><span>홈페이지 안내 보러가기</span></a> : <span className="homepage-link disabled" aria-disabled="true"><span>홈페이지 안내 보러가기</span></span>}</div>}
-          <div className="home-utility-actions"><button className={`share-business${shareCopied ? " copied" : ""}`} type="button" disabled={!businessId} onClick={copyShareLink} aria-label="현재 사업 챗봇 링크 복사" title="현재 사업 링크 복사">{shareCopied ? "✓ 복사됨" : <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" /></svg>}</button><button className="privacy-home-button" type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침</button></div>
+          <div className={`home-utility-actions${isAdminGuide ? " guide-actions" : ""}`}><button className={`share-business${shareCopied ? " copied" : ""}`} type="button" disabled={!businessId} onClick={copyShareLink} aria-label="현재 사업 챗봇 링크 복사" title="현재 사업 링크 복사">{shareCopied ? "✓ 복사됨" : <svg viewBox="0 0 24 24" aria-hidden="true" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" /></svg>}</button><button className="privacy-home-button" type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침</button></div>
         </section>
 
         <section className="chat" aria-label="사업 공고문 상담 채팅">
