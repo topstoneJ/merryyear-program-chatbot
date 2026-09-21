@@ -3,3 +3,16 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   workerd: true
+
+# Deployment packages are assembled on Windows and run on Linux App Service.
+# Keep both native targets so Sharp can preserve favicon aspect ratios in Azure.
+supportedArchitectures:
+  os:
+    - current
+    - linux
+  cpu:
+    - current
+    - x64
+  libc:
+    - current
+    - glibc
