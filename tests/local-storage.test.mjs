@@ -58,5 +58,5 @@ test('shared schema initializes locally and independent databases persist throug
 
 test('deployment checks reject local data and secrets while allowing source assets', () => {
   for (const path of ['.local-data/settings.json', '.local-data/objects/abc.json', '.env.local', 'backup.sqlite-wal', 'uploads/file.png', 'public/notice.pdf']) assert.equal(isRuntimeData(path), true, path);
-  for (const path of ['db/local-runtime.ts', '.env.example', 'public/default-favicon.svg', 'public/vendor/pdfjs-6.1.200/pdf.min.mjs']) assert.equal(isRuntimeData(path), false, path);
+  for (const path of ['db/local-runtime.ts', '.env.example', 'public/default-favicon.svg', 'public/vendor/pdfjs-6.4.299/pdf.min.mjs']) assert.equal(isRuntimeData(path), false, path);
 });

@@ -4,6 +4,7 @@ import { accountBusinessIds, getAdminSession } from "@/app/admin-session";
 import { ensureKnowledgeSchema, getConfiguredGeminiApiKey } from "@/db/knowledge";
 import { loadCategories } from "@/db/consultation-categories";
 import { CATEGORY_GUIDANCE, categoryRevision } from "@/db/semantic-category";
+import { maskPersonalInformation } from "@/app/resident-number";
 
 export async function POST() {
   const account = await getAdminSession();
@@ -25,7 +26,7 @@ export async function POST() {
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey, "Api-Revision": "2026-05-20" },
       body: JSON.stringify({ model: configuredAiModel(apiKey), store: false,
         system_instruction: CATEGORY_GUIDANCE,
-        input: JSON.stringify({ categories: categories.map(c => ({ id: c.id, name: c.name })), consultations: rows.map(r => ({ ...r, answer: r.answer.slice(0, 6000) })) }),
+        input: JSON.stringify({ categories: categories.map(c => ({ id: c.id, name: c.name })), consultations: rows.map(r => ({ id: r.id, question: maskPersonalInformation(r.question), answer: maskPersonalInformation(r.answer).slice(0, 6000) })) }),
         response_format: { type: "text", mime_type: "application/json", schema: { type: "object", properties: { classifications: { type: "array", items: { type: "object", properties: { id: { type: "string" }, categoryId: { type: "string", enum: categories.map(c => c.id) } }, required: ["id", "categoryId"] } } }, required: ["classifications"] } },
       }),
     });

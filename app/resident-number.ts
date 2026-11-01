@@ -31,3 +31,14 @@ export function maskIdentityNumbers(input: string) {
 
 // Backward-compatible export for existing callers and stored test harnesses.
 export const maskResidentRegistrationNumber = maskIdentityNumbers;
+
+// Contact masking is for untrusted user content, not published business contacts.
+// Keep the identity-only function for validated answers and source titles.
+export function maskPersonalInformation(input: string) {
+  let masked = maskIdentityNumbers(input);
+  masked = masked.replace(/(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![A-Z0-9])/gi, "[이메일 숨김]");
+  // Korean mobile, landline and internet phone numbers, including +82 forms.
+  // Require known telephone prefixes so dates and ordinary amounts remain intact.
+  masked = masked.replace(/(?<![\dA-Z])(?:0(?:1[016789]|2|3[1-3]|4[1-4]|5[1-5]|6[1-4]|70)|\+82[ .-]?(?:\(0\)[ .-]?)?(?:1[016789]|2|3[1-3]|4[1-4]|5[1-5]|6[1-4]|70))[ .-]?\d{3,4}[ .-]?\d{4}(?!\d)/gi, "[전화번호 숨김]");
+  return masked;
+}

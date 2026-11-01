@@ -1,10 +1,13 @@
 import { ensureKnowledgeSchema } from "@/db/knowledge";
+import { matchesSecretToken } from "@/app/secret-token";
 
 export async function GET(request: Request) {
+  const requestId = crypto.randomUUID();
   const configuredKey = process.env.DRIVE_EXPORT_KEY;
-  const suppliedKey = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!configuredKey || suppliedKey !== configuredKey) {
-    return Response.json({ error: "인증이 필요합니다." }, { status: 401 });
+  const suppliedKey = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!matchesSecretToken(configuredKey, suppliedKey)) {
+    console.info("security_event", { event: "drive_export", outcome: "denied", requestId, at: new Date().toISOString() });
+    return Response.json({ error: "인증이 필요합니다." }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
 
   try {
@@ -26,6 +29,7 @@ export async function GET(request: Request) {
       consultationRows.length, latest(consultationRows, "created_at"),
       randomQuestionRows.length, latest(randomQuestionRows, "completed_at"),
     ].join("-");
+    console.info("security_event", { event: "drive_export", outcome: "success", requestId, at: new Date().toISOString() });
     return Response.json({
       schemaVersion: 2,
       dataVersion,
@@ -34,9 +38,9 @@ export async function GET(request: Request) {
       knowledgeSources: knowledgeRows,
       consultations: consultationRows,
       randomQuestions: randomQuestionRows,
-    }, { headers: { "Cache-Control": "no-store" } });
+    }, { headers: { "Cache-Control": "no-store", "X-Request-Id": requestId } });
   } catch (error) {
-    console.error("Drive export failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
+    console.error("Drive export failed", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "백업 데이터를 만들지 못했습니다." }, { status: 500 });
   }
 }

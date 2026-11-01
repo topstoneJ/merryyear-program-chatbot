@@ -6,6 +6,23 @@ const validUsername = (value: string) => /^[a-zA-Z0-9_-]{4,60}$/.test(value);
 const validPassword = (value: string) => value.length >= 8 && value.length <= 20 && /[a-z]/.test(value) && /[A-Z]/.test(value) && /[^a-zA-Z0-9]/.test(value);
 const passwordError = "비밀번호는 영어 대소문자와 특수기호를 포함해 8자 이상 20자 이하로 입력해 주세요.";
 
+type DelegatedPermissions = { businessIds?: string[]; canViewConsultations?: boolean; canDeleteConsultations?: boolean; canManageSettings?: boolean; isSuperAdmin?: boolean };
+// Settings access is not authority to grant access the operator does not have.
+function canDelegate(current: AdminAccount, permissions: DelegatedPermissions) {
+  if (current.is_super_admin) return true;
+  const allowed = new Set(accountBusinessIds(current));
+  return !permissions.isSuperAdmin
+    && (permissions.businessIds || []).every(id => allowed.has(id))
+    && (!permissions.canManageSettings || Boolean(current.can_manage_settings))
+    && (!permissions.canViewConsultations || Boolean(current.can_view_consultations))
+    && (!permissions.canDeleteConsultations || Boolean(current.can_delete_consultations));
+}
+function canManageAccount(current: AdminAccount, target: AdminAccount) {
+  return canDelegate(current, { businessIds: accountBusinessIds(target), isSuperAdmin: Boolean(target.is_super_admin),
+    canManageSettings: Boolean(target.can_manage_settings), canViewConsultations: Boolean(target.can_view_consultations), canDeleteConsultations: Boolean(target.can_delete_consultations) });
+}
+const permissionDenied = () => Response.json({ error: "본인이 가진 권한 범위 안의 계정만 관리하고 권한을 부여할 수 있습니다." }, { status: 403 });
+
 function validAccountInput(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const body = value as Record<string, unknown>;
@@ -31,9 +48,11 @@ export async function GET() {
     const DB = await ensureBootstrapAdmin();
     const result = await DB.prepare("SELECT * FROM admin_accounts ORDER BY is_super_admin DESC, created_at").all<AdminAccount>();
     const current = await getAdminSession();
-    const businesses = (await listBusinesses()).map(item => ({ id: item.id, name: item.name }));
+    if (!current) return Response.json({ error: "관리자 로그인이 필요합니다." }, { status: 401 });
+    const permittedBusinesses = new Set(accountBusinessIds(current));
+    const businesses = (await listBusinesses()).filter(item => current.is_super_admin || permittedBusinesses.has(item.id)).map(item => ({ id: item.id, name: item.name }));
     const allBusinessIds = businesses.map(item => item.id);
-    return Response.json({ accounts: result.results.map(account => publicAccount(account, allBusinessIds)), currentAccountId: current?.id, canManageSuperAdmins: Boolean(current?.is_super_admin), businesses });
+    return Response.json({ accounts: result.results.filter(account => canManageAccount(current, account)).map(account => publicAccount(account, allBusinessIds)), currentAccountId: current.id, canManageSuperAdmins: Boolean(current.is_super_admin), businesses }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const requestId = crypto.randomUUID();
     console.error("api/admin-accounts:GET", { requestId, kind: error instanceof Error ? error.name : "UnknownError" });
@@ -50,6 +69,7 @@ export async function POST(request: Request) {
     if (!validUsername(username)) return Response.json({ error: "아이디는 영문, 숫자, 밑줄, 하이픈으로 4자 이상 입력해 주세요." }, { status: 400 });
     if (!validPassword(password)) return Response.json({ error: passwordError }, { status: 400 });
     if (body.isSuperAdmin && !current?.is_super_admin) return Response.json({ error: "최고관리자만 최고관리자를 지정할 수 있습니다." }, { status: 403 });
+    if (!current || !canDelegate(current, body)) return permissionDenied();
     const allowed = new Set((await listBusinesses()).map(item => item.id)); const businessIds = [...new Set(body.businessIds || [])].filter(id => allowed.has(id)); const encoded = await hashPassword(password), now = Date.now(), DB = await ensureBootstrapAdmin();
     try { await DB.prepare("INSERT INTO admin_accounts (id, username, password_hash, password_salt, business_ids_json, can_manage_settings, can_view_consultations, can_delete_consultations, is_super_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), username, encoded.hash, encoded.salt, JSON.stringify(businessIds), body.isSuperAdmin || body.canManageSettings ? 1 : 0, body.isSuperAdmin || body.canViewConsultations ? 1 : 0, body.isSuperAdmin || (body.canViewConsultations && body.canDeleteConsultations) ? 1 : 0, body.isSuperAdmin ? 1 : 0, now, now).run(); } catch (error) { if (!isUniqueViolation(error)) throw error; return Response.json({ error: "이미 사용 중인 아이디입니다." }, { status: 409 }); }
     return GET();
@@ -67,6 +87,8 @@ export async function PATCH(request: Request) {
     const body = rawBody as { id?: string; username?: string; businessIds?: string[]; canViewConsultations?: boolean; canDeleteConsultations?: boolean; canManageSettings?: boolean; isSuperAdmin?: boolean; currentPassword?: string; newPassword?: string };
     const DB = await ensureBootstrapAdmin(), account = await DB.prepare("SELECT * FROM admin_accounts WHERE id = ?").bind(body.id || "").first<AdminAccount>();
     if (!account) return Response.json({ error: "계정을 찾을 수 없습니다." }, { status: 404 });
+    const current = await getAdminSession();
+    if (!current || !canManageAccount(current, account)) return permissionDenied();
     if (body.username !== undefined || body.newPassword) {
       const username = String(body.username ?? account.username).trim();
       if (!validUsername(username)) return Response.json({ error: "아이디는 영문, 숫자, 밑줄, 하이픈으로 4자 이상 입력해 주세요." }, { status: 400 });
@@ -77,7 +99,8 @@ export async function PATCH(request: Request) {
         else await DB.prepare("UPDATE admin_accounts SET username = ?, updated_at = ? WHERE id = ?").bind(username, Date.now(), account.id).run();
       } catch (error) { if (!isUniqueViolation(error)) throw error; return Response.json({ error: "이미 사용 중인 아이디입니다." }, { status: 409 }); }
     } else {
-      const current = await getAdminSession(), requestedSuperAdmin = Boolean(body.isSuperAdmin);
+      const requestedSuperAdmin = Boolean(body.isSuperAdmin);
+      if (!canDelegate(current, body)) return permissionDenied();
       if (requestedSuperAdmin !== Boolean(account.is_super_admin)) {
         if (!current?.is_super_admin) return Response.json({ error: "최고관리자만 최고관리자 권한을 변경할 수 있습니다." }, { status: 403 });
         if (!requestedSuperAdmin) { const count = await DB.prepare("SELECT COUNT(*) count FROM admin_accounts WHERE is_super_admin = 1").first<{ count: number }>(); if ((count?.count || 0) <= 1) return Response.json({ error: "최고관리자는 한 명 이상 필요합니다." }, { status: 400 }); }
@@ -106,6 +129,7 @@ export async function DELETE(request: Request) {
     const target = await DB.prepare("SELECT * FROM admin_accounts WHERE id = ?").bind(id).first<AdminAccount>();
     if (!target) return Response.json({ error: "계정을 찾을 수 없습니다." }, { status: 404 });
     if (target.is_super_admin) return Response.json({ error: "최고관리자 계정은 삭제할 수 없습니다." }, { status: 400 });
+    if (!canManageAccount(current, target)) return permissionDenied();
     const result = await DB.prepare("DELETE FROM admin_accounts WHERE id = ? AND is_super_admin = 0 AND id != ? AND (SELECT COUNT(*) FROM admin_accounts) > 1").bind(id, current.id).run();
     if (!result.meta.changes) return Response.json({ error: "계정 상태가 변경되어 삭제하지 못했습니다. 새로고침해 주세요." }, { status: 409 });
     return Response.json({ ok: true });

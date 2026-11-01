@@ -6,7 +6,7 @@ const request = (body, method = 'POST') => new Request('https://example.org/api/
 
 function loginHarness(fail = false) {
   let reads = 0;
-  const api = sourceLoader({ '@/app/admin-session': {
+  const api = sourceLoader({ '@/db/admin-login-limits': { consumeAdminLoginAllowance: async () => ({ allowed: true }) }, '@/app/admin-session': {
     ADMIN_COOKIE: 'session',
     async findAdmin() { reads++; if (fail) throw new Error('SECRET_DATABASE_URL'); return { id: 'admin' }; },
     verifyPassword: async () => true,

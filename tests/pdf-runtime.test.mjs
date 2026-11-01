@@ -7,7 +7,7 @@ const root = new URL("../", import.meta.url);
 test("PDF.js is bundled from the installed package and its worker ships publicly", async () => {
   const [page, worker] = await Promise.all([
     readFile(new URL("app/knowledge/page.tsx", root), "utf8"),
-    readFile(new URL("public/vendor/pdfjs-6.1.200/pdf.worker.min.mjs", root)),
+    readFile(new URL("public/vendor/pdfjs-6.4.299/pdf.worker.min.mjs", root)),
   ]);
   assert.match(page, /await import\("pdfjs-dist"\)/);
   assert.match(page, /fileBase64: await fileToBase64\(file\)/);
@@ -29,7 +29,7 @@ test("production bundle contains the packaged PDF.js loader and public worker UR
   const directory = new URL(".next/static/chunks/app/knowledge/", root);
   const files = (await readdir(directory)).filter((name) => name.endsWith(".js"));
   const bundle = (await Promise.all(files.map((name) => readFile(new URL(name, directory), "utf8")))).join("\n");
-  assert.match(bundle, /pdfjs-6\.1\.200\/pdf\.worker\.min\.mjs/);
+  assert.match(bundle, /pdfjs-6\.4\.299\/pdf\.worker\.min\.mjs/);
   assert.match(bundle, /Promise\.all\(\[[A-Za-z_$][\w$]*\.e\(/);
   assert.doesNotMatch(bundle, /Cannot find module/);
 });

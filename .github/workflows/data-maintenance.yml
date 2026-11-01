@@ -1,0 +1,31 @@
+name: Delete expired consultation data
+
+on:
+  schedule:
+    - cron: '17 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-maintenance
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: vars.ENABLE_RETENTION_MAINTENANCE == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Run retention and pending file deletion
+        env:
+          SERVICE_URL: ${{ vars.AZURE_WEBAPP_URL }}
+          MAINTENANCE_KEY: ${{ secrets.RETENTION_MAINTENANCE_KEY }}
+        shell: bash
+        run: |
+          test "${#MAINTENANCE_KEY}" -ge 32
+          [[ "$SERVICE_URL" == https://* ]]
+          curl --fail-with-body --silent --show-error --max-time 180 \
+            --request POST --header "Authorization: Bearer $MAINTENANCE_KEY" \
+            "${SERVICE_URL%/}/api/maintenance"

@@ -8,7 +8,7 @@ async function attempt({password='current-secret',id='target',denied=false}={}){
  const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE admin_accounts(id TEXT PRIMARY KEY,is_super_admin INTEGER); INSERT INTO admin_accounts VALUES('current',0),('target',0),('root',1);");
  const verified=[];const current={id:'current'};
  const DB={prepare(sql){const stmt=db.prepare(sql);return {bind:(...args)=>({first:async()=>stmt.get(...args),run:async()=>({meta:stmt.run(...args)})})}}};
- const deps={'@/app/admin-session':{requireAdminApi:async()=>denied?new Response(null,{status:403}):null,getAdminSession:async()=>current,ensureBootstrapAdmin:async()=>DB,verifyPassword:async(value,account)=>{verified.push(account.id);return value==='current-secret'&&account===current;}},'@/db/knowledge':{}};
+ const deps={'@/app/admin-session':{accountBusinessIds:()=>[],requireAdminApi:async()=>denied?new Response(null,{status:403}):null,getAdminSession:async()=>current,ensureBootstrapAdmin:async()=>DB,verifyPassword:async(value,account)=>{verified.push(account.id);return value==='current-secret'&&account===current;}},'@/db/knowledge':{}};
  const out={};new Function('require','exports',code)(name=>deps[name],out);
  const response=await out.DELETE(new Request('https://test/api/admin-accounts?id='+id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword:password})}));
  const remaining=db.prepare('SELECT id FROM admin_accounts ORDER BY id').all().map(x=>x.id);db.close();return {status:response.status,remaining,verified};

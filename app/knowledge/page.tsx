@@ -65,7 +65,7 @@ const TYPE_META: Record<AddMode, { label: string; icon: string; description: str
 
 async function extractPdfText(file: File) {
   const pdfjs: typeof import("pdfjs-dist") = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs-6.1.200/pdf.worker.min.mjs";
+  pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs-6.4.299/pdf.worker.min.mjs";
   const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
   try {
   const document = await loadingTask.promise;
@@ -408,13 +408,13 @@ export default function KnowledgePage() {
   async function removeBusiness() {
     if (!business || !deleteDialog?.password) return;
     const response = await fetch(`/api/businesses?id=${encodeURIComponent(business.id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: deleteDialog.password }) });
-    const payload = await response.json() as { error?: string };
+    const payload = await response.json() as { error?: string; cleanup?: { pendingFiles: number } };
     if (!response.ok) return setNotice({ tone: "error", text: payload.error || "사업을 삭제하지 못했습니다." });
     const next = businesses.filter((item) => item.id !== business.id);
     setBusinesses(next);
     setBusinessId(next[0]?.id || "");
     setDeleteDialog(null);
-    setNotice(null);
+    setNotice(payload.cleanup?.pendingFiles ? { tone: "error", text: "사업 데이터는 삭제했지만 원본 파일 일부가 삭제 대기 중입니다. 운영 담당자가 정기 정리 작업의 실행 결과를 확인해 주세요." } : null);
   }
 
   async function addSource(event: FormEvent) {

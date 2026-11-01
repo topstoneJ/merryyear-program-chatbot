@@ -1,4 +1,4 @@
-docling==2.104.0
-fastapi==0.116.1
-python-multipart==0.0.20
-uvicorn==0.35.0
+docling[easyocr]==2.145.0
+fastapi==0.162.0
+python-multipart==0.0.33
+uvicorn==0.54.0

@@ -1,4 +1,4 @@
-import { maskIdentityNumbers } from "./resident-number";
+import { maskPersonalInformation } from "./resident-number";
 
 export type ChatTurn = { question: string; answer: string };
 export const MAX_CHAT_TURNS = 100;
@@ -19,7 +19,7 @@ export function parseChatHistory(value: unknown): ChatTurn[] {
       || turn.question.length > 150 || turn.answer.length > 12000) throw new Error("대화 기록 형식이 올바르지 않습니다.");
     size += turn.question.length + turn.answer.length;
     if (size > MAX_CHAT_CHARACTERS) throw new Error(CHAT_LIMIT_MESSAGE);
-    return { question: maskIdentityNumbers(turn.question), answer: maskIdentityNumbers(turn.answer) };
+    return { question: maskPersonalInformation(turn.question), answer: maskPersonalInformation(turn.answer) };
   });
 }
 

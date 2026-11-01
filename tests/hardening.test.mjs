@@ -4,18 +4,6 @@ import { sourceLoader } from './load-source.mjs';
 const load = sourceLoader({ 'next/headers': {}, '@/db/knowledge': {} });
 const { publicWebsiteUrl, fetchWebsite } = load('app/safe-website.ts');
 const { accountBusinessIds } = load('app/admin-session.ts');
-test('worker rejects cross-site writes and catches infrastructure failures without leaking errors', async () => {
-  let calls = 0;
-  const worker = sourceLoader({
-    'vinext/server/image-optimization': {},
-    'vinext/server/app-router-entry': { default: { fetch: async () => { calls++; throw new Error('SECRET_DATABASE_DETAIL'); } } },
-  })('worker/index.ts').default;
-  const denied = await worker.fetch(new Request('https://example.org/api/settings', { method: 'PATCH', headers: { origin: 'https://attacker.example' } }), {}, {});
-  assert.equal(denied.status, 403); assert.equal(calls, 0);
-  const response = await worker.fetch(new Request('https://example.org/api/settings'), {}, {});
-  assert.equal(response.status, 503);
-  const body = await response.json(); assert.ok(body.requestId); assert.doesNotMatch(JSON.stringify(body), /SECRET_DATABASE_DETAIL/);
-});
 test('invalid permission JSON fails closed without crashing', () => {
   for (const value of ['null', '{}', 'true', '"allowed"', 'broken']) assert.deepEqual(accountBusinessIds({ business_ids_json: value }), []);
   assert.deepEqual(accountBusinessIds({ business_ids_json: '["allowed",null,42]' }), ['allowed']);

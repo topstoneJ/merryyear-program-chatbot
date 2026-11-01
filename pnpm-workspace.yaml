@@ -2,7 +2,13 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
-  workerd: true
+
+# Keep patched versions even when peer dependency snapshots retain an older
+# compatible resolution. Do not force major upgrades of development tools.
+overrides:
+  'browserslist@>=4.0.0 <4.28.7': '^4.28.7'
+  'baseline-browser-mapping@>=2.0.0 <2.11.0': '^2.11.0'
+  'brace-expansion@>=5.0.0 <5.0.12': '^5.0.12'
 
 # Deployment packages are assembled on Windows and run on Linux App Service.
 # Keep both native targets so Sharp can preserve favicon aspect ratios in Azure.

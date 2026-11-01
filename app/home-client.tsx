@@ -3,7 +3,7 @@
 import AnswerText from "./answer-text";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME } from "./admin-guide";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS } from "./chat-context";
-import { maskIdentityNumbers } from "./resident-number";
+import { maskPersonalInformation } from "./resident-number";
 import { syncBrowserBranding } from "./browser-branding";
 import { resolvePrivacyPolicy } from "./privacy-policy";
 
@@ -249,7 +249,7 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
 
   async function ask(nextQuestion: string) {
     if (!businessId || previewSettings || conversationLimitReached || dailyLimitReached || messages.some(message => message.thinking)) return;
-    const trimmed = maskIdentityNumbers(nextQuestion.trim());
+    const trimmed = maskPersonalInformation(nextQuestion.trim());
     if (!trimmed || nextQuestion.length > 150) return;
 
     const id = nextId.current++;
@@ -401,10 +401,11 @@ export function HomeClient({ previewSettings, initialSettings }: { previewSettin
           {!conversationLimitReached && question.length > 150 && <p className="question-limit" role="alert">정확한 답변을 위해 150자 이내로 질문해주세요({question.length}/150)</p>}
           <form className={`composer${question.length > 150 ? " over-limit" : ""}${conversationLimitReached || dailyLimitReached ? " conversation-locked" : ""}`} onSubmit={submitQuestion}>
             <label className="sr-only" htmlFor="question">공고문 질문</label>
-            <input id="question" disabled={!businessId || conversationLimitReached || dailyLimitReached} placeholder={previewSettings || businessId ? (isAdminGuide ? "챗봇 운영 방법을 질문해 주세요" : siteSettings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요") : "관리자 화면에서 사업을 먼저 등록해 주세요"} value={question} onChange={(event) => setQuestion(maskIdentityNumbers(event.target.value))} />
+            <input id="question" aria-describedby="chat-privacy-notice" disabled={!businessId || conversationLimitReached || dailyLimitReached} placeholder={previewSettings || businessId ? (isAdminGuide ? "챗봇 운영 방법을 질문해 주세요" : siteSettings.chatPlaceholder ?? "선택한 사업에 대해 질문해 주세요") : "관리자 화면에서 사업을 먼저 등록해 주세요"} value={question} onChange={(event) => setQuestion(event.target.value)} onBlur={() => setQuestion(current => maskPersonalInformation(current))} />
             {question && <button className="clear" type="button" aria-label="질문 지우기" onClick={() => setQuestion("")}>×</button>}
             <button className="send" disabled={!businessId || conversationLimitReached || dailyLimitReached || !question.trim() || question.length > 150 || messages.some(message => message.thinking)} aria-label="질문 보내기">➤</button>
           </form>
+          <p id="chat-privacy-notice" className="chat-privacy-notice">이름·연락처·주민번호 등 개인정보를 입력하지 마세요. {isAdminGuide ? "질문과 대화 내용은 운영 안내를 위해 외부 AI에 전송될 수 있습니다." : "질문과 답변은 상담 품질 관리를 위해 365일 보관을 기준으로 저장되며, AI 답변에는 대화 내용과 사업 자료가 외부 AI에 전송될 수 있습니다."} 해외 처리가 포함될 수 있습니다. <button type="button" onClick={() => setPrivacyOpen(true)}>개인정보처리방침 보기</button></p>
           <p className="notice">{isAdminGuide ? "운영 가이드와 현재 계정의 조회 권한 안에 있는 상태만 답변합니다." : "해당 사업과 관련 없는 내용은 답변하지 않습니다."}</p>
         </section>
       </div>

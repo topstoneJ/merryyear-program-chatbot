@@ -7,7 +7,7 @@ import { getAdminSession, type AdminAccount } from "@/app/admin-session";
 import { loadAdminGuideContext } from "@/app/admin-guide-context";
 import { offlineGuideAnswer } from "@/app/admin-guide-offline";
 import { CHAT_LIMIT_MESSAGE, MAX_CHAT_CHARACTERS, MAX_CHAT_TURNS, chatHistorySize, parseChatHistory, chatContextInput, type ChatTurn } from "@/app/chat-context";
-import { maskResidentRegistrationNumber } from "@/app/resident-number";
+import { maskPersonalInformation, maskResidentRegistrationNumber } from "@/app/resident-number";
 import { trackedGeminiJson } from "@/db/api-usage";
 import { configuredAiModel } from "@/db/ai-provider";
 import { createChatTiming, type ChatTiming } from "@/app/chat-timing";
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
     try { history = parseChatHistory(body.history); }
     catch (error) { return reply({ error: (error as Error).message }, 400); }
     const businessId = body.businessId;
-    const question = typeof body.question === "string" ? maskResidentRegistrationNumber(body.question.trim()) : "";
+    const question = typeof body.question === "string" ? maskPersonalInformation(body.question.trim()) : "";
     if (typeof businessId !== "string" || !businessId || !question || question.length > 150) {
       return reply({ error: "올바른 질문을 입력해 주세요." }, 400);
     }

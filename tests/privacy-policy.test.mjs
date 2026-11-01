@@ -17,10 +17,19 @@ test("privacy policy placeholders use the configured institution details", async
   assert.doesNotMatch(refreshed, /OpenAI GPT API/);
   assert.match(refreshed, /4\. 제3자 제공/);
   assert.match(output.DEFAULT_PRIVACY_POLICY, /국외 이전/);
-  assert.match(output.DEFAULT_PRIVACY_POLICY, /OpenAI GPT API/);
-  assert.match(output.DEFAULT_PRIVACY_POLICY, /store: false/);
-  assert.match(output.DEFAULT_PRIVACY_POLICY, /최대 30일/);
-  assert.doesNotMatch(output.DEFAULT_PRIVACY_POLICY, /Gemini/);
+  assert.doesNotMatch(output.DEFAULT_PRIVACY_POLICY, /Korea Central|OpenAI GPT API|최대 30일|2026년 9월 17일/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /IP 주소의 해시값/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /365일/);
+  assert.match(output.DEFAULT_PRIVACY_POLICY, /기관이 설정한 정기 작업/);
+  assert.match(refreshed, /데이터베이스와 파일 저장소의 지역은 웹서버 지역과 다를 수/);
+  assert.match(refreshed, /반복 질문/);
+  assert.match(refreshed, /승인 FAQ/);
+  const openai = output.refreshPrivacyPolicyDraft(output.DEFAULT_PRIVACY_POLICY, { server: "현재 배포 서버", apiProvider: "OpenAI" });
+  assert.match(openai, /store: false/);
+  assert.match(openai, /모든 로그 보관이 중단되는 것은 아닙니다/);
+  assert.match(openai, /\n4\. 제3자 제공/);
+  const custom = "기관이 확정한 별도 문안";
+  assert.equal(output.resolvePrivacyPolicy(custom, "기관", "연락처"), custom);
 });
 
 test("main and settings screens expose readable and editable privacy dialogs", async () => {

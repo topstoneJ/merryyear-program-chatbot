@@ -15,6 +15,12 @@ test('main preview renders unsaved branding and text from the draft',()=>{
  const html=renderToStaticMarkup(React.createElement(output.HomeClient,{previewSettings:{organizationName:'미리보기 기관',contact:'test',logoUrl:'blob:draft-logo',mainHeadline:'{기관명} 수정된 제목',mainSubcopy:'저장 전 보조 문구',chatbotGreeting:'저장 전 인사말',chatPlaceholder:'궁금한 내용을 적어 주세요',primaryColor:'#123456',secondaryColor:'#abcdef'}}));
  for(const value of ['미리보기 기관','수정된 제목','저장 전 보조 문구','blob:draft-logo','--orange:#123456','--gold:#123456','--hero-gradient-color:#abcdef','placeholder="궁금한 내용을 적어 주세요"']) assert.ok(html.includes(value),value);
  assert.ok(!html.includes('href="/consultations"'));
+ assert.match(html,/id="chat-privacy-notice"/);
+ assert.match(html,/이름·연락처·주민번호 등 개인정보를 입력하지 마세요/);
+ assert.match(html,/365일/);
+ assert.match(html,/해외 처리가 포함될 수 있습니다/);
+ assert.match(html,/개인정보처리방침 보기/);
+ assert.match(html,/aria-describedby="chat-privacy-notice"/);
 });
 
 test('secondary color is saved and previewed, and only colors the home background', async()=>{

@@ -1,4 +1,5 @@
-import { ensureKnowledgeSchema, listBusinesses } from "@/db/knowledge";
+import { ensureKnowledgeSchema, knowledgeEnv, listBusinesses } from "@/db/knowledge";
+import { deleteBusinessData, drainFileDeletions } from "@/db/data-maintenance";
 import { accountBusinessIds, getAdminSession, requireAdminApi, verifyPassword } from "@/app/admin-session";
 import { ADMIN_GUIDE_BUSINESS_ID, ADMIN_GUIDE_BUSINESS_NAME } from "@/app/admin-guide";
 
@@ -92,6 +93,9 @@ export async function PATCH(request: Request) {
     if (body.id === ADMIN_GUIDE_BUSINESS_ID || body.order?.includes(ADMIN_GUIDE_BUSINESS_ID)) return Response.json({ error: "운영 가이드는 수정할 수 없습니다." }, { status: 403 });
     if (body.order) {
       const current = await listBusinesses();
+      const account = await getAdminSession();
+      const allowed = new Set(account ? accountBusinessIds(account) : []);
+      if (!account || (!account.is_super_admin && current.some(business => !allowed.has(business.id)))) return Response.json({ error: "전체 사업의 관리 권한이 있어야 사업 순서를 변경할 수 있습니다." }, { status: 403 });
       const uniqueIds = new Set(body.order);
       const validOrder = body.order.length === current.length
         && uniqueIds.size === current.length
@@ -105,6 +109,7 @@ export async function PATCH(request: Request) {
       return Response.json({ ok: true, businesses: (await listBusinesses()).map(publicBusiness) });
     }
     if (!body.id) return Response.json({ error: "사업 대상을 확인해 주세요." }, { status: 400 });
+    const businessDenied = await requireAdminApi({ settings: true, businessId: body.id }); if (businessDenied) return businessDenied;
     const DB = await ensureKnowledgeSchema();
     if (typeof body.isPublic === "boolean") {
       if (body.isPublic) {
@@ -161,6 +166,7 @@ export async function DELETE(request: Request) {
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return Response.json({ error: "삭제할 사업을 확인해 주세요." }, { status: 400 });
     if (id === ADMIN_GUIDE_BUSINESS_ID) return Response.json({ error: "운영 가이드는 삭제할 수 없습니다." }, { status: 403 });
+    const businessDenied = await requireAdminApi({ settings: true, businessId: id }); if (businessDenied) return businessDenied;
     const account = await getAdminSession(), body = await request.json().catch(() => ({})) as { password?: string };
     if (!account || !await verifyPassword(String(body.password || ""), account)) return Response.json({ error: "본인 비밀번호가 올바르지 않습니다." }, { status: 400 });
     const current = await listBusinesses();
@@ -168,13 +174,10 @@ export async function DELETE(request: Request) {
       return Response.json({ error: "사업을 찾을 수 없습니다." }, { status: 404 });
     }
     const DB = await ensureKnowledgeSchema();
-    await DB.batch([
-      DB.prepare("DELETE FROM knowledge_sources WHERE business_id = ?").bind(id),
-      DB.prepare("DELETE FROM consultations WHERE business_id = ?").bind(id),
-      DB.prepare("DELETE FROM random_questions WHERE business_id = ?").bind(id),
-      DB.prepare("DELETE FROM businesses WHERE id = ?").bind(id),
-    ]);
-    return Response.json({ ok: true });
+    await deleteBusinessData(DB, id);
+    const cleanup = await drainFileDeletions(DB, knowledgeEnv().KNOWLEDGE_FILES);
+    if (cleanup.pendingFiles) console.warn("business_file_cleanup_pending", { pendingFiles: cleanup.pendingFiles });
+    return Response.json({ ok: true, cleanup });
   } catch (error) {
     console.error("Business delete failed", { requestId: crypto.randomUUID(), kind: error instanceof Error ? error.name : "UnknownError" });
     return Response.json({ error: "사업을 삭제하지 못했습니다." }, { status: 500 });

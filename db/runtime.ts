@@ -160,7 +160,7 @@ class AzureBlobBinding implements ObjectBinding {
 
   async delete(key: string) {
     const container = await this.ready();
-    await container.deleteBlob(key, { deleteSnapshots: "include" });
+    await container.getBlobClient(key).deleteIfExists({ deleteSnapshots: "include" });
   }
 }
 

@@ -1,6 +1,6 @@
 import { accountBusinessIds, type AdminAccount } from "@/app/admin-session";
 import { readAnswerSettings } from "@/app/answer-settings";
-import { maskResidentRegistrationNumber } from "@/app/resident-number";
+import { maskPersonalInformation } from "@/app/resident-number";
 import { configuredGeminiApiKeyStatus, ensureKnowledgeSchema, type BusinessRow } from "@/db/knowledge";
 
 type SourceCount = { business_id: string; type: string; status: string; enabled: number; count: number; latest_at: number | null };
@@ -70,7 +70,7 @@ export async function loadAdminGuideContext(account: AdminAccount) {
           business: business.name,
           results: counts.results.filter(row => row.business_id === business.id).map(row => ({ decision: row.decision, category: row.category, count: row.count, reviewRequired: row.review_count })),
         })),
-        repeatedQuestions: repeated.results.map(row => ({ business: businessNames.get(row.business_id), question: maskResidentRegistrationNumber(row.question).slice(0, 150), count: row.count })),
+        repeatedQuestions: repeated.results.map(row => ({ business: businessNames.get(row.business_id), question: maskPersonalInformation(row.question).slice(0, 150), count: row.count })),
       };
     }
   }

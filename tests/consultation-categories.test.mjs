@@ -12,6 +12,7 @@ function moduleAt(path, deps = {}) {
 const helper = moduleAt("../db/consultation-categories.ts");
 const classifier = moduleAt("../db/consultation-decision.ts");
 function setup() {
+  const modelInputs = [];
   const db = new DatabaseSync(":memory:");
   db.exec("CREATE TABLE consultations (id TEXT PRIMARY KEY, business_id TEXT, question TEXT, answer TEXT, summary TEXT, decision TEXT, category TEXT, source TEXT, confidence INTEGER, review INTEGER, created_at INTEGER)");
   db.exec(readFileSync(new URL("../drizzle/0011_neat_vermin.sql", import.meta.url), "utf8"));
@@ -23,19 +24,20 @@ function setup() {
   }, async batch(statements) { db.exec("BEGIN"); try { const result = []; for (const statement of statements) result.push(await statement.run()); db.exec("COMMIT"); return result; } catch (error) { db.exec("ROLLBACK"); throw error; } } };
   let account = { business_ids_json: '["allowed"]', is_super_admin: 0 };
   db.exec("CREATE TABLE random_questions (knowledge_source_id TEXT)");
-  const deps = { "@/app/answer-response": sourceLoader()("app/answer-response.ts"), "@/app/business-hours": moduleAt("../app/business-hours.ts"), "@/db/source-limits": moduleAt("../db/source-limits.ts"), "@/app/knowledge/source-limits": moduleAt("../app/knowledge/source-limits.ts"), "@/db/consultation-categories": helper, "@/db/consultation-decision": classifier, "@/db/semantic-category": moduleAt("../db/semantic-category.ts"), "@/db/ai-provider": { configuredAiModel: () => "gemini-3.8-flash" }, "@/db/knowledge": { getConfiguredGeminiApiKey: async () => "test-key", ensureKnowledgeSchema: async () => DB, deleteExpiredConsultations: async () => ({ meta: { changes: 0 } }), getBusiness: async () => ({}), listBusinesses: async () => [{ id: "allowed", contact_hours: "평일 10:00~12:00, 14:00~17:00" }, { id: "other", contact_hours: "평일 10:00~12:00, 14:00~17:00" }] }, "@/app/admin-session": {
+  const deps = { "@/app/resident-number": sourceLoader()("app/resident-number.ts"), "@/app/answer-response": sourceLoader()("app/answer-response.ts"), "@/app/business-hours": moduleAt("../app/business-hours.ts"), "@/db/source-limits": moduleAt("../db/source-limits.ts"), "@/app/knowledge/source-limits": moduleAt("../app/knowledge/source-limits.ts"), "@/db/consultation-categories": helper, "@/db/consultation-decision": classifier, "@/db/semantic-category": moduleAt("../db/semantic-category.ts"), "@/db/ai-provider": { configuredAiModel: () => "gemini-3.8-flash" }, "@/db/knowledge": { getConfiguredGeminiApiKey: async () => "test-key", ensureKnowledgeSchema: async () => DB, deleteExpiredConsultations: async () => ({ meta: { changes: 0 } }), getBusiness: async () => ({}), listBusinesses: async () => [{ id: "allowed", contact_hours: "평일 10:00~12:00, 14:00~17:00" }, { id: "other", contact_hours: "평일 10:00~12:00, 14:00~17:00" }] }, "@/app/admin-session": {
     getAdminSession: async () => account, accountBusinessIds: value => JSON.parse(value.business_ids_json), requireAdminApi: async options => !account ? Response.json({}, { status: 401 }) : options?.businessId && !JSON.parse(account.business_ids_json).includes(options.businessId) ? Response.json({}, { status: 403 }) : null,
   } };
   const supplement = moduleAt("../app/api/consultations/supplement/route.ts", deps);
   deps.__fetch = async (_url, init) => {
     const data = JSON.parse(JSON.parse(init.body).input);
+    modelInputs.push(data);
     return Response.json({ steps: [{ type: "model_output", content: [{ type: "text", text: JSON.stringify({ classifications: data.consultations.map(row => ({ id: row.id, categoryId: "지출 증빙" })) }) }] }] });
   };
   const reclassify = moduleAt("../app/api/consultations/reclassify/route.ts", deps);
   const categories = moduleAt("../app/api/consultation-categories/route.ts", deps);
   const consultations = moduleAt("../app/api/consultations/route.ts", deps);
   const request = (body, method = "POST") => new Request("https://test/api", { method, body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
-  return { db, DB, reclassify, categories, consultations, supplement, request, setAccount: value => { account = value; } };
+  return { db, DB, reclassify, categories, consultations, supplement, request, modelInputs, setAccount: value => { account = value; } };
 }
 
 test("defaults, rename, add, duplicate protection, delete redirects, and no default resurrection", async () => {
@@ -192,4 +194,19 @@ test('explicit facts survive listing and legacy conflict results normalize to co
  const s=setup();await helper.loadCategories(s.DB);
  for(const [id,decision,answer] of [['fact','fact','불가능합니다. 인건비 사용만 제한됩니다.'],['conflict','conflict','등록된 자료 상으로 확인이 어렵습니다. 담당자에게 문의해 주세요']])s.db.prepare("INSERT INTO consultations (id,business_id,question,answer,summary,decision,category,source,confidence,review,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)").run(id,'allowed','지원 내용?',answer,'요약',decision,'지원 내용','자료',65,0,Date.now());
  const data=await(await s.consultations.GET(new Request('https://test/api/consultations'))).json();assert.equal(data.consultations.find(c=>c.id==='fact').decision,'fact');assert.equal(data.consultations.find(c=>c.id==='conflict').decision,'consult');assert.equal(data.consultations.find(c=>c.id==='conflict').review,true);assert.equal(s.db.prepare("SELECT decision FROM consultations WHERE id='conflict'").get().decision,'consult');s.db.close();
+});
+
+test('semantic backfill masks contact information from older stored conversations before AI transfer', async () => {
+  const s = setup();
+  try {
+    await helper.loadCategories(s.DB);
+    s.db.prepare("INSERT INTO consultations (id, business_id, question, answer, category, category_manual, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run("legacy-private", "allowed", "전화 010-1234-5678", "이메일 old@example.org", "기타", 0, Date.now());
+    const response = await s.reclassify.POST();
+    assert.equal(response.status, 200);
+    assert.equal(s.modelInputs.length, 1);
+    assert.deepEqual(s.modelInputs[0].consultations, [{ id: "legacy-private", question: "전화 [전화번호 숨김]", answer: "이메일 [이메일 숨김]" }]);
+    // The read-only transfer guard does not silently rewrite historical records.
+    assert.equal(s.db.prepare("SELECT question FROM consultations WHERE id = 'legacy-private'").get().question, "전화 010-1234-5678");
+  } finally { s.db.close(); }
 });

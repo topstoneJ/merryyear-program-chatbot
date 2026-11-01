@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// The Cloudflare worker is not executed by Next.js on Azure or localhost.
+// Apply the same origin check to Azure and local Next.js API writes.
 export function proxy(request: NextRequest) {
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
     const origin = request.headers.get("origin");

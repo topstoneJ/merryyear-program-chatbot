@@ -5,11 +5,12 @@ import { Readable } from 'node:stream';
 import { sourceLoader } from './load-source.mjs';
 
 function runtimeHarness({ failInitialization = false, failRollback = false, poolSize = '5' } = {}) {
-  let pool, creates = 0, upload;
+  let creates = 0, upload;
+  const pools = [];
   const released = [];
   const originalFailure = new Error('database-private-detail');
   class FakePool extends EventEmitter {
-    constructor(options) { super(); this.options = options; pool = this; }
+    constructor(options) { super(); this.options = options; pools.push(this); }
     async connect() {
       return {
         async query(sql) {
@@ -43,7 +44,7 @@ function runtimeHarness({ failInitialization = false, failRollback = false, pool
       './storage-mode': { storageMode: () => 'azure' },
       './local-runtime': {},
     })('db/runtime.ts').runtimeEnv();
-    return { ...runtime, pool, released, originalFailure, creates: () => creates, upload: () => upload };
+    return { ...runtime, pool: pools[0], released, originalFailure, creates: () => creates, upload: () => upload };
   } finally {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;

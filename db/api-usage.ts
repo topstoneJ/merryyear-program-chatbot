@@ -2,6 +2,15 @@ import { knowledgeEnv } from "./knowledge";
 import { readApiUsage } from "./api-pricing";
 import { normalizeAiPayload, prepareAiRequest } from "./ai-provider";
 
+// Bound every provider call, including response-body reads. Preserve shorter
+// caller deadlines and cancellation instead of replacing their signals.
+export function boundedAiRequest(init: RequestInit): RequestInit {
+  const configured = Number(process.env.AI_REQUEST_TIMEOUT_MS || 60_000);
+  const timeout = Number.isSafeInteger(configured) && configured >= 1_000 && configured <= 180_000 ? configured : 60_000;
+  const deadline = AbortSignal.timeout(timeout);
+  return { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline };
+}
+
 async function record(model: string, purpose: string, status: number, payload: unknown) {
   try {
     const at = Date.now();
@@ -14,7 +23,7 @@ async function record(model: string, purpose: string, status: number, payload: u
 export async function trackedGeminiFetch(purpose: "chat" | "knowledge" | "conflict" | "classification", init: RequestInit) {
   const headers = new Headers(init.headers);
   const apiKey = headers.get("x-goog-api-key") || headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  const request = prepareAiRequest(apiKey, init);
+  const request = prepareAiRequest(apiKey, boundedAiRequest(init));
   const model = request.model;
   let response: Response;
   try { response = await fetch(request.url, request.init); }
@@ -33,7 +42,7 @@ export async function trackedGeminiJson<T>(purpose: "chat", init: RequestInit,
 ): Promise<{ response: Response; payload: T }> {
   const headers = new Headers(init.headers);
   const apiKey = headers.get("x-goog-api-key") || headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  const request = prepareAiRequest(apiKey, init);
+  const request = prepareAiRequest(apiKey, boundedAiRequest(init));
   const model = request.model;
   const started = performance.now();
   let response: Response | undefined;

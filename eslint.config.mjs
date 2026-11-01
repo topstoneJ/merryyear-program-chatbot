@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Third-party distribution files are checked by dependency audits, not our source lint rules.
+    "public/vendor/**",
   ]),
 ]);
 
