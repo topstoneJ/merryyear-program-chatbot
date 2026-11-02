@@ -72,7 +72,7 @@ AI는 질문의 뜻과 앞선 대화를 파악한 뒤 선택한 사업의 공개
 	개발 초기 테스트 사이트
 	현행 운영 안내에서 제외함. 서비스 폐쇄 여부는 소유자가 별도 확인합니다.
 	소스코드
-	https://github.com/topstoneJ/merryyear-program-chatbot-production
+	https://github.com/topstoneJ/merryyear-program-chatbot
 	최종 제출 저장소 (소스코드·문서 반영 예정)
 	https://github.com/aihae2026/aihae_final15
 	데모 영상
