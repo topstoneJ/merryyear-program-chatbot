@@ -10,7 +10,8 @@ from pathlib import Path
 def az(*args):
     result = subprocess.run(['az', *args, '--output', 'json'], capture_output=True, text=True)
     if result.returncode:
-        raise RuntimeError('Azure command failed: ' + ' '.join(args[:3]))
+        code = re.search(r'\((AuthorizationFailed|ResourceNotFound|Forbidden|[A-Za-z]+Error)\)', result.stderr)
+        raise RuntimeError('Azure command failed: ' + ' '.join(args[:3]) + (' [' + code.group(1) + ']' if code else ''))
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
@@ -51,13 +52,17 @@ try:
 except Exception as error:
     runtime_error = type(error).__name__
 
-plan = az('appservice', 'plan', 'show', '--ids', app['serverFarmId'])
+try:
+    plan = az('appservice', 'plan', 'show', '--ids', app['serverFarmId'])
+    plan_info = {'sku': plan['sku'], 'location': plan['location']}
+except RuntimeError as error:
+    plan_info = {'unavailable': str(error)}
 report = {
     'mode': mode, 'app': name, 'location': app['location'], 'state': app['state'],
     'httpsOnly': app['httpsOnly'], 'minTlsVersion': config['minTlsVersion'],
     'scmMinTlsVersion': config.get('scmMinTlsVersion'), 'linuxFxVersion': config['linuxFxVersion'],
     'runtimeNode': runtime, 'runtimeProbeError': runtime_error,
-    'plan': {'sku': plan['sku'], 'location': plan['location']}, 'resources': resources,
+    'plan': plan_info, 'resources': resources,
     'resourceInventoryAvailable': inventory_available,
     'settings': {k: settings[k] for k in ['DOCLING_SERVICE_URL', 'AZURE_STORAGE_ACCOUNT_NAME',
         'AZURE_STORAGE_CONTAINER_NAME', 'GEMINI_MODEL', 'OPENAI_MODEL', 'ANTHROPIC_MODEL'] if k in settings},
