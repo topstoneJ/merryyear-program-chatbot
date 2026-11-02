@@ -144,7 +144,7 @@ GitHub 저장소의 `production` 환경에는 Azure 로그인 정보인 `AZURE_C
 | Container Apps·Container Registry | 자체 Docling PDF 분석 | 선택 | CPU·메모리·실행 시간·이미지 보관 |
 | 로컬 Node.js·SQLite | 개발·검증 | 로컬 필수 | Azure 인프라 요금 없음, 외부 AI 사용분은 별도 |
 
-실제 리전·플랜·자료량이 정해지지 않아 고정 월 비용을 제시하지 않습니다. [Azure 가격 계산기](https://azure.microsoft.com/pricing/calculator/)와 선택한 공급사의 가격표로 도입 기관의 예상 사용량을 계산합니다. 제출 문서의 예상 비용은 당시 가정에 따른 예시이며 현재 요금 견적이 아닙니다.
+설치 순서와 가정을 명시한 [월 비용 계산 예시](docs/INSTALLATION_COSTS.md)를 제공합니다. 2026-11-02 공개 단가를 적용한 소규모 예시의 인프라 소계는 월 약 USD 36.47이며 AI·추가 네트워크·백업·로그·세금·선택 Docling은 별도입니다. 실제 사용량은 [Azure 가격 계산기](https://azure.microsoft.com/pricing/calculator/)와 선택한 공급사의 가격표로 계산합니다. 제출 문서의 예상 비용은 당시 가정에 따른 예시이며 현재 요금 견적이 아닙니다.
 
 ## AI 공급자와 전송 범위
 

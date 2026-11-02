@@ -24,7 +24,8 @@ if mode == 'apply':
     if len(key) < 32:
         raise RuntimeError('Separate maintenance secret is required')
     az('webapp', 'update', *scope, '--https-only', 'true')
-    az('webapp', 'config', 'set', *scope, '--min-tls-version', '1.2', '--scm-min-tls-version', '1.2')
+    az('webapp', 'config', 'set', *scope, '--generic-configurations',
+       json.dumps({'minTlsVersion': '1.2', 'scmMinTlsVersion': '1.2'}))
     az('webapp', 'config', 'appsettings', 'set', *scope, '--settings', 'RETENTION_MAINTENANCE_KEY=' + key)
 
 app = az('webapp', 'show', *scope)
@@ -61,7 +62,7 @@ report = {
     'mode': mode, 'app': name, 'location': app['location'], 'state': app['state'],
     'httpsOnly': app['httpsOnly'], 'minTlsVersion': config['minTlsVersion'],
     'scmMinTlsVersion': config.get('scmMinTlsVersion'), 'linuxFxVersion': config['linuxFxVersion'],
-    'runtimeNode': runtime, 'runtimeProbeError': runtime_error,
+    'scmNode': runtime, 'runtimeProbeError': runtime_error,
     'plan': plan_info, 'resources': resources,
     'resourceInventoryAvailable': inventory_available,
     'settings': {k: settings[k] for k in ['DOCLING_SERVICE_URL', 'AZURE_STORAGE_ACCOUNT_NAME',

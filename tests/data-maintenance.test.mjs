@@ -79,14 +79,19 @@ test('maintenance requires a dedicated strong token and reports retry failures',
     '@/db/knowledge': { ensureKnowledgeSchema: async () => ({}), knowledgeEnv: () => ({ KNOWLEDGE_FILES: null }) },
     '@/db/data-maintenance': { runDataMaintenance: async () => { calls++; return { pendingFiles: 1 }; } },
   });
-  const { POST } = load('app/api/maintenance/route.ts');
+  const { GET, POST } = load('app/api/maintenance/route.ts');
   const request = token => new Request('https://test/api/maintenance', { method: 'POST', headers: { authorization: `Bearer ${token}` } });
   try {
     process.env.RETENTION_MAINTENANCE_KEY = '';
     assert.equal((await POST(request('anything'))).status, 503);
+    assert.equal((await GET(request('anything'))).status, 503);
     process.env.RETENTION_MAINTENANCE_KEY = 'maintenance-secret-for-tests-only-1234';
     assert.equal((await POST(request('wrong'))).status, 401);
+    assert.equal((await GET(request('wrong'))).status, 401);
     assert.equal(calls, 0);
+    const runtime = await GET(request(process.env.RETENTION_MAINTENANCE_KEY));
+    assert.deepEqual(await runtime.json(), { status: 'ok', node: process.version });
+    assert.equal(calls, 0, 'runtime verification must never delete data');
     assert.equal((await POST(request(process.env.RETENTION_MAINTENANCE_KEY))).status, 503);
     assert.equal(calls, 1);
   } finally {
