@@ -29,8 +29,13 @@ if mode == 'apply':
 app = az('webapp', 'show', *scope)
 config = az('webapp', 'config', 'show', *scope)
 settings = {s['name']: s.get('value', '') for s in az('webapp', 'config', 'appsettings', 'list', *scope)}
-resources = az('resource', 'list', '--resource-group', group,
-               '--query', '[].{name:name,type:type,location:location}')
+try:
+    resources = az('resource', 'list', '--resource-group', group,
+                   '--query', '[].{name:name,type:type,location:location}')
+    inventory_available = True
+except RuntimeError:
+    resources = []
+    inventory_available = False
 runtime = None
 runtime_error = None
 try:
@@ -53,6 +58,7 @@ report = {
     'scmMinTlsVersion': config.get('scmMinTlsVersion'), 'linuxFxVersion': config['linuxFxVersion'],
     'runtimeNode': runtime, 'runtimeProbeError': runtime_error,
     'plan': {'sku': plan['sku'], 'location': plan['location']}, 'resources': resources,
+    'resourceInventoryAvailable': inventory_available,
     'settings': {k: settings[k] for k in ['DOCLING_SERVICE_URL', 'AZURE_STORAGE_ACCOUNT_NAME',
         'AZURE_STORAGE_CONTAINER_NAME', 'GEMINI_MODEL', 'OPENAI_MODEL', 'ANTHROPIC_MODEL'] if k in settings},
     'maintenanceConfigured': len(settings.get('RETENTION_MAINTENANCE_KEY', '')) >= 32,

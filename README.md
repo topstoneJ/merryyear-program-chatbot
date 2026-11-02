@@ -158,7 +158,9 @@ GitHub 저장소의 `production` 환경에는 Azure 로그인 정보인 `AZURE_C
 
 ## 공개와 제3자 구성요소
 
-사용 구성요소·글꼴·PDF 런타임·Docling 모델의 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 확인합니다. 소스 Apache-2.0, 문서 CC BY 4.0 공개는 권리자와 적용 범위를 확인한 뒤 확정할 예정이며, 이번 코드 변경으로 라이선스를 부여하거나 기관 로고·발표자료의 권리를 변경하지 않습니다. 코드 안에 포함된 프롬프트의 적용 범위도 별도 확인이 필요합니다.
+소스코드는 [Apache-2.0](LICENSE), 자체 문서와 자연어 프롬프트는 [CC BY 4.0](LICENSE-DOCS)으로 공개합니다. 코드에 포함된 자연어 AI 지시문에도 CC BY 4.0을 적용하며 이를 조립·검증·실행하는 로직은 Apache-2.0입니다. 정확한 범위와 재사용 시 출처·변경 표시 방법은 [라이선스 안내](docs/LICENSING.md)에 있습니다. 기관 로고·발표자료·등록 사업자료·상담기록·인증정보는 이 공개 라이선스에서 제외합니다.
+
+사용 구성요소·글꼴·PDF 런타임·Docling 모델은 자체 라이선스를 유지합니다. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)와 각 구성요소의 고지를 확인하세요.
 
 보안 문제 제보 방법은 [SECURITY.md](SECURITY.md), 보존·삭제·접속기록의 한계는 [운영 보안 안내](docs/OPERATIONS_SECURITY.md)를 참고하세요.
 

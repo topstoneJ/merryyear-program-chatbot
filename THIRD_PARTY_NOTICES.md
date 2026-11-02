@@ -68,4 +68,4 @@ Dockerfile은 이미지 빌드 중 `docling-tools models download`로 `layout`, 
 - 저장소에 포함된 글꼴·PDF.js의 라이선스 파일을 배포에서 제외하지 않습니다.
 - Node 의존성은 `pnpm-lock.yaml`과 설치 패키지의 라이선스 파일을 대조합니다. 설치 시점의 개발 도구가 제거된 운영 패키지와 구분합니다.
 - Docling 이미지는 직접 패키지 외에도 PyTorch, Docling 하위 패키지, 이미지 처리 라이브러리와 Debian 시스템 패키지를 포함할 수 있습니다. 실제 이미지의 패키지 목록과 `/usr/share/doc/*/copyright` 등 배포본 고지를 함께 확인합니다.
-- 이 목록의 추가는 프로젝트 자체의 저작권자 확정이나 Apache-2.0·CC BY 4.0 공개 승인을 대신하지 않습니다. 자체 소스·문서의 공개 라이선스와 로고·발표자료의 범위는 권리자 확인 후 별도로 확정합니다.
+- 프로젝트 자체의 공개 범위는 `LICENSE`, `LICENSE-DOCS`, `NOTICE`, `docs/LICENSING.md`를 따릅니다. 이 고지는 제3자 구성요소의 라이선스를 변경하지 않으며 로고·발표자료·등록 사업자료의 권리를 부여하지 않습니다.
