@@ -21,7 +21,7 @@ jobs:
       IMAGE_NAME: program-guide-docling
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate deployment variables
         shell: bash
