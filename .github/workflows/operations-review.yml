@@ -1,0 +1,39 @@
+name: Verify and configure existing Azure operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Inspect settings or apply HTTPS TLS and retention secret
+        type: choice
+        options: [inspect, apply]
+        default: inspect
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-operations-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      REVIEW_MODE: ${{ inputs.mode }}
+      RETENTION_MAINTENANCE_KEY: ${{ secrets.RETENTION_MAINTENANCE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Inspect or configure existing resources
+        run: python scripts/azure-operations-review.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operations-review
+          path: operations-review.json
+          retention-days: 7
