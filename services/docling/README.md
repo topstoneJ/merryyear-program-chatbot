@@ -12,6 +12,17 @@ This container converts PDFs into page-preserving Markdown for the main Azure Ap
 
 Build-time model download is intentional. Runtime uses `HF_HUB_OFFLINE=1` so uploaded documents are not sent to model repositories.
 
+## Verified conversion
+
+The [2026-11-02 Linux build and conversion run](https://github.com/topstoneJ/merryyear-program-chatbot/actions/runs/41395086925)
+passed using the real Docling engine with a synthetic Korean text/table page and
+a raster-only scanned page. The check verifies Korean labels, amounts and page
+numbers, rather than substituting the converter. Results, installed packages and
+downloaded model SHA-256 hashes are preserved under `verification/20261102/`.
+These are verification records, not a lock of future model downloads or a
+claim that the optional service is deployed in Azure. The existing main app has
+no `DOCLING_SERVICE_URL` configured and uses its PDF.js fallback.
+
 ## Azure wiring
 
 Deploy this image to an Azure Container App reachable from the App Service. Set the same strong random secret as `DOCLING_SHARED_SECRET` on both services, then set these App Service values:
