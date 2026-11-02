@@ -188,6 +188,9 @@
 .privacy-editor-modal { width: min(820px, calc(100vw - 32px)); max-height: 92dvh; overflow-y: auto; text-align: left; }
 .privacy-editor-modal > h2 { font-weight: 800; }
 .privacy-editor-modal > p { margin: 0 0 14px; }
+.privacy-inquiry-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.privacy-inquiry-fields > p { grid-column: 1 / -1; margin: 0; color: #746b64; font-size: 13px; line-height: 1.6; }
+.privacy-inquiry-fields > button { grid-column: 1 / -1; justify-self: start; }
 .privacy-editor-modal textarea { width: 100%; min-height: 440px; resize: vertical; box-sizing: border-box; border: 1px solid #d9cfc6; border-radius: 13px; padding: 16px; color: #3f3934; background: #fff; font-size: 15px; line-height: 1.7; }
 .privacy-editor-modal textarea:focus { border-color: var(--orange); outline: 3px solid color-mix(in srgb, var(--orange) 12%, transparent); }
 .privacy-editor-meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: #81786f; font-size: 12px; }
@@ -1471,6 +1474,7 @@ h1 em {
   .privacy-settings-card { grid-template-columns: 1fr; }
   .privacy-settings-card > button { justify-self: start; }
   .privacy-editor-modal { padding: 34px 18px 22px; }
+  .privacy-inquiry-fields { grid-template-columns: 1fr; }
   .privacy-editor-modal textarea { min-height: 52dvh; }
 }
 

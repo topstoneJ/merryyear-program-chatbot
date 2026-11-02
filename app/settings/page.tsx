@@ -8,6 +8,7 @@ import { type AnswerSettings } from "@/app/answer-settings";
 import BrandImageUpload from "./brand-image-upload";
 import { createDefaultSocialImage } from "./default-social-image";
 import { syncBrowserBranding } from "../browser-branding";
+import { applyPrivacyInquiry, privacyInquiryFields } from "../privacy-policy";
 type Settings = { organizationName: string; contact: string; logoUrl: string; faviconUrl: string; socialImageUrl: string; socialCaption: string; mainHeadline: string; mainSubcopy: string; chatbotGreeting: string; chatPlaceholder: string; privacyPolicy: string; primaryColor: string; secondaryColor: string; apiKey?: string; apiKeyConfigured?: boolean };
 
 async function whiteImage(name: string, width: number, height: number) {
@@ -47,6 +48,8 @@ export default function SettingsPage() {
   const [previewId, setPreviewId] = useState("");
   const [privacyEditorOpen, setPrivacyEditorOpen] = useState(false);
   const [privacyDraft, setPrivacyDraft] = useState("");
+  const [privacyDepartment, setPrivacyDepartment] = useState("");
+  const [privacyContact, setPrivacyContact] = useState("");
   const [privacySaving, setPrivacySaving] = useState(false);
   const [privacyRefreshing, setPrivacyRefreshing] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState("");
@@ -97,8 +100,17 @@ export default function SettingsPage() {
   function openPrivacyEditor() {
     if (!settings) return;
     setPrivacyDraft(settings.privacyPolicy || "");
+    const inquiry = privacyInquiryFields(settings.privacyPolicy || "");
+    setPrivacyDepartment(inquiry.department);
+    setPrivacyContact(inquiry.contact);
     setPrivacyNotice("");
     setPrivacyEditorOpen(true);
+  }
+  function updatePrivacyInquiry(department = privacyDepartment, contact = privacyContact) {
+    const next = applyPrivacyInquiry(privacyDraft, department, contact);
+    if (next.length > 20_000) { setPrivacyNotice("문의 창구를 적용하려면 전체 내용을 20,000자 이내로 줄여 주세요."); return; }
+    setPrivacyDepartment(department); setPrivacyContact(contact);
+    setPrivacyDraft(next); setPrivacyNotice("");
   }
   async function savePrivacyPolicy() {
     if (!settings || privacySaving) return;
@@ -177,6 +189,6 @@ export default function SettingsPage() {
       {(tab === "general" || tab === "design") && notice && <p className="settings-notice">{notice}</p>}{(tab === "general" || tab === "design") && <div className="settings-actions"><button type="button" className="cancel-button" onClick={openPreview}>메인 미리보기</button><button type="submit" className="knowledge-submit" disabled={saving}>{saving ? "저장하고 있어요…" : "설정 저장"}</button></div>}
     </form>
     {previewId && <div className="settings-preview-screen" role="dialog" aria-modal="true" aria-label="메인 미리보기"><div className="settings-preview-toolbar"><span>저장 전 미리보기 · 실제 설정은 변경되지 않습니다. 채팅 전송은 지원하지 않습니다.</span><button type="button" className="cancel-button" onClick={closePreview}>설정으로 돌아가기</button></div><iframe title="수정 내용이 반영된 메인 미리보기" src={`/settings/preview?draft=${encodeURIComponent(previewId)}`} /></div>}
-    {privacyEditorOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !privacySaving && !privacyRefreshing && setPrivacyEditorOpen(false)}><section className="modal privacy-editor-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-editor-title"><button type="button" className="modal-close" aria-label="닫기" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>×</button><h2 id="privacy-editor-title">개인정보처리방침</h2><p>기본 문안과 새로고침 결과는 검토용 초안입니다. 게시 전에 담당자 이름·연락처, 시행일, 실제 AI 공급자·처리 국가·보관 조건, 데이터베이스·파일 저장 지역, 사용 통계 보유기간, 만 14세 미만 이용 안내와 권리 요구 접수 절차를 기관 기준으로 확인해 주세요. 새로고침 후에도 내용 저장이 필요합니다.</p><textarea value={privacyDraft} maxLength={20_000} disabled={privacyRefreshing} onChange={event => { setPrivacyDraft(event.target.value); setPrivacyNotice(""); }} aria-label="개인정보처리방침 내용" /><div className="privacy-editor-meta"><span>{privacyDraft.length.toLocaleString("ko-KR")}/20,000자</span><span>{'{기관명}'}, {'{연락처}'} 사용 가능</span></div>{privacyNotice && <p className="privacy-editor-error" role="status">{privacyNotice}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => void refreshPrivacyPolicy()}>{privacyRefreshing ? "수정본 생성 중…" : "새로고침"}</button><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>취소</button><button type="button" className="knowledge-submit" disabled={privacySaving || privacyRefreshing || privacyDraft.trim().length < 20} onClick={() => void savePrivacyPolicy()}>{privacySaving ? "저장하고 있어요…" : "내용 저장"}</button></div></section></div>}
+    {privacyEditorOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !privacySaving && !privacyRefreshing && setPrivacyEditorOpen(false)}><section className="modal privacy-editor-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-editor-title"><button type="button" className="modal-close" aria-label="닫기" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>×</button><h2 id="privacy-editor-title">개인정보처리방침</h2><p>기본 문안과 새로고침 결과는 검토용 초안입니다. 게시 전에 실제 개인정보 문의 담당 부서와 연락처(전화번호 또는 이메일), 시행일, 실제 AI 공급자·처리 국가·보관 조건, 데이터베이스·파일 저장 지역, 사용 통계 보유기간, 만 14세 미만 이용 안내와 권리 요구 접수 절차를 기관 기준으로 확인해 주세요. 새로고침 후에도 내용 저장이 필요합니다.</p><div className="privacy-inquiry-fields"><label className="field"><span>개인정보 문의 담당 부서</span><input value={privacyDepartment} maxLength={100} disabled={privacySaving || privacyRefreshing} placeholder="비우면 기관 개인정보 담당부서" onChange={event => updatePrivacyInquiry(event.target.value, privacyContact)} /></label><label className="field"><span>개인정보 문의 연락처</span><input value={privacyContact} maxLength={200} disabled={privacySaving || privacyRefreshing} placeholder={settings.contact?.trim() || "기관 정보에 전화번호 또는 이메일을 등록해 주세요"} onChange={event => updatePrivacyInquiry(privacyDepartment, event.target.value)} /></label><p>책임자 개인 이름 대신 실제 담당 부서명을 안내할 수 있습니다. 대표전화·공용 이메일로 개인정보 문의를 접수할 수 있다면 사용할 수 있습니다. 전용 연락처를 비우면 기관 정보의 연락처를 사용합니다.</p><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => updatePrivacyInquiry()}>문의 창구 양식 적용</button></div><textarea value={privacyDraft} maxLength={20_000} disabled={privacyRefreshing} onChange={event => { setPrivacyDraft(event.target.value); const inquiry = privacyInquiryFields(event.target.value); setPrivacyDepartment(inquiry.department); setPrivacyContact(inquiry.contact); setPrivacyNotice(""); }} aria-label="개인정보처리방침 내용" /><div className="privacy-editor-meta"><span>{privacyDraft.length.toLocaleString("ko-KR")}/20,000자</span><span>{'{기관명}'}, {'{연락처}'}, {'{개인정보담당부서}'} 사용 가능</span></div>{privacyNotice && <p className="privacy-editor-error" role="status">{privacyNotice}</p>}<div className="modal-actions"><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => void refreshPrivacyPolicy()}>{privacyRefreshing ? "수정본 생성 중…" : "새로고침"}</button><button type="button" className="cancel-button" disabled={privacySaving || privacyRefreshing} onClick={() => setPrivacyEditorOpen(false)}>취소</button><button type="button" className="knowledge-submit" disabled={privacySaving || privacyRefreshing || privacyDraft.trim().length < 20} onClick={() => void savePrivacyPolicy()}>{privacySaving ? "저장하고 있어요…" : "내용 저장"}</button></div></section></div>}
   </main>;
 }

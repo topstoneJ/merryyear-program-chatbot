@@ -30,6 +30,19 @@ test("privacy policy placeholders use the configured institution details", async
   assert.match(openai, /\n4\. 제3자 제공/);
   const custom = "기관이 확정한 별도 문안";
   assert.equal(output.resolvePrivacyPolicy(custom, "기관", "연락처"), custom);
+  assert.equal(output.resolvePrivacyPolicy("{개인정보담당부서}: {연락처}", "기관", "  "), "기관 개인정보 담당부서: 기관 개인정보 담당부서");
+  const draft = output.applyPrivacyInquiry("1. 기존 조항\n기관 확정 내용\n\n7. 개인정보 문의\n옛 연락처\n\n8. 시행일\n2026-11-02", "실제 담당팀", "문의공용@example.org");
+  assert.match(draft, /담당 부서: 실제 담당팀\n연락처: 문의공용@example\.org/);
+  assert.match(draft, /1\. 기존 조항\n기관 확정 내용/);
+  assert.match(draft, /8\. 시행일\n2026-11-02/);
+  assert.doesNotMatch(draft, /옛 연락처/);
+  assert.deepEqual(output.privacyInquiryFields(draft), { department: "실제 담당팀", contact: "문의공용@example.org" });
+  const inherited = output.applyPrivacyInquiry(draft, "실제 담당팀", "");
+  assert.match(output.resolvePrivacyPolicy(inherited, "기관", "02-123-4567"), /담당 부서: 실제 담당팀\n연락처: 02-123-4567/);
+  assert.equal(output.privacyInquiryFields(inherited).contact, "");
+  assert.equal(output.applyPrivacyInquiry(inherited, "실제 담당팀", ""), inherited, "repeated application must not duplicate the inquiry section");
+  const emptyFields = output.privacyInquiryFields("7. 개인정보 문의\n담당 부서:\n연락처:\n접수 내용: 문의");
+  assert.deepEqual(emptyFields, { department: "", contact: "" });
 });
 
 test("main and settings screens expose readable and editable privacy dialogs", async () => {

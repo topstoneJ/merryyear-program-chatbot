@@ -32,12 +32,37 @@ export const DEFAULT_PRIVACY_POLICY = `{기관명}(이하 “기관”)은 개�
 기관은 접근권한 관리, 비밀번호 암호화, 전송구간 암호화와 접근통제 등 안전성 확보조치를 시행합니다. AI가 생성한 답변은 등록자료의 출처·페이지와 판정값을 서버에서 다시 확인하며, 최종 선정·지급 등 사람의 판단이 필요한 사항은 담당자 확인을 안내합니다. 일반 이용자를 광고 목적으로 추적하는 쿠키는 사용하지 않으며, 관리자 화면은 로그인 유지를 위한 필수 쿠키를 최대 12시간 사용합니다.
 
 7. 개인정보 문의
-개인정보 관련 문의, 열람·삭제 요청과 고충처리는 {연락처}로 연락해 주세요. 개인정보 침해 상담은 개인정보침해신고센터(국번 없이 118) 또는 개인정보분쟁조정위원회(1833-6972)를 이용할 수 있습니다.`;
+담당 부서: {개인정보담당부서}
+연락처: {연락처}
+접수 내용: 개인정보 열람·정정·삭제·처리정지 요청 및 고충처리
+개인정보 침해 상담은 개인정보침해신고센터(국번 없이 118) 또는 개인정보분쟁조정위원회(1833-6972)를 이용할 수 있습니다.`;
 
 export function resolvePrivacyPolicy(content: string | null | undefined, organizationName: string, contact: string) {
   return (content?.trim() || DEFAULT_PRIVACY_POLICY)
-    .replaceAll("{기관명}", organizationName || "기관")
-    .replaceAll("{연락처}", contact || "기관 개인정보 담당부서");
+    .replaceAll("{기관명}", organizationName.trim() || "기관")
+    .replaceAll("{개인정보담당부서}", "기관 개인정보 담당부서")
+    .replaceAll("{연락처}", contact.trim() || "기관 개인정보 담당부서");
+}
+
+const INQUIRY_SECTION = /(^|\n)7\. 개인정보 문의[^\S\n]*\n([\s\S]*?)(?=\n\d+\.\s|$)/;
+
+export function privacyInquiryFields(content: string) {
+  const section = content.match(INQUIRY_SECTION)?.[2] || "";
+  const department = section.match(/^담당 부서:[^\S\n]*([^\n]*)/m)?.[1]?.trim() || "";
+  const contact = section.match(/^연락처:[^\S\n]*([^\n]*)/m)?.[1]?.trim() || "";
+  return {
+    department: department === "{개인정보담당부서}" ? "" : department,
+    contact: contact === "{연락처}" ? "" : contact,
+  };
+}
+
+export function applyPrivacyInquiry(content: string, department: string, contact: string) {
+  const line = (value: string, limit: number) => value.replace(/[\r\n\u0000-\u001f]/g, " ").trim().slice(0, limit);
+  const section = `7. 개인정보 문의\n담당 부서: ${line(department, 100) || "{개인정보담당부서}"}\n연락처: ${line(contact, 200) || "{연락처}"}\n접수 내용: 개인정보 열람·정정·삭제·처리정지 요청 및 고충처리\n개인정보 침해 상담은 개인정보침해신고센터(국번 없이 118) 또는 개인정보분쟁조정위원회(1833-6972)를 이용할 수 있습니다.\n`;
+  const current = content.trim() || DEFAULT_PRIVACY_POLICY;
+  return INQUIRY_SECTION.test(current)
+    ? current.replace(INQUIRY_SECTION, (_match, prefix: string) => prefix + section)
+    : `${current}\n\n${section}`;
 }
 
 export type PrivacyRuntimeState = {
