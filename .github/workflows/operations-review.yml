@@ -1,6 +1,8 @@
 name: Verify and configure existing Azure operations
 
 on:
+  schedule:
+    - cron: '0 2 1 1,4,7,10 *'
   workflow_dispatch:
     inputs:
       mode:
@@ -23,7 +25,8 @@ jobs:
     env:
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
-      REVIEW_MODE: ${{ inputs.mode }}
+      REVIEW_MODE: ${{ inputs.mode || 'inspect' }}
+      AZURE_WEBAPP_URL: ${{ vars.AZURE_WEBAPP_URL }}
       RETENTION_MAINTENANCE_KEY: ${{ secrets.RETENTION_MAINTENANCE_KEY }}
     steps:
       - uses: actions/checkout@v4

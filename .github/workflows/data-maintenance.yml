@@ -27,6 +27,7 @@ jobs:
           test "${#MAINTENANCE_KEY}" -ge 32
           [[ "$SERVICE_URL" == https://* ]]
           curl --fail-with-body --silent --show-error --max-time 30 \
+            --retry 6 --retry-all-errors --retry-delay 15 \
             --header "Authorization: Bearer $MAINTENANCE_KEY" \
             "${SERVICE_URL%/}/api/maintenance"
           curl --fail-with-body --silent --show-error --max-time 180 \

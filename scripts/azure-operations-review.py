@@ -58,11 +58,23 @@ try:
     plan_info = {'sku': plan['sku'], 'location': plan['location']}
 except RuntimeError as error:
     plan_info = {'unavailable': str(error)}
+
+application_node = None
+key = os.environ.get('RETENTION_MAINTENANCE_KEY', '')
+url = os.environ.get('AZURE_WEBAPP_URL', '').rstrip('/')
+if len(key) >= 32 and url.startswith('https://'):
+    try:
+        request = urllib.request.Request(url + '/api/maintenance', headers={'Authorization': 'Bearer ' + key})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            application_node = json.load(response).get('node')
+    except Exception:
+        pass
 report = {
     'mode': mode, 'app': name, 'location': app['location'], 'state': app['state'],
     'httpsOnly': app['httpsOnly'], 'minTlsVersion': config['minTlsVersion'],
     'scmMinTlsVersion': config.get('scmMinTlsVersion'), 'linuxFxVersion': config['linuxFxVersion'],
     'scmNode': runtime, 'runtimeProbeError': runtime_error,
+    'applicationNode': application_node,
     'plan': plan_info, 'resources': resources,
     'resourceInventoryAvailable': inventory_available,
     'settings': {k: settings[k] for k in ['DOCLING_SERVICE_URL', 'AZURE_STORAGE_ACCOUNT_NAME',
