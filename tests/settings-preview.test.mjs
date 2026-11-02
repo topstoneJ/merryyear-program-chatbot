@@ -17,9 +17,9 @@ test('main preview renders unsaved branding and text from the draft',()=>{
  assert.ok(!html.includes('href="/consultations"'));
  assert.match(html,/id="chat-privacy-notice"/);
  assert.match(html,/이름·연락처·주민번호 등 개인정보를 입력하지 마세요/);
- assert.match(html,/365일/);
- assert.match(html,/해외 처리가 포함될 수 있습니다/);
- assert.match(html,/개인정보처리방침 보기/);
+ assert.match(html,/질문과 답변은 상담 품질 관리를 위해 1년간 저장되며, 대화 내용이 해외 AI에 전송될 수 있습니다\./);
+ assert.ok(!html.includes('개인정보처리방침 보기'));
+ assert.ok(html.indexOf('해당 사업과 관련 없는 내용은 답변하지 않습니다.') < html.indexOf('class="composer'));
  assert.match(html,/aria-describedby="chat-privacy-notice"/);
 });
 

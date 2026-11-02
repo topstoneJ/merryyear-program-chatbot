@@ -830,10 +830,9 @@ h1 em {
 .send:hover { transform: translateY(-1px); box-shadow: 0 8px 18px var(--brand-shadow); }
 .send:disabled { opacity: .4; cursor: not-allowed; }
 .clear { color: #999; cursor: pointer; background: transparent; border: 0; font-size: max(var(--admin-min-font, 0px), calc((22px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); position: absolute; top: 22px; right: 70px; }
-.notice { flex: none; text-align: center; color: #8a8279; margin: 12px 0 0; font-size: max(var(--admin-min-font, 0px), calc((10px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.notice { flex: none; text-align: center; color: #8a8279; margin: 12px 0 8px; font-size: max(var(--admin-min-font, 0px), calc((10px + var(--admin-body-size-increase, 0px)) * var(--admin-font-scale, 1))); }
+.notice + .composer { margin-top: 0; }
 .chat-privacy-notice { flex: none; margin: 10px 0 0; color: #62594f; font-size: 12px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
-.chat-privacy-notice button { display: inline; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
-.chat-privacy-notice button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .home-utility-actions { display: flex; align-items: stretch; justify-content: flex-end; gap: 8px; margin-top: -8px; }
 .home-utility-actions.guide-actions { margin-top: 14px; }
 .privacy-home-button { min-height: 34px; color: #96918c; cursor: pointer; background: #ffffff80; border: 1px solid #e6e2de; border-radius: 10px; padding: 7px 10px; font-size: 12px; font-weight: 650; text-decoration: none; box-shadow: none; }
