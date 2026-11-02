@@ -27,7 +27,7 @@ jobs:
       RETENTION_MAINTENANCE_KEY: ${{ secrets.RETENTION_MAINTENANCE_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Inspect or configure existing resources
