@@ -20,6 +20,7 @@ jobs:
       AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_WEBAPP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-4-hydrogen' }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -79,8 +80,24 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy
 
+      - name: Configure Gemini model
+        id: configure_gemini
+        shell: bash
+        run: |
+          previous_model="$(az webapp config appsettings list --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME" --query "[?name=='GEMINI_MODEL'].value | [0]" --output tsv --only-show-errors)"
+          echo "previous_model=${previous_model:-gemini-3.8-flash}" >> "$GITHUB_OUTPUT"
+          echo "Previous Gemini model: ${previous_model:-gemini-3.8-flash}"
+          az webapp config appsettings set --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME" --settings "GEMINI_MODEL=$GEMINI_MODEL" --output none --only-show-errors
+
       - name: Restart Azure App Service
         run: az webapp restart --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME"
+
+      - name: Verify deployed Gemini model
+        shell: bash
+        run: |
+          configured_model="$(az webapp config appsettings list --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME" --query "[?name=='GEMINI_MODEL'].value | [0]" --output tsv --only-show-errors)"
+          test "$configured_model" = "$GEMINI_MODEL"
+          echo "Verified Gemini model: $configured_model"
 
       - name: Verify production health
         shell: bash
@@ -93,3 +110,15 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Verify connected AI response
+        id: verify_ai
+        run: python3 scripts/verify-ai-deployment.py --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME" --url "$AZURE_WEBAPP_URL" --expected-model "$GEMINI_MODEL"
+
+      - name: Restore previous Gemini model after failed AI check
+        if: failure() && steps.verify_ai.conclusion == 'failure'
+        env:
+          PREVIOUS_GEMINI_MODEL: ${{ steps.configure_gemini.outputs.previous_model }}
+        run: |
+          az webapp config appsettings set --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME" --settings "GEMINI_MODEL=$PREVIOUS_GEMINI_MODEL" --output none --only-show-errors
+          az webapp restart --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_WEBAPP_NAME"

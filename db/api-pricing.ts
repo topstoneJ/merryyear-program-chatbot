@@ -8,6 +8,8 @@ export function modelPricingInfo(model: string) {
 }
 // Standard paid-tier USD / million tokens, verified 2026-09-03.
 export function modelRates(model: string, at = Date.now()) {
+  // Gemini 4 Hydrogen standard paid tier, verified 2026-11-23: https://aistudio.google.com/docs/pricing#gemini-4-hydrogen
+  if (model === "gemini-4-hydrogen") return { input: 1.5, output: 7.5, cached: 0.075 };
   if (model === "gemini-3.8-flash") return at < Date.UTC(2027, 0, 1) ? { input: 0.75, output: 3.75, cached: 0.075 } : { input: 1.5, output: 7.5, cached: 0.15 };
   if (model === "gpt-5.4") return { input: 2.5, output: 15, cached: 0.25 };
   if (model === "gpt-5.4-mini") return { input: 0.75, output: 4.5, cached: 0.075 };

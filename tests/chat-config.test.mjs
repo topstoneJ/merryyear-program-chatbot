@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { sourceLoader } from "./load-source.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -12,11 +13,35 @@ test("production and local defaults select a model from the connected API provid
   ]);
 
   assert.match(route, /configuredAiModel\(apiKey\)/);
-  assert.match(provider, /process\.env\.GEMINI_MODEL \|\| "gemini-3\.8-flash"/);
+  assert.match(provider, /process\.env\.GEMINI_MODEL \|\| "gemini-4-hydrogen"/);
   assert.match(provider, /process\.env\.OPENAI_MODEL \|\| "gpt-5\.4-mini"/);
-  assert.match(envExample, /^GEMINI_MODEL=gemini-3\.8-flash$/m);
+  assert.match(envExample, /^GEMINI_MODEL=gemini-4-hydrogen$/m);
   assert.match(envExample, /^OPENAI_MODEL=gpt-5\.4-mini$/m);
   assert.doesNotMatch(`${route}\n${provider}\n${envExample}`, /gemini-3\.[56]-flash/);
+});
+
+test("Gemini upgrade preserves structured requests and explicit model overrides", () => {
+  const previous = process.env.GEMINI_MODEL;
+  const { configuredAiModel, prepareAiRequest } = sourceLoader()("db/ai-provider.ts");
+  const source = { store: false, system_instruction: "shared rules", input: "question", response_format: {
+    type: "text", mime_type: "application/json", schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+  } };
+  try {
+    delete process.env.GEMINI_MODEL;
+    const request = prepareAiRequest("AIza-test", { method: "POST", body: JSON.stringify(source) });
+    assert.equal(request.provider, "google");
+    assert.equal(request.url, "https://generativelanguage.googleapis.com/v1/interactions");
+    assert.equal(request.model, "gemini-4-hydrogen");
+    assert.deepEqual(JSON.parse(request.init.body), { ...source, model: "gemini-4-hydrogen" });
+    process.env.GEMINI_MODEL = "gemini-3.8-flash";
+    assert.equal(configuredAiModel("AIza-test"), "gemini-3.8-flash");
+    assert.equal(JSON.parse(prepareAiRequest("AIza-test", { body: JSON.stringify(source) }).init.body).model, "gemini-3.8-flash");
+    assert.equal(configuredAiModel("sk-proj-test"), process.env.OPENAI_MODEL || "gpt-5.4-mini");
+    assert.equal(configuredAiModel("sk-ant-test"), process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6");
+  } finally {
+    if (previous === undefined) delete process.env.GEMINI_MODEL;
+    else process.env.GEMINI_MODEL = previous;
+  }
 });
 
 

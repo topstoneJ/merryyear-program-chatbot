@@ -23,11 +23,13 @@ Gemini, OpenAI GPT, Anthropic Claude가 같은 질문·자료·시스템 규칙�
 
 | 연결 키 | 기본 모델 | API | 구조화 출력 |
 | --- | --- | --- | --- |
-| Gemini 키 | gemini-3.8-flash | Interactions | response_format |
+| Gemini 키 | gemini-4-hydrogen | Interactions | response_format |
 | sk-… | gpt-5.4-mini | Responses | text.format, strict=true |
 | sk-ant-… | claude-sonnet-4-6 | Messages | output_config.format |
 
 Claude 키를 OpenAI 키보다 먼저 구분한다. 기본 모델은 각각 `GEMINI_MODEL`, `OPENAI_MODEL`, `ANTHROPIC_MODEL`로 바꿀 수 있다. 커스텀 모델은 해당 제공자의 구조화 출력을 지원해야 한다. 알 수 없는 모델의 단가는 추정하지 않고 미집계로 남긴다. 별도 공급자의 OpenAI 호환 엔드포인트는 현재 지원 범위가 아니다.
+
+2026-11-23 [Google 공식 가격표](https://aistudio.google.com/docs/pricing#gemini-4-hydrogen) 기준 Gemini 4 Hydrogen의 유료 등급 단가는 100만 토큰당 입력 $1.50, 출력·생각 $7.50, 캐시 입력 $0.075를 사용한다. 기존 Gemini 3.8 Flash 사용 이력의 비용 계산은 유지한다.
 
 관리 화면에 저장한 키가 우선이며, 미등록 상태의 환경 키 선택 순서는 OpenAI → Gemini → Anthropic이다. 명시적으로 키를 삭제한 상태에서는 환경 키로 재연결하지 않는다. Claude의 캐시 읽기·쓰기 토큰은 일반 입력과 구분해 요금에 반영하며, 이미 출력 토큰에 포함된 생각 토큰을 중복 과금하지 않는다. 기본 Claude 단가는 2026-09-17 확인 기준, 입력 $3/출력 $15/캐시 읽기 $0.30(100만 토큰당)이다.
 

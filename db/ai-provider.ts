@@ -8,7 +8,7 @@ export function configuredAiModel(apiKey?: string | null) {
   if (aiProviderFromKey(apiKey) === "anthropic") return process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
   return aiProviderFromKey(apiKey) === "openai"
     ? process.env.OPENAI_MODEL || "gpt-5.4-mini"
-    : process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    : process.env.GEMINI_MODEL || "gemini-4-hydrogen";
 }
 
 type InternalAiRequest = {

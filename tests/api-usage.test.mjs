@@ -16,6 +16,11 @@ test('fees count discounted cached input and separately reported thinking tokens
   assert.equal(pricing.readApiUsage({usage:{total_input_tokens:2,total_output_tokens:3}},'unknown',at).estimatedUsd,null);
   assert.equal(pricing.modelRates('gemini-3.8-flash',Date.UTC(2027,0,1)).input,1.5);
 });
+test('Gemini 4 Hydrogen fees discount cached input and include separately reported thinking tokens',()=>{
+  const usage=pricing.readApiUsage({usage:{total_input_tokens:1000000,total_output_tokens:100000,total_thought_tokens:100000,total_cached_tokens:200000}},'gemini-4-hydrogen',Date.UTC(2026,10,23));
+  assert.deepEqual(usage,{input:1000000,output:100000,thought:100000,cached:200000,estimatedUsd:2.715});
+});
+
 test('daily aggregation follows the Korean calendar boundary',()=>{
   const before=pricing.koreanDayBounds(Date.UTC(2026,7,31,14,59));
   const after=pricing.koreanDayBounds(Date.UTC(2026,7,31,15));
