@@ -31,7 +31,7 @@ jobs:
           test -n "$AZURE_DOCLING_APP_NAME"
 
       - name: Sign in to Azure
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
